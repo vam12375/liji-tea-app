@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>确认订单 - 李记茶</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary-fixed": "#ffdea7",
+                        "tertiary-container": "#876a33",
+                        "on-tertiary": "#ffffff",
+                        "outline-variant": "#c3c8bd",
+                        "surface-container": "#f2ede5",
+                        "secondary": "#715b3e",
+                        "surface-container-high": "#ece8e0",
+                        "tertiary": "#6c521d",
+                        "on-secondary-fixed": "#281903",
+                        "on-primary-fixed": "#092007",
+                        "surface-tint": "#4c6544",
+                        "on-secondary-container": "#755f42",
+                        "on-secondary": "#ffffff",
+                        "surface": "#fef9f1",
+                        "surface-bright": "#fef9f1",
+                        "primary-container": "#5b7553",
+                        "primary-fixed": "#cdebc1",
+                        "on-tertiary-fixed-variant": "#5b430e",
+                        "on-tertiary-fixed": "#271900",
+                        "on-surface-variant": "#434840",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#dfc29f",
+                        "on-primary-fixed-variant": "#354d2e",
+                        "inverse-primary": "#b2cfa7",
+                        "on-background": "#1d1c17",
+                        "inverse-on-surface": "#f5f0e8",
+                        "error-container": "#ffdad6",
+                        "secondary-fixed": "#fcdeba",
+                        "surface-variant": "#e7e2da",
+                        "surface-container-low": "#f8f3eb",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#574329",
+                        "tertiary-fixed-dim": "#e6c181",
+                        "surface-dim": "#ded9d2",
+                        "secondary-container": "#f9dbb7",
+                        "background": "#fef9f1",
+                        "primary-fixed-dim": "#b2cfa7",
+                        "on-error": "#ffffff",
+                        "on-surface": "#1d1c17",
+                        "error": "#ba1a1a",
+                        "outline": "#74796f",
+                        "on-primary-container": "#ddfad0",
+                        "on-tertiary-container": "#fff0dd",
+                        "on-primary": "#ffffff",
+                        "surface-container-highest": "#e7e2da",
+                        "primary": "#435c3c",
+                        "inverse-surface": "#32302b"
+                    },
+                    fontFamily: {
+                        "headline": ["Noto Serif SC", "serif"],
+                        "body": ["Manrope", "sans-serif"],
+                        "label": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #fef9f1;
+            color: #1d1c17;
+        }
+        .serif {
+            font-family: 'Noto Serif SC', serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface antialiased min-h-screen pb-32">
+<!-- Top AppBar (Suppressed SideNav/BottomNav as per transactional rule) -->
+<header class="fixed top-0 w-full z-50 bg-[#fef9f1]/70 backdrop-blur-xl h-16 flex items-center px-6 shadow-sm shadow-[#1d1c17]/5">
+<div class="flex items-center w-full relative">
+<button class="flex items-center justify-center p-2 -ml-2 text-primary transition-opacity hover:opacity-80">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<h1 class="absolute left-1/2 -translate-x-1/2 font-headline text-xl text-primary font-bold tracking-widest">确认订单</h1>
+</div>
+</header>
+<main class="pt-20 px-4 space-y-6 max-w-2xl mx-auto">
+<!-- Section 1: Delivery Address -->
+<section class="relative bg-surface-container-low p-5 rounded-xl shadow-sm transition-all">
+<div class="absolute top-4 right-5 bg-primary-container/10 px-2 py-0.5 rounded text-[10px] text-primary-container font-bold border border-primary-container/20">默认</div>
+<div class="flex items-start space-x-4">
+<div class="mt-1 bg-primary-container/10 p-2 rounded-full">
+<span class="material-symbols-outlined text-primary text-xl" data-icon="location_on" style="font-variation-settings: 'FILL' 1;">location_on</span>
+</div>
+<div class="flex-1 space-y-1">
+<div class="flex items-baseline space-x-3">
+<span class="font-headline text-lg text-on-surface">王先生</span>
+<span class="text-sm text-on-surface-variant font-medium">138****8888</span>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed">上海市静安区南京西路1888号</p>
+</div>
+<div class="flex items-center self-center text-outline-variant">
+<span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</section>
+<!-- Section 2: Order Items -->
+<section class="space-y-4">
+<div class="bg-surface-container-lowest p-4 rounded-xl space-y-6">
+<!-- Item 1 -->
+<div class="flex space-x-4 items-center">
+<div class="w-[60px] h-[60px] bg-surface-variant rounded-lg overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="High quality dragon well green tea leaves in a tin" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGS9UyU-7jS6GdUOKXFQ8w07FfKei2WoGdtKzie17Jae6KQbTIoCrPNEhTPoty3b_oCEz-25PpVkss7P2-f1zrkNVhOXA8vS96tOYnFt9EuRw4RbrhP8JXpGGrla0jJnAl68fGfsyLKvPE61nXqwOl0kBLDTTdnco1sZ3cPawDHO43oWk668cx5N-2ldflIyyT3Or7790iz8VwfIt3sddRGYCxYOriZa9Y-VhGf_Wyx1D6gnJJWcZrLqCRy_0jVBTs0qfClvsmWUs"/>
+</div>
+<div class="flex-1">
+<h3 class="font-headline text-base text-on-surface">西湖龙井 · 特级狮峰</h3>
+<p class="text-xs text-on-surface-variant">50g/罐</p>
+</div>
+<div class="text-right">
+<p class="font-headline text-on-surface">¥790</p>
+<p class="text-xs text-on-surface-variant">x1</p>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex space-x-4 items-center">
+<div class="w-[60px] h-[60px] bg-surface-variant rounded-lg overflow-hidden shrink-0">
+<img class="w-full h-full object-cover" data-alt="Dark roasted oolong tea leaves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfgKCErdZi3RKV5TN10Zjc3px80dc0uzgQldHcbTaqB9Bmbj8E3EhwRToFp0HjJ4qWoHOq9LdygZghSmfN_-muKm16xYXLshkD8oAiWZBIKViXLlzjQNtLSp7ahvRw5_Iis9Lk5R1c202UOV-D3h5KfTu6jiArUfyLry2d7mWXXbxE7kbtDxNwfPE7oSDPfkKkuyhBOiW3atUzgbcVi8kuO8iTsuFHypgdqdXgAJJBK5v_DeE7vXO9PQgOoWv8SkuNp_01kVvYWDM"/>
+</div>
+<div class="flex-1">
+<h3 class="font-headline text-base text-on-surface">武夷大红袍 · 醇香</h3>
+<p class="text-xs text-on-surface-variant">50g/罐</p>
+</div>
+<div class="text-right">
+<p class="font-headline text-on-surface">¥790</p>
+<p class="text-xs text-on-surface-variant">x1</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Delivery Options -->
+<section class="space-y-3">
+<h2 class="text-sm font-bold text-on-surface-variant tracking-wider flex items-center">
+<span class="w-1 h-3 bg-primary rounded-full mr-2"></span>
+                配送方式
+            </h2>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden divide-y divide-surface-variant/20">
+<label class="flex items-center p-4 cursor-pointer hover:bg-surface-container-low transition-colors">
+<div class="relative flex items-center justify-center w-5 h-5 rounded-full border-2 border-primary-container">
+<div class="w-2.5 h-2.5 rounded-full bg-primary-container"></div>
+</div>
+<div class="ml-4 flex-1">
+<p class="text-sm font-medium">标准配送 (3-5天)</p>
+</div>
+<span class="text-sm font-medium text-primary-container">免费</span>
+</label>
+<label class="flex items-center p-4 cursor-pointer hover:bg-surface-container-low transition-colors">
+<div class="w-5 h-5 rounded-full border-2 border-outline-variant"></div>
+<div class="ml-4 flex-1">
+<p class="text-sm font-medium">顺丰加急 (1-2天)</p>
+</div>
+<span class="text-sm font-medium">¥15</span>
+</label>
+</div>
+</section>
+<!-- Section 4: Payment Method -->
+<section class="space-y-3">
+<h2 class="text-sm font-bold text-on-surface-variant tracking-wider flex items-center">
+<span class="w-1 h-3 bg-primary rounded-full mr-2"></span>
+                支付方式
+            </h2>
+<div class="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm">
+<div class="flex items-center p-4 justify-between">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded bg-green-500 flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-lg" data-icon="account_balance_wallet" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+</div>
+<span class="text-sm font-medium">微信支付</span>
+</div>
+<div class="w-5 h-5 rounded-full border-2 border-primary-container flex items-center justify-center">
+<div class="w-2.5 h-2.5 rounded-full bg-primary-container"></div>
+</div>
+</div>
+<div class="flex items-center p-4 justify-between bg-surface-container-low/30">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded bg-blue-500 flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-lg" data-icon="payments" style="font-variation-settings: 'FILL' 1;">payments</span>
+</div>
+<span class="text-sm font-medium">支付宝</span>
+</div>
+<div class="w-5 h-5 rounded-full border-2 border-outline-variant"></div>
+</div>
+<div class="flex items-center p-4 justify-between bg-surface-container-low/30">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded bg-secondary-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-lg" data-icon="credit_card" style="font-variation-settings: 'FILL' 1;">credit_card</span>
+</div>
+<span class="text-sm font-medium">银行卡支付</span>
+</div>
+<div class="w-5 h-5 rounded-full border-2 border-outline-variant"></div>
+</div>
+</div>
+</section>
+<!-- Section 5: Order Note -->
+<section class="bg-surface-container-lowest p-4 rounded-xl">
+<input class="w-full bg-transparent border-none focus:ring-0 text-sm text-on-surface-variant/60 placeholder:text-on-surface-variant/40" placeholder="备注: 请轻拿轻放，内含易碎茶具" type="text"/>
+</section>
+<!-- Section 6: Gift Packaging Toggle -->
+<section class="bg-surface-container-lowest p-4 rounded-xl space-y-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center space-x-3">
+<span class="material-symbols-outlined text-tertiary" data-icon="featured_seasonal">featured_seasonal_and_gifts</span>
+<span class="text-sm font-medium">精美礼盒包装 <span class="text-primary-container font-bold">+¥28</span></span>
+</div>
+<div class="w-12 h-6 bg-primary-container rounded-full relative p-1 cursor-pointer">
+<div class="w-4 h-4 bg-white rounded-full absolute right-1"></div>
+</div>
+</div>
+<!-- Gift Box Preview -->
+<div class="flex items-center p-3 bg-surface-container-low rounded-lg border border-primary-container/10">
+<div class="w-16 h-16 rounded overflow-hidden mr-4">
+<img class="w-full h-full object-cover" data-alt="Traditional premium Chinese tea gift box design" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBr2j5xLobHAOAC5Ch53O7oT7B432h7eDdXeeMxqyuPQB4q8vvDrj7KSOymMwNMaXytEiABomlbpdLQiqLy3LKdLYnLAjmG07J8HrmJkks2w1B5Sxk2qRTyRacsDb4ooqrPTnBOZBKlgGAmTe_YImIMzoxUvzSJqV6zYjc7JR3EpVY01CcOdn4xdrgiwkQUyfEjVGBU1oHLhbpUTiuWu-HkkwB0ZFV4hUNsAYkU5sYCLm4b0pB_aBjTdef0qF3mSD4MppydWAhbTO4"/>
+</div>
+<div>
+<p class="text-xs font-bold text-primary">礼遇典藏系列</p>
+<p class="text-[10px] text-on-surface-variant mt-1">含手提袋、烫金礼盒及贺卡</p>
+</div>
+</div>
+</section>
+<!-- Section 7: Price Breakdown -->
+<section class="bg-surface-container-lowest p-6 rounded-xl space-y-3">
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">商品小计</span>
+<span class="font-medium">¥1580</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">运费</span>
+<div class="flex items-center space-x-2">
+<span class="text-[10px] bg-primary-container/10 text-primary-container px-1.5 py-0.5 rounded font-bold">包邮</span>
+<span class="font-medium">¥0</span>
+</div>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-on-surface-variant">优惠</span>
+<span class="text-primary font-medium">-¥50</span>
+</div>
+<div class="h-px bg-outline-variant/20 my-2"></div>
+<div class="flex justify-between items-baseline pt-2">
+<span class="text-base font-bold text-on-surface">合计</span>
+<span class="text-2xl font-bold text-on-surface tracking-tight">¥1530</span>
+</div>
+</section>
+</main>
+<!-- Section 8: Bottom Bar -->
+<footer class="fixed bottom-0 left-0 w-full bg-surface-container/80 backdrop-blur-xl p-4 pb-8 shadow-[0_-4px_20px_0_rgba(29,28,23,0.05)] z-50">
+<div class="max-w-2xl mx-auto">
+<button class="w-full bg-primary-container text-on-primary-container font-headline text-lg py-4 rounded-full shadow-lg shadow-primary-container/20 transition-transform active:scale-95 flex items-center justify-center space-x-2">
+<span>提交订单</span>
+<span class="text-xl font-bold">¥1530</span>
+</button>
+</div>
+</footer>
+</body></html>

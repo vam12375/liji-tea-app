@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>李记茶 - 商城</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&amp;family=Manrope:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "error-container": "#ffdad6",
+                "inverse-on-surface": "#f5f0e8",
+                "on-background": "#1d1c17",
+                "tertiary-fixed-dim": "#e6c181",
+                "secondary-fixed": "#fcdeba",
+                "surface-variant": "#e7e2da",
+                "surface-container-low": "#f8f3eb",
+                "surface-container-lowest": "#ffffff",
+                "on-secondary-fixed-variant": "#574329",
+                "on-error": "#ffffff",
+                "primary-fixed-dim": "#b2cfa7",
+                "on-surface": "#1d1c17",
+                "surface-dim": "#ded9d2",
+                "background": "#fef9f1",
+                "secondary-container": "#f9dbb7",
+                "on-tertiary-container": "#fff0dd",
+                "on-primary": "#ffffff",
+                "surface-container-highest": "#e7e2da",
+                "inverse-surface": "#32302b",
+                "primary": "#435c3c",
+                "error": "#ba1a1a",
+                "outline": "#74796f",
+                "on-primary-container": "#ddfad0",
+                "on-tertiary": "#ffffff",
+                "tertiary-container": "#876a33",
+                "outline-variant": "#c3c8bd",
+                "secondary": "#715b3e",
+                "surface-container": "#f2ede5",
+                "tertiary-fixed": "#ffdea7",
+                "tertiary": "#6c521d",
+                "on-primary-fixed": "#092007",
+                "on-secondary-fixed": "#281903",
+                "surface-container-high": "#ece8e0",
+                "surface-bright": "#fef9f1",
+                "primary-container": "#5b7553",
+                "primary-fixed": "#cdebc1",
+                "on-secondary-container": "#755f42",
+                "surface-tint": "#4c6544",
+                "on-secondary": "#ffffff",
+                "surface": "#fef9f1",
+                "secondary-fixed-dim": "#dfc29f",
+                "inverse-primary": "#b2cfa7",
+                "on-primary-fixed-variant": "#354d2e",
+                "on-tertiary-fixed-variant": "#5b430e",
+                "on-surface-variant": "#434840",
+                "on-error-container": "#93000a",
+                "on-tertiary-fixed": "#271900"
+              },
+              fontFamily: {
+                "headline": ["Noto Serif SC", "serif"],
+                "body": ["Manrope", "sans-serif"],
+                "label": ["Manrope", "sans-serif"]
+              },
+              borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body min-h-screen pb-24">
+<!-- Top Navigation Bar (JSON Shell Execution) -->
+<header class="fixed top-0 w-full z-50 bg-[#fef9f1]/70 dark:bg-[#1d1c17]/70 backdrop-blur-xl flex justify-between items-center px-6 h-16 w-full shadow-sm shadow-[#1d1c17]/5">
+<div class="flex items-center">
+<span class="material-symbols-outlined text-[#435c3c] dark:text-[#5b7553] cursor-pointer hover:opacity-80 transition-opacity">menu</span>
+</div>
+<h1 class="font-serif text-2xl tracking-widest font-bold text-[#435c3c] dark:text-[#5b7553]">李记茶</h1>
+<div class="flex items-center">
+<span class="material-symbols-outlined text-[#435c3c] dark:text-[#5b7553] cursor-pointer hover:opacity-80 transition-opacity">search</span>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 px-4 space-y-6">
+<!-- Search Section -->
+<section class="mt-2">
+<div class="relative flex items-center bg-surface-container-lowest border border-[#D4CFC4] rounded-[24px] px-4 py-2.5 shadow-sm">
+<span class="material-symbols-outlined text-outline mr-2">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-sm w-full font-body placeholder-on-surface-variant/50" placeholder="搜索你喜欢的茶..." type="text"/>
+<span class="material-symbols-outlined text-outline ml-2">photo_camera</span>
+</div>
+</section>
+<!-- Filter Chips (Horizontal Scroll) -->
+<section class="overflow-x-auto hide-scrollbar -mx-4 px-4 flex gap-3 items-center">
+<button class="flex-none px-5 py-1.5 rounded-full bg-primary-container text-background font-medium text-sm transition-colors">全部</button>
+<button class="flex-none px-5 py-1.5 rounded-full border border-on-surface/20 text-on-surface/60 text-sm hover:border-primary-container transition-colors">岩茶</button>
+<button class="flex-none px-5 py-1.5 rounded-full border border-on-surface/20 text-on-surface/60 text-sm">绿茶</button>
+<button class="flex-none px-5 py-1.5 rounded-full border border-on-surface/20 text-on-surface/60 text-sm">白茶</button>
+<button class="flex-none px-5 py-1.5 rounded-full border border-on-surface/20 text-on-surface/60 text-sm">红茶</button>
+<button class="flex-none px-5 py-1.5 rounded-full border border-on-surface/20 text-on-surface/60 text-sm">乌龙</button>
+<button class="flex-none px-5 py-1.5 rounded-full border border-on-surface/20 text-on-surface/60 text-sm">普洱</button>
+<button class="flex-none px-5 py-1.5 rounded-full border border-on-surface/20 text-on-surface/60 text-sm">花茶</button>
+</section>
+<!-- Sort Bar -->
+<div class="flex justify-end items-center px-1">
+<button class="text-on-surface-variant text-xs flex items-center gap-1 opacity-70">
+                排序: 推荐
+                <span class="material-symbols-outlined text-[14px]">expand_more</span>
+</button>
+</div>
+<!-- Product Grid (2-Column Bento Inspired) -->
+<section class="grid grid-cols-2 gap-3 pb-8">
+<!-- Product Card 1 -->
+<div class="bg-[#F7F3EE] rounded-xl overflow-hidden border border-on-surface/10 shadow-[0_4px_12px_rgba(29,28,23,0.04)] flex flex-col">
+<div class="aspect-[4/5] relative overflow-hidden group">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="High quality dry oolong tea leaves in a porcelain bowl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCPfDTJy9YEdp3sIOwN3NW1Ru5ftpvHC_fzgY6hN6Jd5-QKN8CPj0AQV_k69bLtEspeiM3SfjkCCgYkQvYjPvp6fgJm9n1R1-a3gwrj7Em-c7FLpaBoiyshq-N4lUhp_Y1tf7z7EhXfLBu2_zUqX7g6JHXCZJiu1xxnE50-J28eeFFgwTrNGoCjTUcvkmzXbNNbsCzoeSTVDyMkEY-qYsqIBFIASGwWKtJPbKjqevgNvahxQewQ36JIXOPq2gch96mEmlgX8R5dneQ"/>
+</div>
+<div class="p-3 flex flex-col justify-between h-[96px]">
+<div>
+<h3 class="font-headline text-[16px] text-on-background truncate">特级大红袍</h3>
+<p class="text-[11px] text-on-surface-variant/60 font-body">福建 · 武夷山</p>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-primary-container font-bold text-[14px]">¥398/50g</span>
+<span class="material-symbols-outlined text-tertiary text-[20px]" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="bg-[#F7F3EE] rounded-xl overflow-hidden border border-on-surface/10 shadow-[0_4px_12px_rgba(29,28,23,0.04)] flex flex-col">
+<div class="aspect-[4/5] relative overflow-hidden group">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="Steaming green tea being poured into a small ceramic cup" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoPQxx9LqFBY7uR-Ov0p3i3jPWbMTgwLSn80Q8rUcl5ul0AL000WDJ-JPOZA2I-mfA-KZL_iCP-4jzKEkdkFeowBYCZzbGvhW-U2Iv6Pa5SzEG6Vuc1WxjrWIbDLwz9MSpDJFsyAQJ4tm2n43qHXQX0Y9WCDhBHe_Cp7BoHxrbGLfND5pGtumsbYWOGFp6mH4KWujtahsJc23tIGyH5M3XSi-Wlc2srO_0qsX714f2AOAdfeirSDcCdakO9Qg63MqQYPthFGYdZkg"/>
+</div>
+<div class="p-3 flex flex-col justify-between h-[96px]">
+<div>
+<h3 class="font-headline text-[16px] text-on-background truncate">西湖龙井</h3>
+<p class="text-[11px] text-on-surface-variant/60 font-body">浙江 · 杭州</p>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-primary-container font-bold text-[14px]">¥256/50g</span>
+<span class="material-symbols-outlined text-on-surface-variant/30 text-[20px]">favorite</span>
+</div>
+</div>
+</div>
+<!-- Product Card 3 -->
+<div class="bg-[#F7F3EE] rounded-xl overflow-hidden border border-on-surface/10 shadow-[0_4px_12px_rgba(29,28,23,0.04)] flex flex-col">
+<div class="aspect-[4/5] relative overflow-hidden group">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="Traditional compressed pu-erh tea cake on a wooden tray" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDvNGUVTC2QaiiHSg6jmSO1TQXErVQ5pWlaqsPawOqfp98Pl45la5rPUHPHNDyq5dsl_E1ucFCL4yu9KUg7SZEd-aqUUeyB4g5SehaCQSGZ5fe6bD1hG_HWgbt2Jf-4ldgoZnXWaKqlyG7yX2Z3RKmuKBztzNlzPkIe1NQhxBFjwZvquUHkZtJLWNdBRus9kJ36Qytz7kdlhNAsjFfXMsrLtAC2P8qOwhKUHQ6Cvu5Wl3sdza_xk3_3SOQohj9_P8dR65cNEtsrX9E"/>
+</div>
+<div class="p-3 flex flex-col justify-between h-[96px]">
+<div>
+<h3 class="font-headline text-[16px] text-on-background truncate">古树普洱生茶</h3>
+<p class="text-[11px] text-on-surface-variant/60 font-body">云南 · 勐海</p>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-primary-container font-bold text-[14px]">¥588/片</span>
+<span class="material-symbols-outlined text-on-surface-variant/30 text-[20px]">favorite</span>
+</div>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="bg-[#F7F3EE] rounded-xl overflow-hidden border border-on-surface/10 shadow-[0_4px_12px_rgba(29,28,23,0.04)] flex flex-col">
+<div class="aspect-[4/5] relative overflow-hidden group">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="White tea leaves brewing in a clear glass teapot" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDbmPoObTt19n-4-1fmG0kAlGK39WPV39APsKqwpJLuDqJPKkQspAB1nrgzaNYHu5dRbYjxbQIBlB4i5znnj9bw3ZC4qWt3LLcpWJ5YmQ-1_OJZjY-9m9I5pABQqJFQ4APPCKCoKeAFTceCQDSJ5XW4tdJ4ERwPEMTOqQ2DrdkvZYHy7T9wgArvMCnk4fhdH-U1S8ZSyTA9H8eqTa7HIQvO6bAzRpCiWIQouWCqQI9vQitL-9vfOBU9qsTpvUHY1mH5wfWe5dff9w"/>
+</div>
+<div class="p-3 flex flex-col justify-between h-[96px]">
+<div>
+<h3 class="font-headline text-[16px] text-on-background truncate">白毫银针</h3>
+<p class="text-[11px] text-on-surface-variant/60 font-body">福建 · 福鼎</p>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-primary-container font-bold text-[14px]">¥420/50g</span>
+<span class="material-symbols-outlined text-tertiary text-[20px]" style="font-variation-settings: 'FILL' 1;">favorite</span>
+</div>
+</div>
+</div>
+<!-- Product Card 5 -->
+<div class="bg-[#F7F3EE] rounded-xl overflow-hidden border border-on-surface/10 shadow-[0_4px_12px_rgba(29,28,23,0.04)] flex flex-col">
+<div class="aspect-[4/5] relative overflow-hidden group">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="Rich golden amber liquid of black tea in a cup" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDR3uK5KyFsE-94EKvZuD9ve8pcgOY7X4pwdY5SDAZguPHKaUpgv-WOs3OwdxwiV40PBCEJbuC1ThQ9eu1S40mpEMoipUXkb941PeesKZT2NWWiK-KUfHvD_hyUxwodZCOtmTXD7TjuDZebS-AhiCtJDfMpIjxse6Nzm2iGmUgsocUDfTsODnPzBwZXwBH9Cyjp1wF8jPzOn-FEfNiFt15PV-HohYmYGkTVfrPJ4Nu2000OFf590cskpo_OAhIejJ7KwCl0YHPk2j8"/>
+</div>
+<div class="p-3 flex flex-col justify-between h-[96px]">
+<div>
+<h3 class="font-headline text-[16px] text-on-background truncate">金骏眉红茶</h3>
+<p class="text-[11px] text-on-surface-variant/60 font-body">福建 · 武夷山</p>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-primary-container font-bold text-[14px]">¥680/50g</span>
+<span class="material-symbols-outlined text-on-surface-variant/30 text-[20px]">favorite</span>
+</div>
+</div>
+</div>
+<!-- Product Card 6 -->
+<div class="bg-[#F7F3EE] rounded-xl overflow-hidden border border-on-surface/10 shadow-[0_4px_12px_rgba(29,28,23,0.04)] flex flex-col">
+<div class="aspect-[4/5] relative overflow-hidden group">
+<img class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" data-alt="Jasmine flowers and green tea leaves mix" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYHlHyfjstWp1pQ48Iv32qd4eiqsXF2-zi5HuXM9w0SXCByVHLx7vHgksZoiUlu13Am-wYz5rir_qY_k9kmQSE7U7n9rXDKpwPlTNsuEWT1jfaKINFy0xG6sD3e8xFW3hEefDj39lnA84iQkY0VQq9-wBxJa2Mi3vcC8MatPsHm41EH27DiqD-pLlK4_8zvGVbzOnj6ySs5zki6EwpjTkl1nve5BOVSj_WXTEL82llaxU0CxnUJC0m1BAwa7H2XGWSwlPzOjJPpjI"/>
+</div>
+<div class="p-3 flex flex-col justify-between h-[96px]">
+<div>
+<h3 class="font-headline text-[16px] text-on-background truncate">特级茉莉花茶</h3>
+<p class="text-[11px] text-on-surface-variant/60 font-body">广西 · 横县</p>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-primary-container font-bold text-[14px]">¥128/100g</span>
+<span class="material-symbols-outlined text-on-surface-variant/30 text-[20px]">favorite</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Load More Indicator -->
+<div class="flex flex-col items-center py-4 space-y-2 opacity-40">
+<span class="w-1 h-1 bg-primary rounded-full"></span>
+<span class="w-1 h-1 bg-primary rounded-full"></span>
+<p class="text-[10px] tracking-widest text-on-surface-variant">加载更多</p>
+</div>
+</main>
+<!-- Bottom Navigation Bar (JSON Shell Execution) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-20 pb-safe px-2 bg-[#fef9f1]/80 dark:bg-[#1d1c17]/80 backdrop-blur-md rounded-t-2xl shadow-[0_-4px_20px_0_rgba(29,28,23,0.05)] z-50">
+<a class="flex flex-col items-center justify-center text-[#715b3e] dark:text-[#ded9d2] opacity-60 hover:text-[#435c3c] transition-colors" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-sans text-[10px] leading-relaxed">首页</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#5b7553] dark:text-[#5b7553] font-bold scale-105 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
+<span class="font-sans text-[10px] leading-relaxed">商城</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#715b3e] dark:text-[#ded9d2] opacity-60 hover:text-[#435c3c] transition-colors" href="#">
+<span class="material-symbols-outlined">local_library</span>
+<span class="font-sans text-[10px] leading-relaxed">茶道</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#715b3e] dark:text-[#ded9d2] opacity-60 hover:text-[#435c3c] transition-colors" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-sans text-[10px] leading-relaxed">茶友</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#715b3e] dark:text-[#ded9d2] opacity-60 hover:text-[#435c3c] transition-colors" href="#">
+<span class="material-symbols-outlined">person</span>
+<span class="font-sans text-[10px] leading-relaxed">我的</span>
+</a>
+</nav>
+</body></html>

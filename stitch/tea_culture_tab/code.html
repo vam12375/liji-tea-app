@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&amp;family=Manrope:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "error-container": "#ffdad6",
+              "error": "#ba1a1a",
+              "tertiary-fixed": "#ffdea7",
+              "surface-container": "#f2ede5",
+              "inverse-primary": "#b2cfa7",
+              "secondary": "#715b3e",
+              "primary-container": "#5b7553",
+              "on-background": "#1d1c17",
+              "tertiary-container": "#876a33",
+              "on-primary-fixed-variant": "#354d2e",
+              "surface-container-highest": "#e7e2da",
+              "surface-container-low": "#f8f3eb",
+              "primary-fixed": "#cdebc1",
+              "surface-tint": "#4c6544",
+              "tertiary-fixed-dim": "#e6c181",
+              "inverse-on-surface": "#f5f0e8",
+              "on-secondary-fixed": "#281903",
+              "on-secondary": "#ffffff",
+              "on-surface-variant": "#434840",
+              "surface": "#fef9f1",
+              "outline-variant": "#c3c8bd",
+              "on-tertiary-fixed": "#271900",
+              "surface-bright": "#fef9f1",
+              "on-surface": "#1d1c17",
+              "inverse-surface": "#32302b",
+              "on-tertiary-container": "#fff0dd",
+              "on-primary-container": "#ddfad0",
+              "surface-variant": "#e7e2da",
+              "primary": "#435c3c",
+              "on-secondary-container": "#755f42",
+              "surface-dim": "#ded9d2",
+              "on-secondary-fixed-variant": "#574329",
+              "on-error": "#ffffff",
+              "primary-fixed-dim": "#b2cfa7",
+              "surface-container-high": "#ece8e0",
+              "background": "#fef9f1",
+              "on-primary-fixed": "#092007",
+              "tertiary": "#6c521d",
+              "surface-container-lowest": "#ffffff",
+              "secondary-fixed-dim": "#dfc29f",
+              "on-primary": "#ffffff",
+              "secondary-container": "#f9dbb7",
+              "on-error-container": "#93000a",
+              "secondary-fixed": "#fcdeba",
+              "outline": "#74796f",
+              "on-tertiary-fixed-variant": "#5b430e",
+              "on-tertiary": "#ffffff"
+            },
+            fontFamily: {
+              "headline": ["Noto Serif SC", "serif"],
+              "body": ["Manrope", "sans-serif"],
+              "label": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      body { background-color: #fef9f1; color: #1d1c17; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body selection:bg-primary-container selection:text-white">
+<!-- Top App Bar -->
+<header class="fixed top-0 w-full z-50 bg-[#fef9f1]/70 backdrop-blur-xl flex justify-between items-center px-6 py-4">
+<h1 class="font-headline font-bold text-2xl tracking-wide text-primary">茶道</h1>
+<div class="flex items-center gap-4">
+<button class="text-secondary hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="bookmark">bookmark</span>
+</button>
+<button class="text-secondary hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="search">search</span>
+</button>
+</div>
+</header>
+<main class="pt-20 pb-28 px-4 max-w-2xl mx-auto space-y-8">
+<!-- Featured Article Hero -->
+<section class="relative h-[220px] rounded-2xl overflow-hidden shadow-sm group">
+<img alt="Traditional Song Dynasty tea whisking ceremony" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" data-alt="Traditional Song Dynasty tea whisking ceremony in white ceramic bowl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXp40edTlHTl9gGU65eGYKMKd7rTLQMewms32qi1ReXRkO6Blb9X4bPDZC8SrJCLHy8Zucf6OcW6PMCBN2R5XHUg3_VW0dc8q8NI0b3HAoucW9a4eAVEtYk8Ik4ssnLTL6vwX5JztveZ64W5UbTx8wexeNLuHGw8tDXKoGraqjmTF0Te_zoOZAT0xcRx5WCrvhCyXVGpb8VpAykqAALBbD5dsODOeNV_QXoFK4_Dven66svA6hckuqtsXg2_RWLdTRYnSjFYPaTpk"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+<div class="absolute top-4 left-4">
+<span class="bg-tertiary text-on-tertiary px-3 py-1 rounded-full text-xs font-medium tracking-wider">茶史</span>
+</div>
+<div class="absolute bottom-6 left-6 right-6 text-white">
+<h2 class="font-headline text-2xl mb-2 leading-tight">宋代点茶：一碗沫浆的千年风雅</h2>
+<p class="text-white/80 text-sm font-light">李记茶文化 · 2026.03.15</p>
+</div>
+</section>
+<!-- Category Tabs -->
+<nav class="flex gap-6 overflow-x-auto no-scrollbar py-2 border-b border-outline-variant/15">
+<a class="whitespace-nowrap font-bold text-on-surface border-b-2 border-on-surface pb-2" href="#">全部</a>
+<a class="whitespace-nowrap text-secondary/70 hover:text-on-surface transition-colors pb-2" href="#">茶史</a>
+<a class="whitespace-nowrap text-secondary/70 hover:text-on-surface transition-colors pb-2" href="#">冲泡</a>
+<a class="whitespace-nowrap text-secondary/70 hover:text-on-surface transition-colors pb-2" href="#">茶器</a>
+<a class="whitespace-nowrap text-secondary/70 hover:text-on-surface transition-colors pb-2" href="#">茶人</a>
+<a class="whitespace-nowrap text-secondary/70 hover:text-on-surface transition-colors pb-2" href="#">节气茶</a>
+<a class="whitespace-nowrap text-secondary/70 hover:text-on-surface transition-colors pb-2" href="#">产地</a>
+</nav>
+<!-- Large Article Card -->
+<article class="space-y-4">
+<div class="rounded-xl overflow-hidden aspect-video bg-surface-container-low">
+<img alt="Tea plantation in high mountains" class="w-full h-full object-cover" data-alt="Lush green tea plantation on a misty mountain slope" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDNUk9SOxrDshyRqtuYJbzxxT98FtIcImV9OjLxyYt9ByCcO1iSUIlzpbusmHEN21OCSwbh4ME5plyEi6G_2bvpcFmbJvjTlBYdyK3kEJo9rYjGzE7hejeuLPd6u_dmT_Q10Tp3Lrnsc4cAsJKoIOnw6QSiPZ-oihvwfm0fSdOFCWQARTVVJWho_NvWeVVcQKeIJTfFXFk1yVNKYjr-CpJunXq9G2oFfrhAJfyZ5yd3VzDeZQfyKXXh_SNeZvizbbsKmBlQ4fYgG9c"/>
+</div>
+<div class="space-y-2">
+<h3 class="font-headline text-xl text-on-surface leading-snug">高山云雾：探访大红袍的起源之地</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed line-clamp-2">
+                    在武夷山的深处，几株古老的茶树静静诉说着数百年的时光。这里的微气候成就了岩韵，也成就了中国茶文化的巅峰。
+                </p>
+<div class="flex items-center gap-2 text-primary font-medium text-xs pt-1">
+<span class="material-symbols-outlined text-sm" data-icon="schedule">schedule</span>
+<span>5分钟阅读</span>
+</div>
+</div>
+</article>
+<!-- Brewing Guide Shortcut (Special Card) -->
+<section class="bg-primary-container/10 rounded-2xl p-6 flex items-center justify-between group cursor-pointer border border-primary/5">
+<div class="space-y-1">
+<h3 class="font-headline text-lg text-primary">冲泡指南</h3>
+<p class="text-on-surface-variant text-sm">掌握每一款茶的最佳冲泡方法</p>
+</div>
+<div class="relative w-16 h-16 flex items-center justify-center">
+<div class="absolute inset-0 bg-primary/10 rounded-full animate-pulse"></div>
+<span class="material-symbols-outlined text-4xl text-primary transition-transform group-hover:rotate-12" data-icon="coffee_maker">coffee_maker</span>
+</div>
+</section>
+<!-- Compact Article Cards (Grid) -->
+<section class="grid grid-cols-2 gap-4">
+<article class="space-y-3">
+<div class="aspect-square rounded-xl overflow-hidden bg-surface-container-low">
+<img alt="Elegant purple clay teapot" class="w-full h-full object-cover" data-alt="Traditional handmade Yixing purple clay teapot on wooden table" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_oWhbvecCE_3MMAQE9fugZySYJ1EJx2ZEGz6t9kV02vHArXzbioNyTWFrm78D93YFcgNKvKL91QtiTZkmCW0HEd86orqLhLA93JTEOrvj_m2KW1bVfgYvDXVb-tQKrIzRxPOXddapA_zoApBQLoH3x4aXI8RIspsMKyCMPwLY5y0lvkCuq6XW0J6ntM4P3eZEy-lvzd7oxuahYU7cRwwqVZCUA5gYMZkNdItyfowjWAc7cJpT_1FQp18x0gsRkzjCWPd6voSae-8"/>
+</div>
+<h4 class="font-headline text-base text-on-surface leading-tight line-clamp-2">紫砂壶的呼吸：如何挑选第一把好壶</h4>
+<p class="text-on-surface-variant text-xs line-clamp-2">泥料、工法、出水，细节中藏着乾坤。</p>
+</article>
+<article class="space-y-3">
+<div class="aspect-square rounded-xl overflow-hidden bg-surface-container-low">
+<img alt="Fresh green tea leaves in water" class="w-full h-full object-cover" data-alt="Vibrant green tea leaves unfurling in a glass of hot water" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhcodIuwY9H-4lsLog4-dDaTfO2C1hAVF044kyYdWDFISCWHjzgEn8TKTpBPXuFrZV9jT04B48TK67zBHz10PAX9tMViYMei-7VJyXrhOdEJtbn_rfOj-0c9_aSjGskuIvd5bwG3md-gUgi9sIHuFFJceqAVLM3ZfwZMOGZGSUkWDz0tYFBqQ_jQWjZ3ueYi7JxPJXJPV1r-7QDOKr6-GBVTAdIsGmqKiD11pIzx4GmOy5tVOdqjpU1kM07sL3F9WFD8CbTCBGahM"/>
+</div>
+<h4 class="font-headline text-base text-on-surface leading-tight line-clamp-2">春水煎茶：明前龙井的鲜甜奥秘</h4>
+<p class="text-on-surface-variant text-xs line-clamp-2">这一口春天的味道，错过了就要等一年。</p>
+</article>
+</section>
+<!-- Seasonal Recommendation -->
+<section class="space-y-4 pt-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-tertiary-fixed flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-fixed" data-icon="energy_savings_leaf">energy_savings_leaf</span>
+</div>
+<div>
+<h3 class="font-headline text-lg text-on-surface">节气 · 春分</h3>
+<p class="text-xs text-on-surface-variant font-medium">春分宜饮</p>
+</div>
+</div>
+<button class="text-primary text-sm font-bold">查看全部</button>
+</div>
+<div class="space-y-3">
+<!-- Small Horizontal Recommendations -->
+<div class="flex items-center gap-4 bg-surface-container-lowest p-3 rounded-xl shadow-sm">
+<div class="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+<img alt="Anji white tea" class="w-full h-full object-cover" data-alt="Delicate dried white tea leaves in a porcelain dish" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHJ9cSkS8R7h8gdd6rrGcLFwfWgaSGih6xYEWE65BIVgxRwvClLSzIqb036asC3xqoMqdt_imiRWnSS0o-T-22VhRd8Lu1fIJkSgl-NY97dmqOf0uuHOH0ppEUE8l3S7wzaNcxPVp5VxJWstqNQQaTgZ1YUWg5uRC1VAPhnFMp8r2DslwEC7f_NprnyYgBeZwGAnBxbDy4A6cyOY2wmfsP2hZaCUs9tJYjlsmRIsQd-Yjzpu-r2WCFxAL1Iv9nx6e9iUrRfBcuVbM"/>
+</div>
+<div class="flex-1">
+<h5 class="font-bold text-sm text-on-surface">安吉白茶</h5>
+<p class="text-xs text-on-surface-variant">清热解毒，适宜春季舒缓身心</p>
+</div>
+<span class="material-symbols-outlined text-primary" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="flex items-center gap-4 bg-surface-container-lowest p-3 rounded-xl shadow-sm">
+<div class="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+<img alt="Green tea" class="w-full h-full object-cover" data-alt="Steaming cup of green tea with whole leaves" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCS_HAZgmwqU623pMiXCz5Hpn6cPZwGxac0PV6Zpor4KvquBEm9hsQnf7nuZlIg_f-Afi33JvaE5rF9LcqvK51Cpzr69ax3oCR36ETNCybvr23iZIWeqGf-W61tDu7vRwoodry5Ue3hO0y0OqmwPb_r5JuRUtIWkunoqCFZINGnZSlDZnrtts11pvJG4WA9CeEsccj37T3xEc7htz5wH_xtvmZ1nXZypZE3EPvr3Phv8zOoU2INxA62Dnalmbp8aopCPGITy9F6s60"/>
+</div>
+<div class="flex-1">
+<h5 class="font-bold text-sm text-on-surface">洞庭碧螺春</h5>
+<p class="text-xs text-on-surface-variant">花果香气，唤醒春日味蕾</p>
+</div>
+<span class="material-symbols-outlined text-primary" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Shared Component Logic Applied) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-2 bg-[#fef9f1]/70 backdrop-blur-md rounded-t-[24dp]">
+<div class="flex flex-col items-center justify-center text-[#715b3e] p-2 opacity-60">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-['Manrope'] text-[11px] font-medium tracking-tight mt-1">首页</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#715b3e] p-2 opacity-60">
+<span class="material-symbols-outlined" data-icon="shopping_basket">shopping_basket</span>
+<span class="font-['Manrope'] text-[11px] font-medium tracking-tight mt-1">商城</span>
+</div>
+<!-- Active Tab: 茶道 (Culture) -->
+<div class="flex flex-col items-center justify-center bg-[#5b7553] text-white rounded-full p-3 scale-110 transition-all">
+<span class="material-symbols-outlined" data-icon="local_tea_leaf">local_drink</span>
+<span class="font-['Manrope'] text-[11px] font-medium tracking-tight mt-0.5">茶道</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#715b3e] p-2 opacity-60">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+<span class="font-['Manrope'] text-[11px] font-medium tracking-tight mt-1">茶友</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#715b3e] p-2 opacity-60">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Manrope'] text-[11px] font-medium tracking-tight mt-1">我的</span>
+</div>
+</nav>
+</body></html>

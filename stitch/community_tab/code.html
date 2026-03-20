@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>茶友 - 李记茶</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700&amp;family=Manrope:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary-container": "#5b7553",
+              "outline-variant": "#c3c8bd",
+              "on-secondary": "#ffffff",
+              "inverse-primary": "#b2cfa7",
+              "on-tertiary-fixed": "#271900",
+              "on-surface-variant": "#434840",
+              "tertiary-fixed": "#ffdea7",
+              "surface-dim": "#ded9d2",
+              "secondary-fixed": "#fcdeba",
+              "tertiary": "#6c521d",
+              "error-container": "#ffdad6",
+              "on-primary-fixed-variant": "#354d2e",
+              "surface": "#fef9f1",
+              "surface-bright": "#fef9f1",
+              "primary-fixed": "#cdebc1",
+              "on-secondary-container": "#755f42",
+              "secondary": "#715b3e",
+              "on-tertiary-container": "#fff0dd",
+              "on-tertiary": "#ffffff",
+              "secondary-container": "#f9dbb7",
+              "inverse-surface": "#32302b",
+              "surface-container-high": "#ece8e0",
+              "on-secondary-fixed": "#281903",
+              "tertiary-container": "#876a33",
+              "on-primary-fixed": "#092007",
+              "surface-container-highest": "#e7e2da",
+              "surface-container": "#f2ede5",
+              "on-error": "#ffffff",
+              "primary-fixed-dim": "#b2cfa7",
+              "surface-variant": "#e7e2da",
+              "outline": "#74796f",
+              "on-secondary-fixed-variant": "#574329",
+              "surface-container-lowest": "#ffffff",
+              "on-background": "#1d1c17",
+              "error": "#ba1a1a",
+              "surface-container-low": "#f8f3eb",
+              "primary": "#435c3c",
+              "background": "#fef9f1",
+              "on-surface": "#1d1c17",
+              "on-primary-container": "#ddfad0",
+              "on-primary": "#ffffff",
+              "on-tertiary-fixed-variant": "#5b430e",
+              "surface-tint": "#4c6544",
+              "on-error-container": "#93000a",
+              "secondary-fixed-dim": "#dfc29f",
+              "tertiary-fixed-dim": "#e6c181",
+              "inverse-on-surface": "#f5f0e8"
+            },
+            fontFamily: {
+              "headline": ["Noto Serif SC", "serif"],
+              "body": ["Manrope", "sans-serif"],
+              "label": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #F5F0E8;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Top App Bar -->
+<header class="fixed top-0 left-0 w-full flex justify-between items-center px-6 py-4 bg-[#fef9f1]/70 dark:bg-[#1d1c17]/70 backdrop-blur-xl z-50">
+<h1 class="font-headline text-2xl tracking-wide text-[#435c3c] dark:text-[#5b7553] font-bold">茶友</h1>
+<div class="flex items-center gap-4">
+<button class="hover:opacity-80 transition-opacity duration-300 text-[#435c3c]">
+<span class="material-symbols-outlined" data-icon="edit_note">edit_note</span>
+</button>
+</div>
+</header>
+<main class="pt-20 pb-28">
+<!-- Community Tabs -->
+<nav class="px-6 mb-6">
+<div class="flex items-center gap-8 border-b border-transparent">
+<button class="relative pb-2 font-bold text-primary">
+                    动态
+                    <span class="absolute bottom-0 left-0 w-full h-1 bg-primary-container rounded-full"></span>
+</button>
+<button class="pb-2 text-secondary opacity-60 hover:opacity-100 transition-opacity">话题</button>
+<button class="pb-2 text-secondary opacity-60 hover:opacity-100 transition-opacity">茶会</button>
+</div>
+</nav>
+<!-- Stories Row -->
+<section class="mb-8">
+<div class="flex gap-4 overflow-x-auto px-6 hide-scrollbar">
+<!-- My Story -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0">
+<div class="w-14 h-14 rounded-full border-2 border-dashed border-outline-variant flex items-center justify-center bg-surface-container">
+<span class="material-symbols-outlined text-primary" data-icon="add">add</span>
+</div>
+<span class="text-[11px] font-medium text-secondary">我的故事</span>
+</div>
+<!-- User 1 (Unviewed - Gold Ring) -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0">
+<div class="p-[2px] rounded-full border-2 border-tertiary-fixed shadow-sm">
+<img alt="" class="w-12 h-12 rounded-full object-cover" data-alt="Portrait of a smiling young man" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYZCPfi9hA4iFjc1y-R7DyMYqitTDAheg6-oQEB43tHR7ccyBg9ibr2qjNISm07PVmv6ncFznJ1-bq3yxRGFWOURe58JPwFfCiAjtModMnZ5Qk1H-0tN3lA9kLt_j5wJWpUzeOD8t_CDHYyOm7U2s3WX1Ib5IKnNwjlKfAgs8CpOnoAx6a4akcGBRX2zzjbLdc6PKG6aCP4UrKvHAQlJRTMnTy1VJrXait0-hfGbhL3cs33AeFW4WDfIWzjas98faAbUG_LxojNKc"/>
+</div>
+<span class="text-[11px] font-medium text-on-surface">陆羽</span>
+</div>
+<!-- User 2 (Unviewed - Gold Ring) -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0">
+<div class="p-[2px] rounded-full border-2 border-tertiary-fixed shadow-sm">
+<img alt="" class="w-12 h-12 rounded-full object-cover" data-alt="Portrait of a young woman with a warm expression" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB4PMnE9cV7BEOLWyfQGM-xM4vJinLOioyB2p0hga84wWzr3VFrBS-acv1zInu-zWb8vh7Oa4AqQ1xV3LeUzF5fzYmCCoSZp7PgdC8QrPDvazBWJhLjioWA2hwiWHhMgbVWE635Wn4H8cxlvHqx1qQl07d7laxi2zDxb6JfdGioe1Nj-gPE9RcdQgsak9ZUUQB2YhFq0KZrAQM0FFLlKfBBoRk38_f7fbe4I6i2BdCGuE5FGvWlw9vpLB-UZs9NHbLxJz0RKOQxp1w"/>
+</div>
+<span class="text-[11px] font-medium text-on-surface">林清</span>
+</div>
+<!-- User 3 (Viewed - Mist Ring) -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0">
+<div class="p-[2px] rounded-full border-2 border-outline-variant/30">
+<img alt="" class="w-12 h-12 rounded-full object-cover" data-alt="Portrait of a middle-aged man in nature" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCspro6wWdCl7ym5fSOE5ake4KwQgch2dnFu-yXoO41sH4ciSsoSiCjoAx2qn7h8BmUi33IkJx6lc5gioZGiJKCzVsTWZBz9TdXKHfUcsoEUCtEcYfw6qz3W3RBYfeXSZqcX9kTXvOMy9WYM_LnZnT37lx-3RK9Gv5ru0BxqJ0x2KZvBZDCOpMKUJ0WCxwNP9SbtUJ45Divv7ebpCyucvI3kTO3AXXauRCsc-6p-xaoKDecxzt4r0mY8G6fH2NFyu3zJicmKN5gbjA"/>
+</div>
+<span class="text-[11px] font-medium text-secondary opacity-60">老陈</span>
+</div>
+<!-- User 4 (Unviewed) -->
+<div class="flex flex-col items-center gap-2 flex-shrink-0">
+<div class="p-[2px] rounded-full border-2 border-tertiary-fixed shadow-sm">
+<img alt="" class="w-12 h-12 rounded-full object-cover" data-alt="Portrait of a stylish woman looking away" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCr4NANkKPPMs1Ap6k-JOmt1EgUhaL_osIiWx3jn_vVe9AF-y0qoL6O0-xEmZTbwWV_cRNbV7X3kTrbPrGwbN5cW5LQR13fndIN_0oDfv_-A4vgNfmFo2AJ40sLiNMl08xbyhit_0ZtiRXdy62SW_t-xPS1k0A920hSPDy4w7en9Q_zPvArsN1eAgmHhKMCLj4gxPy8m1Ddo_rp4k8HgotWxcc4_M3zEcYngXJXF0pNfmhPOUHVDXKBGhuOv20AUjau4_3xQV5tFGk"/>
+</div>
+<span class="text-[11px] font-medium text-on-surface">小禾</span>
+</div>
+</div>
+</section>
+<!-- Post Feed -->
+<div class="space-y-10 px-6">
+<!-- Type A: Photo Post -->
+<article class="flex flex-col gap-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<img alt="" class="w-10 h-10 rounded-full object-cover" data-alt="Female user profile picture" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC4vX8FDcEq0zpPDARAlKMkZOO_wvKh2hmsn-YqjD9jmtkkEV9p-2YwIBL8ywzsx9HYkc8Mes_oSbqsfRtmdCZOPabLWKZ83CVN-PvQC8wDPMkPDi1hG-EM69bSgDliVh5uw0nzUszcV_iJqUUaZJCRjK9nfNhSrt-_rKYm-CM_Wd2U1N041eQfNYc0nEC4r1-zNJWU8zTStoCXGRIVwddl9z_mRjqKe_WcR6qIxhAGScyZ1Ik3ZNXGDFrS31SCRa8i4NEXuGPBle0"/>
+<div>
+<p class="text-sm font-bold text-on-surface">苏曼</p>
+<p class="text-[11px] text-secondary opacity-60">2小时前 · 杭州</p>
+</div>
+</div>
+<button class="text-secondary opacity-40">
+<span class="material-symbols-outlined" data-icon="more_horiz">more_horiz</span>
+</button>
+</div>
+<div class="relative overflow-hidden rounded-xl bg-surface-container shadow-sm">
+<img alt="" class="w-full h-72 object-cover" data-alt="Close up of high quality green tea leaves in a ceramic bowl" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBP7BdR_ulveMZ8ANsEjWeyslQJqGnwKkuzBg7K2NM-loeOWoJggFQQbRxeOfWuL-efCVQ57VDSYbdMEPep5Fxj_BJyApzRmCHptyUDcR1mkpbkQbUcgydgjV287JyZs0GMgZbf7DiHXHpLHaTj5LeOzJbwiwTsoVRkKDp1OdoSrKnZDTTFYAjgHdxT0aP2PCA6gZVt5nvrLNhTpeeJDd__t0i5ym_EjEvJdJS0b8I-_hn7OR2CqUV3YNTkK8H9SMSjyOtE9vlIsL8"/>
+</div>
+<div class="space-y-2">
+<p class="text-[15px] leading-relaxed text-on-surface">
+                        晨起一盏西湖龙井，叶片在水中翩跹，是春天的味道。
+                    </p>
+</div>
+<div class="flex items-center justify-between pt-2">
+<div class="flex items-center gap-6">
+<button class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-[20px]" data-icon="favorite">favorite</span>
+<span class="text-xs">128</span>
+</button>
+<button class="flex items-center gap-1 text-secondary">
+<span class="material-symbols-outlined text-[20px]" data-icon="chat_bubble">chat_bubble</span>
+<span class="text-xs">24</span>
+</button>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-secondary">
+<span class="material-symbols-outlined text-[20px]" data-icon="bookmark">bookmark</span>
+</button>
+<button class="text-secondary">
+<span class="material-symbols-outlined text-[20px]" data-icon="share">share</span>
+</button>
+</div>
+</div>
+</article>
+<!-- Type B: Brewing Share -->
+<article class="bg-surface-container-low rounded-2xl overflow-hidden border-l-4 border-primary-container shadow-sm p-5">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2">
+<span class="px-2 py-0.5 bg-primary-container text-[10px] text-on-primary-container font-bold rounded-sm tracking-widest">冲泡分享</span>
+<p class="text-xs font-bold text-on-surface">顾先生</p>
+</div>
+<span class="text-[10px] text-secondary opacity-60">昨天</span>
+</div>
+<div class="grid grid-cols-2 gap-2 mb-4">
+<img alt="" class="w-full h-32 object-cover rounded-lg" data-alt="Traditional chinese tea set with hot water being poured" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAFS1nJ1B4sKOFkKUk1av9rkCgL74cSoQ1UBxwuDxQsEh1DwDFnv0a9lGCGzja8-tAtMjhBZ0IYMjSGQEGr0f2fiJU-FJlkoU5DBeYXRT6bemVd3TABXDhP-Xx-3341EH9W4cSZD78AN5NbC5dOppYRCYdzGcG0emiBOOVDjBLvFV3FuMTRCth1r-NpGyCajK12QUnd0UYwrIQes0fiBbpi9w_Lf2zkllA5SjqjTS1yLwRdhCtwARUhTSb5PGjg5NJPuv2jWfUk44"/>
+<img alt="" class="w-full h-32 object-cover rounded-lg" data-alt="Detailed view of tea leaves in a gaiwan" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBHqIQfIdrozHoERw-H5WjNmmjzjTs7wmD8N7SAzM49oQ7byknULEB0ViYmU1U0gs8pbNs0KqLKbHI2QzhbI3POKw0laKoU4b52pyrK6Zi74pUcdStcECNhyzgiMNEXGhvWmOlypT1YiSwprUV_TB9WFxtYc0ojCvkrvtKJax2_-O4YpeahjKUAtSb7-HtawkgXPoDbIaTulZ5A7aAcTKiADkqcbiH4okBs0P-C1oZYoVyL4iX1ziTRzpP57SzW1Vyqgc7Fsf0J3Rg"/>
+<img alt="" class="w-full h-32 object-cover rounded-lg" data-alt="Pouring clear amber tea into small cups" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCcjrcpK9GZ7MLljVFj6TODKv3jqnLBZXaJEsVdmegQYWvz27XcGaE2iXrXjar0AiId9q-aozeKJhzpENQDuU-xg5CevgaxUQ50mbO5k1dQ9hgzfwXIujy-zN7C14aIbwITwhR2qWL3XYdW0OHqwB8zuRElr_eLLIQLwgBDNRyRBcU9AN80gOQrNcKxUhkMrmAExPzYTTxYcB1ZRaAf_2uGOnOlQP7_aZTdOhy2XERjGC8ra7nGD2GlRDiiMDeh-bwjtTeNhhK77jI"/>
+<img alt="" class="w-full h-32 object-cover rounded-lg" data-alt="Steaming cup of tea on a wooden table" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDiXzIijPPHCu-psigSV27sbcNLKsbGs7yYrhxvlnrKYDlXVX0xQgufNA8UUCqOxgHx307DyXNFIwce35N8Bfs3Y21KSgOCujH6G3SZXlkhyXXsQgEY42QWK66PFOLsERmNtPfYB5c3GsPccs9XMJxrw-ffCNfbnfj8SQ_8CBR6piYMIeUX7PBm7L0Fqq5IXW3ukAynB2iTP389pFITHlRiLnzyxFmyTEED6DUYYT-ajrQ-wyX4KlOiTPxtUtc7ClAACpJmLkfy4Bo"/>
+</div>
+<div class="bg-surface p-3 rounded-lg mb-4 space-y-3">
+<div class="flex items-center gap-2">
+<span class="text-[10px] text-secondary-fixed-variant bg-secondary-container px-2 py-0.5 rounded-full font-bold">武夷岩茶</span>
+</div>
+<div class="flex justify-between text-xs text-secondary font-medium">
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="device_thermostat">device_thermostat</span>
+                            98°C
+                        </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="schedule">schedule</span>
+                            30秒
+                        </div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-icon="scale">scale</span>
+                            8g
+                        </div>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<p class="text-xs text-secondary italic">“岩韵十足，回甘极快。”</p>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-secondary text-[18px]" data-icon="thumb_up">thumb_up</span>
+<span class="material-symbols-outlined text-secondary text-[18px]" data-icon="mode_comment">mode_comment</span>
+</div>
+</div>
+</article>
+<!-- Type C: Question -->
+<article class="bg-surface-container-highest/40 p-6 rounded-3xl">
+<div class="flex items-center gap-2 mb-3">
+<span class="px-3 py-1 bg-tertiary-fixed text-[10px] text-on-tertiary-fixed font-bold rounded-full uppercase tracking-widest shadow-sm">求助</span>
+<p class="text-sm font-bold text-on-surface">泡茶新手小白</p>
+</div>
+<h3 class="text-lg font-headline font-bold text-on-surface mb-2">刚入手的建盏需要如何“养”才会有七彩光？</h3>
+<p class="text-sm text-secondary leading-relaxed opacity-80 mb-6">
+                    最近刚入了一只油滴建盏，听茶友说可以养出绚丽的色彩，请问平时喝茶有什么禁忌吗？是用普洱养还是岩茶更好？
+                </p>
+<div class="flex items-center justify-between">
+<div class="flex -space-x-2">
+<img alt="" class="w-6 h-6 rounded-full border-2 border-surface object-cover" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhI5X0uIhQ3y9qyMQrso4yPW4nSs5WGIxxtkQiWRX2BL7iijuVtEaKdpYakN9t0Sg4XwVJBvrZTGDaISruLuYdvSAc2nV2u8pMaoBlqqz1Iil_QeCBouO1p6BncAnPQ3ECHSQDAem5JR9--Y3mjyyxZzuFloUNpc8i7lfPelV9oCd0iY0gK0SyPX0ppfPCUPcXq7lGirGJZMVsSh-TnaItMS92p5uEMjYCi_4S1Hqpsq2IpGXPpWIcksYLGDwGLldRoy1vk1VsApg"/>
+<img alt="" class="w-6 h-6 rounded-full border-2 border-surface object-cover" data-alt="User avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtJSkeYYMSUKX6rpsxr_fWu5dvlr9MEPZeynzdIT0NOA7yH_3gGs4tPfavCs2wDBiYX4CxwxMI_4Jsw5u5WKx63GD93WU-DrOZM9LF1VMSYpSrSbnioYr3Kyf14i2KdbcfckkTLVz9euLLzNOkWpC9rWMTHMNAQqBLoV6fBjrRXcGSqhoHOECy7sDJWzH4K_wkIXV8HKgpt9fIOgj6OKGhEAJcGakzWVmzg2Ocynqmptkb-ZZcgtx6AtiYt2dAbJ4eBIqpxjfl0rM"/>
+<div class="w-6 h-6 rounded-full border-2 border-surface bg-primary-fixed-dim flex items-center justify-center text-[8px] font-bold">+12</div>
+</div>
+<button class="px-5 py-2 bg-primary text-on-primary text-xs font-bold rounded-full shadow-lg shadow-primary/20">
+                        我来回答
+                    </button>
+</div>
+</article>
+</div>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-28 right-6 w-14 h-14 bg-primary-container text-on-primary flex items-center justify-center rounded-full shadow-2xl z-40 active:scale-95 duration-200">
+<span class="material-symbols-outlined text-3xl" data-icon="add">add</span>
+</button>
+<!-- Bottom Navigation Bar -->
+<footer class="fixed bottom-0 left-0 w-full z-50 rounded-t-[32px] bg-[#fef9f1]/70 dark:bg-[#1d1c17]/70 backdrop-blur-xl shadow-[0_-4px_20px_rgba(29,28,23,0.05)] flex justify-around items-center px-4 pb-6 pt-3">
+<div class="flex flex-col items-center justify-center text-[#715b3e] dark:text-[#ded9d2] px-4 py-2 opacity-60 hover:opacity-100 transition-all duration-300">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-sans text-[11px] uppercase tracking-widest font-semibold mt-1">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#715b3e] dark:text-[#ded9d2] px-4 py-2 opacity-60 hover:opacity-100 transition-all duration-300">
+<span class="material-symbols-outlined" data-icon="shopping_bag">shopping_bag</span>
+<span class="font-sans text-[11px] uppercase tracking-widest font-semibold mt-1">Shop</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#715b3e] dark:text-[#ded9d2] px-4 py-2 opacity-60 hover:opacity-100 transition-all duration-300">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-sans text-[11px] uppercase tracking-widest font-semibold mt-1">Culture</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-[#5b7553] text-[#fef9f1] rounded-full px-5 py-2 scale-105 active:scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-sans text-[11px] uppercase tracking-widest font-semibold mt-1">Community</span>
+</div>
+<div class="flex flex-col items-center justify-center text-[#715b3e] dark:text-[#ded9d2] px-4 py-2 opacity-60 hover:opacity-100 transition-all duration-300">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-sans text-[11px] uppercase tracking-widest font-semibold mt-1">Profile</span>
+</div>
+</footer>
+</body></html>
