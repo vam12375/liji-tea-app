@@ -1,0 +1,53 @@
+import { View, Text, ScrollView, Pressable } from "react-native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import type { ComponentProps } from "react";
+
+type IconName = ComponentProps<typeof MaterialIcons>["name"];
+
+interface Category {
+  label: string;
+  icon: IconName;
+  active?: boolean;
+}
+
+/** 茶类分类数据 */
+const CATEGORIES: Category[] = [
+  { label: "岩茶", icon: "energy-savings-leaf", active: true },
+  { label: "绿茶", icon: "eco" },
+  { label: "白茶", icon: "spa" },
+  { label: "红茶", icon: "coffee" },
+  { label: "乌龙", icon: "grass" },
+  { label: "普洱", icon: "local-cafe" },
+  { label: "花茶", icon: "local-florist" },
+];
+
+export default function CategoryRow() {
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerClassName="gap-6 px-1"
+    >
+      {CATEGORIES.map((cat) => (
+        <Pressable key={cat.label} className="items-center gap-2">
+          <View
+            className={`w-14 h-14 rounded-full items-center justify-center ${
+              cat.active
+                ? "bg-surface-container-high border-2 border-primary-container"
+                : "bg-surface-container-high"
+            }`}
+          >
+            <MaterialIcons
+              name={cat.icon}
+              size={24}
+              color={cat.active ? "#435c3c" : "#715b3e"}
+            />
+          </View>
+          <Text className="text-xs font-medium text-on-surface">
+            {cat.label}
+          </Text>
+        </Pressable>
+      ))}
+    </ScrollView>
+  );
+}
