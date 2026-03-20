@@ -3,3 +3,65 @@
 @import "tailwindcss/utilities.css";
 
 @import "nativewind/theme";
+
+@theme {
+  /* === "The Ethereal Steep" 设计系统 === */
+
+  /* 主色调 - 茶叶深绿 */
+  --color-primary: #435c3c;
+  --color-primary-container: #5b7553;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #ddfad0;
+  --color-primary-fixed: #cdebc1;
+  --color-primary-fixed-dim: #b2cfa7;
+
+  /* 辅助色 - 大地棕 */
+  --color-secondary: #715b3e;
+  --color-secondary-container: #f9dbb7;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #755f42;
+  --color-secondary-fixed: #fcdeba;
+  --color-secondary-fixed-dim: #dfc29f;
+
+  /* 强调色 - 学士金 */
+  --color-tertiary: #6c521d;
+  --color-tertiary-container: #876a33;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #fff0dd;
+  --color-tertiary-fixed: #ffdea7;
+  --color-tertiary-fixed-dim: #e6c181;
+
+  /* 错误色 */
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  /* 表面层级 - 温暖奶油色体系 */
+  --color-background: #fef9f1;
+  --color-on-background: #1d1c17;
+  --color-surface: #fef9f1;
+  --color-on-surface: #1d1c17;
+  --color-surface-variant: #e7e2da;
+  --color-on-surface-variant: #434840;
+  --color-surface-dim: #ded9d2;
+  --color-surface-bright: #fef9f1;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f8f3eb;
+  --color-surface-container: #f2ede5;
+  --color-surface-container-high: #ece8e0;
+  --color-surface-container-highest: #e7e2da;
+
+  /* 边框 & 反转 */
+  --color-outline: #74796f;
+  --color-outline-variant: #c3c8bd;
+  --color-inverse-surface: #32302b;
+  --color-inverse-on-surface: #f5f0e8;
+  --color-inverse-primary: #b2cfa7;
+  --color-surface-tint: #4c6544;
+
+  /* 字体 */
+  --font-headline: "Noto Serif SC", serif;
+  --font-body: "Manrope", sans-serif;
+  --font-label: "Manrope", sans-serif;
+}
