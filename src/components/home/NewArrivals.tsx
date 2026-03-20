@@ -1,6 +1,7 @@
 import { View, Text, Pressable } from "react-native";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Colors } from "@/constants/Colors";
 import { newArrivals } from "@/data/products";
 
 export default function NewArrivals() {
@@ -38,7 +39,7 @@ export default function NewArrivals() {
                   <MaterialIcons
                     name="add-circle"
                     size={22}
-                    color="#5b7553"
+                    color={Colors.primaryContainer}
                   />
                 </Pressable>
               </View>

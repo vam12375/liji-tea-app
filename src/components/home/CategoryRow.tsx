@@ -1,5 +1,6 @@
 import { View, Text, ScrollView, Pressable } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Colors } from "@/constants/Colors";
 import type { ComponentProps } from "react";
 
 type IconName = ComponentProps<typeof MaterialIcons>["name"];
@@ -40,7 +41,7 @@ export default function CategoryRow() {
             <MaterialIcons
               name={cat.icon}
               size={24}
-              color={cat.active ? "#435c3c" : "#715b3e"}
+              color={cat.active ? Colors.primary : Colors.secondary}
             />
           </View>
           <Text className="text-xs font-medium text-on-surface">
