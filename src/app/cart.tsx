@@ -99,7 +99,10 @@ export default function CartScreen() {
                 ¥{subtotal() - (subtotal() >= 1000 ? 50 : 0)}
               </Text>
             </View>
-            <Pressable className="bg-primary-container px-8 py-3 rounded-full active:bg-primary">
+            <Pressable
+              onPress={() => router.push("/checkout" as any)}
+              className="bg-primary-container px-8 py-3 rounded-full active:bg-primary"
+            >
               <Text className="text-on-primary font-medium">
                 去结算 ({totalItems()})
               </Text>
