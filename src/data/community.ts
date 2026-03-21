@@ -83,7 +83,7 @@ export const posts: Post[] = [
     teaName: "武夷岩茶",
     brewingData: { temp: "98°C", time: "30秒", amount: "8g" },
     brewingImages: [
-      "https://images.unsplash.com/photo-1558160074-4d93e8e073a1?w=400",
+      "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=400",
       "https://images.unsplash.com/photo-1571934811356-5cc061b6821f?w=400",
     ],
     quote: "岩韵十足，回甘极快。",

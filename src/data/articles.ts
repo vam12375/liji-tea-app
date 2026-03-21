@@ -17,7 +17,7 @@ export const articles: Article[] = [
     title: "宋代点茶：一碗沫浆的千年风雅",
     subtitle: "从建盏到茶筅，探索宋人的极致美学",
     category: "茶史",
-    image: "https://images.unsplash.com/photo-1558160074-4d93e8e073a1?w=800",
+    image: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=800",
     readTime: "8分钟",
     date: "2024.03.15",
   },

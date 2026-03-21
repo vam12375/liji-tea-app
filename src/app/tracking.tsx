@@ -110,7 +110,7 @@ export default function TrackingScreen() {
                 contentFit="cover"
               />
               <Image
-                source={{ uri: "https://images.unsplash.com/photo-1558160074-4d93e8e073a1?w=100" }}
+                source={{ uri: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=100" }}
                 style={{ width: 40, height: 40, borderRadius: 9999, borderWidth: 2, borderColor: Colors.surfaceContainerLow }}
                 contentFit="cover"
               />

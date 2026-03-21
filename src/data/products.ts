@@ -36,7 +36,7 @@ export const allProducts: Product[] = [
     origin: "福建·武夷山",
     price: 398,
     unit: "50g",
-    image: "https://images.unsplash.com/photo-1558160074-4d93e8e073a1?w=400",
+    image: "https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=400",
     category: "岩茶",
     tagline: "岩骨花香，回甘悠长",
     tastingProfile: [
