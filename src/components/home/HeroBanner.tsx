@@ -1,7 +1,10 @@
 import { View, Text, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 
 export default function HeroBanner() {
+  const router = useRouter();
+
   return (
     <View className="w-full h-[200px] rounded-xl overflow-hidden">
       <Image
@@ -24,7 +27,10 @@ export default function HeroBanner() {
           新春明前龙井 · 限量发售
         </Text>
         <View className="pt-3">
-          <Pressable className="bg-primary-container self-start px-6 py-2.5 rounded-full active:bg-primary">
+          <Pressable
+            onPress={() => router.push("/(tabs)/shop" as any)}
+            className="bg-primary-container self-start px-6 py-2.5 rounded-full active:bg-primary"
+          >
             <Text className="text-surface-bright text-sm font-medium">
               立即探索
             </Text>

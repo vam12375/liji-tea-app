@@ -1,10 +1,12 @@
 import { View, Text, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/Colors";
 
 export default function TopAppBar() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   return (
     <View
@@ -22,7 +24,7 @@ export default function TopAppBar() {
 
         {/* 右侧 - 功能图标 */}
         <View className="flex-row items-center gap-4">
-          <Pressable hitSlop={8}>
+          <Pressable hitSlop={8} onPress={() => router.push("/search" as any)}>
             <MaterialIcons name="search" size={24} color={Colors.primary} />
           </Pressable>
           <Pressable hitSlop={8}>

@@ -1,10 +1,15 @@
 import { View, Text, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 
 export default function SeasonalStory() {
+  const router = useRouter();
+
   return (
-    <View className="w-full aspect-video rounded-xl overflow-hidden">
-      <Image
+    <Pressable
+      onPress={() => router.push("/(tabs)/culture" as any)}
+      className="w-full aspect-video rounded-xl overflow-hidden"
+    >      <Image
         source={{
           uri: "https://images.unsplash.com/photo-1563822249366-3efb23b8e0c9?w=800",
         }}
@@ -26,6 +31,6 @@ export default function SeasonalStory() {
           <Text className="text-surface-bright text-xs">阅读全文</Text>
         </Pressable>
       </View>
-    </View>
+    </Pressable>
   );
 }

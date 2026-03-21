@@ -1,10 +1,13 @@
 import { View, Text, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { newArrivals } from "@/data/products";
 
 export default function NewArrivals() {
+  const router = useRouter();
+
   return (
     <View className="gap-4">
       <Text className="font-headline text-xl text-on-surface">新品上市</Text>
@@ -13,6 +16,7 @@ export default function NewArrivals() {
         {newArrivals.map((product) => (
           <Pressable
             key={product.id}
+            onPress={() => router.push(`/product/${product.id}` as any)}
             className="flex-1 bg-surface-container-low rounded-xl overflow-hidden active:opacity-80"
           >
             {/* 正方形图片 */}

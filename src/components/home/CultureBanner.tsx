@@ -1,11 +1,16 @@
 import { View, Text, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export default function CultureBanner() {
+  const router = useRouter();
+
   return (
-    <Pressable className="w-full h-32 rounded-xl overflow-hidden active:opacity-90">
-      {/* 暗色背景 + 水墨画 */}
+    <Pressable
+      onPress={() => router.push("/(tabs)/culture" as any)}
+      className="w-full h-32 rounded-xl overflow-hidden active:opacity-90"
+    >      {/* 暗色背景 + 水墨画 */}
       <View className="absolute inset-0 bg-[#2C2C2C]">
         <Image
           source={{
