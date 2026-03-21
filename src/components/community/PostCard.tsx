@@ -14,7 +14,7 @@ function PostHeader({ post }: { post: Post }) {
   return (
     <View className="flex-row items-center justify-between">
       <View className="flex-row items-center gap-2.5">
-        <Image source={{ uri: post.avatar }} className="w-10 h-10 rounded-full" contentFit="cover" />
+        <Image source={{ uri: post.avatar }} style={{ width: 40, height: 40, borderRadius: 9999 }} contentFit="cover" />
         <View>
           <Text className="text-on-surface text-sm font-bold">{post.author}</Text>
           <Text className="text-secondary/60 text-[11px]">
@@ -34,7 +34,7 @@ function PhotoPost({ post }: { post: Post }) {
     <View className="gap-3">
       <PostHeader post={post} />
       {post.image && (
-        <Image source={{ uri: post.image }} className="w-full h-72 rounded-xl" contentFit="cover" />
+        <Image source={{ uri: post.image }} style={{ width: "100%", height: 288, borderRadius: 12 }} contentFit="cover" />
       )}
       <Text className="text-on-surface text-[15px] leading-relaxed">{post.caption}</Text>
       <View className="flex-row justify-between items-center">
@@ -73,7 +73,7 @@ function BrewingPost({ post }: { post: Post }) {
       {post.brewingImages && (
         <View className="flex-row gap-2">
           {post.brewingImages.map((img, i) => (
-            <Image key={i} source={{ uri: img }} className="flex-1 h-32 rounded-lg" contentFit="cover" />
+            <Image key={i} source={{ uri: img }} style={{ flex: 1, height: 128, borderRadius: 8 }} contentFit="cover" />
           ))}
         </View>
       )}

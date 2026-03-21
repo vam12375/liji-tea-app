@@ -17,7 +17,7 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
       <View className="h-40 overflow-hidden">
         <Image
           source={{ uri: product.image }}
-          className="w-full h-full"
+          style={{ width: "100%", height: "100%" }}
           contentFit="cover"
           transition={200}
         />

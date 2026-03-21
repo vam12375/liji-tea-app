@@ -38,7 +38,7 @@ export default function TrackingScreen() {
         <View className="mx-4 h-48 rounded-2xl overflow-hidden bg-surface-container-high relative">
           <Image
             source={{ uri: "https://images.unsplash.com/photo-1524661135-423995f22d0b?w=800" }}
-            className="w-full h-full opacity-40"
+            style={{ width: "100%", height: "100%", opacity: 0.4 }}
             contentFit="cover"
           />
           <View className="absolute inset-0 items-center justify-center">
@@ -106,12 +106,12 @@ export default function TrackingScreen() {
             <View className="flex-row -space-x-3">
               <Image
                 source={{ uri: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=100" }}
-                className="w-10 h-10 rounded-full border-2 border-surface-container-low"
+                style={{ width: 40, height: 40, borderRadius: 9999, borderWidth: 2, borderColor: Colors.surfaceContainerLow }}
                 contentFit="cover"
               />
               <Image
                 source={{ uri: "https://images.unsplash.com/photo-1558160074-4d93e8e073a1?w=100" }}
-                className="w-10 h-10 rounded-full border-2 border-surface-container-low"
+                style={{ width: 40, height: 40, borderRadius: 9999, borderWidth: 2, borderColor: Colors.surfaceContainerLow }}
                 contentFit="cover"
               />
             </View>

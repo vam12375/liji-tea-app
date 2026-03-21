@@ -11,7 +11,7 @@ export default function CultureBanner() {
           source={{
             uri: "https://images.unsplash.com/photo-1545579133-99bb5ab189bd?w=800",
           }}
-          className="w-full h-full opacity-50"
+          style={{ width: "100%", height: "100%", opacity: 0.5 }}
           contentFit="cover"
         />
       </View>

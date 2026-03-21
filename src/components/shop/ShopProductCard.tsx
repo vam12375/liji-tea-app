@@ -26,7 +26,7 @@ export default function ShopProductCard({
       <View className="aspect-[4/5] overflow-hidden">
         <Image
           source={{ uri: product.image }}
-          className="w-full h-full"
+          style={{ width: "100%", height: "100%" }}
           contentFit="cover"
           transition={200}
         />

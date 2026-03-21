@@ -13,7 +13,7 @@ export default function OrderItemCard({ item }: OrderItemCardProps) {
     <View className="flex-row items-center gap-3 py-3">
       <Image
         source={{ uri: product.image }}
-        className="w-[60px] h-[60px] rounded-lg"
+        style={{ width: 60, height: 60, borderRadius: 8 }}
         contentFit="cover"
       />
       <View className="flex-1 gap-1">

@@ -18,7 +18,7 @@ export default function ARScanScreen() {
       {/* 模拟相机背景 */}
       <Image
         source={{ uri: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=800" }}
-        className="absolute inset-0 w-full h-full opacity-60"
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", opacity: 0.6 }}
         contentFit="cover"
       />
 

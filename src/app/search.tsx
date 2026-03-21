@@ -59,7 +59,7 @@ export default function SearchScreen() {
         renderItem={({ item }) => (
           <Pressable className="flex-1 active:opacity-80">
             <View className="aspect-[4/5] rounded-xl overflow-hidden mb-2">
-              <Image source={{ uri: item.image }} className="w-full h-full" contentFit="cover" transition={200} />
+              <Image source={{ uri: item.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
             </View>
             <Text className="font-headline text-on-surface text-sm font-bold" numberOfLines={1}>{item.name}</Text>
             <Text className="text-on-surface-variant text-xs">{item.desc}</Text>

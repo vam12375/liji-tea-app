@@ -8,7 +8,7 @@ export default function SeasonalStory() {
         source={{
           uri: "https://images.unsplash.com/photo-1563822249366-3efb23b8e0c9?w=800",
         }}
-        className="absolute inset-0 w-full h-full"
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
         contentFit="cover"
         transition={300}
       />

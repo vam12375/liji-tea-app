@@ -22,7 +22,7 @@ export default function CartItemCard({
       {/* 产品图片 */}
       <Image
         source={{ uri: product.image }}
-        className="w-20 h-20 rounded-lg"
+        style={{ width: 80, height: 80, borderRadius: 8 }}
         contentFit="cover"
       />
 

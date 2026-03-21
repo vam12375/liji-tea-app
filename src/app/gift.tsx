@@ -58,7 +58,7 @@ export default function GiftScreen() {
                     style={{ width: CARD_WIDTH }}
                   >
                     <View className="aspect-video relative">
-                      <Image source={{ uri: item.image }} className="w-full h-full" contentFit="cover" />
+                      <Image source={{ uri: item.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
                       <View className="absolute inset-0 bg-black/40" />
                       <View className="absolute bottom-4 left-5 gap-0.5">
                         <Text className="font-headline text-surface-bright text-xl font-bold">{item.title}</Text>
@@ -109,7 +109,7 @@ export default function GiftScreen() {
                     selectedSet === set.id ? "bg-primary-container/10 border border-primary/10" : "bg-surface-container-low"
                   }`}
                 >
-                  <Image source={{ uri: set.image }} className="w-24 h-24 rounded-lg" contentFit="cover" />
+                  <Image source={{ uri: set.image }} style={{ width: 96, height: 96, borderRadius: 8 }} contentFit="cover" />
                   <View className="flex-1 gap-1">
                     <Text className="font-headline text-on-surface text-sm font-bold">{set.name}</Text>
                     <Text className="text-on-surface-variant text-xs">{set.description}</Text>

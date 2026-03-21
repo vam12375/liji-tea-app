@@ -1,5 +1,6 @@
 import { View, Text } from "react-native";
 import { Image } from "expo-image";
+import { Colors } from "@/constants/Colors";
 import { useUserStore } from "@/stores/userStore";
 
 export default function MemberHeader() {
@@ -14,7 +15,7 @@ export default function MemberHeader() {
         <View className="relative">
           <Image
             source={{ uri: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200" }}
-            className="w-20 h-20 rounded-full border-2 border-tertiary"
+            style={{ width: 80, height: 80, borderRadius: 9999, borderWidth: 2, borderColor: Colors.tertiary }}
             contentFit="cover"
           />
           <View className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-tertiary items-center justify-center">

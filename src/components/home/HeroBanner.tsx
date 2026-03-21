@@ -8,7 +8,7 @@ export default function HeroBanner() {
         source={{
           uri: "https://images.unsplash.com/photo-1556881286-fc6915169721?w=800",
         }}
-        className="absolute inset-0 w-full h-full"
+        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
         contentFit="cover"
         transition={300}
       />

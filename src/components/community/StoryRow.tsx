@@ -19,7 +19,7 @@ export default function StoryRow() {
       {stories.map((story) => (
         <Pressable key={story.id} className="items-center gap-1">
           <View className={`p-[2px] rounded-full border-2 ${story.isViewed ? "border-outline-variant/30" : "border-tertiary-fixed"}`}>
-            <Image source={{ uri: story.avatar }} className="w-12 h-12 rounded-full" contentFit="cover" />
+            <Image source={{ uri: story.avatar }} style={{ width: 48, height: 48, borderRadius: 9999 }} contentFit="cover" />
           </View>
           <Text className="text-on-surface text-[10px] font-medium" numberOfLines={1}>{story.name}</Text>
         </Pressable>
