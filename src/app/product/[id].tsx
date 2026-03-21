@@ -149,10 +149,7 @@ export default function ProductDetailScreen() {
 
         {/* 立即购买 */}
         <Pressable
-          onPress={() => {
-            addItem(product);
-            router.push("/checkout" as any);
-          }}
+          onPress={() => router.push(`/checkout?productId=${id}` as any)}
           className="flex-1 bg-primary-container h-12 rounded-full items-center justify-center active:bg-primary"
         >
           <Text className="text-on-primary font-medium">立即购买</Text>

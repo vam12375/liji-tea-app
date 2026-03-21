@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { View, Text, ScrollView, Pressable, TextInput, Switch, Alert } from "react-native";
-import { useRouter, Stack } from "expo-router";
+import { useRouter, useLocalSearchParams, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useCartStore } from "@/stores/cartStore";
 import { useUserStore } from "@/stores/userStore";
+import { allProducts } from "@/data/products";
 import AddressCard from "@/components/checkout/AddressCard";
 import OrderItemCard from "@/components/checkout/OrderItemCard";
 import DeliveryOptions from "@/components/checkout/DeliveryOptions";
@@ -15,8 +16,23 @@ import PriceBreakdown from "@/components/checkout/PriceBreakdown";
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { items, subtotal, clearCart } = useCartStore();
+  const { productId } = useLocalSearchParams<{ productId?: string }>();
+  const { items: cartItems, subtotal: cartSubtotal, clearCart } = useCartStore();
   const { getDefaultAddress } = useUserStore();
+
+  // 区分"直接购买"和"购物车结算"
+  const orderItems = useMemo(() => {
+    if (productId) {
+      const product = allProducts.find((p) => p.id === productId);
+      if (product) return [{ product, quantity: 1 }];
+    }
+    return cartItems;
+  }, [productId, cartItems]);
+
+  const orderSubtotal = useMemo(
+    () => orderItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
+    [orderItems]
+  );
 
   const [delivery, setDelivery] = useState("standard");
   const [payment, setPayment] = useState("wechat");
@@ -25,17 +41,18 @@ export default function CheckoutScreen() {
 
   const address = getDefaultAddress();
   const shippingCost = delivery === "express" ? 15 : 0;
-  const discount = subtotal() >= 1000 ? 50 : 0;
+  const discount = orderSubtotal >= 1000 ? 50 : 0;
   const giftBoxPrice = giftBox ? 28 : 0;
-  const total = subtotal() + shippingCost - discount + giftBoxPrice;
+  const total = orderSubtotal + shippingCost - discount + giftBoxPrice;
 
   const handleSubmit = () => {
     Alert.alert("订单已提交", `订单金额: ¥${total}`, [
       {
         text: "确定",
         onPress: () => {
-          clearCart();
-          router.replace("/(tabs)");
+          // 购物车结算时清空购物车，直接购买不清空
+          if (!productId) clearCart();
+          router.replace("/(tabs)" as any);
         },
       },
     ]);
@@ -68,7 +85,7 @@ export default function CheckoutScreen() {
 
         {/* 订单商品 */}
         <View className="bg-surface-container-lowest rounded-xl px-4">
-          {items.map((item) => (
+          {orderItems.map((item) => (
             <OrderItemCard key={item.product.id} item={item} />
           ))}
         </View>
@@ -108,7 +125,7 @@ export default function CheckoutScreen() {
 
         {/* 价格明细 */}
         <PriceBreakdown
-          subtotal={subtotal()}
+          subtotal={orderSubtotal}
           shipping={shippingCost}
           discount={discount}
           giftBox={giftBox}
