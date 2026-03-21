@@ -24,4 +24,7 @@ export const Colors = {
 
   outline: "#74796f",
   outlineVariant: "#c3c8bd",
+
+  error: "#ba1a1a",
+  onError: "#ffffff",
 } as const;
