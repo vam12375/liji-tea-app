@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import type { Product } from "@/data/products";
+import { useUserStore } from "@/stores/userStore";
 
 interface ShopProductCardProps {
   product: Product;
@@ -13,6 +14,9 @@ export default function ShopProductCard({
   product,
   onPress,
 }: ShopProductCardProps) {
+  const toggleFavorite = useUserStore((s) => s.toggleFavorite);
+  const isFavorite = useUserStore((s) => s.isFavorite);
+
   return (
     <Pressable
       onPress={onPress}
@@ -41,11 +45,11 @@ export default function ShopProductCard({
               /{product.unit}
             </Text>
           </Text>
-          <Pressable hitSlop={8}>
+          <Pressable hitSlop={8} onPress={() => toggleFavorite(product.id)}>
             <MaterialIcons
-              name="favorite-border"
+              name={isFavorite(product.id) ? "favorite" : "favorite-border"}
               size={18}
-              color={Colors.outline}
+              color={isFavorite(product.id) ? Colors.error : Colors.outline}
             />
           </Pressable>
         </View>

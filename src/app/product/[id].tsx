@@ -6,6 +6,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { allProducts } from "@/data/products";
 import { useCartStore } from "@/stores/cartStore";
+import { useUserStore } from "@/stores/userStore";
 import TastingProfile from "@/components/product/TastingProfile";
 import BrewingGuideCard from "@/components/product/BrewingGuideCard";
 import ProcessTimeline from "@/components/product/ProcessTimeline";
@@ -16,6 +17,8 @@ export default function ProductDetailScreen() {
   const insets = useSafeAreaInsets();
   const addItem = useCartStore((s) => s.addItem);
   const totalItems = useCartStore((s) => s.totalItems);
+  const toggleFavorite = useUserStore((s) => s.toggleFavorite);
+  const isFavorite = useUserStore((s) => s.isFavorite);
 
   const product = allProducts.find((p) => p.id === id);
   if (!product) {
@@ -54,8 +57,15 @@ export default function ProductDetailScreen() {
               <Pressable className="w-10 h-10 rounded-full bg-surface/20 items-center justify-center">
                 <MaterialIcons name="share" size={22} color="#fff" />
               </Pressable>
-              <Pressable className="w-10 h-10 rounded-full bg-surface/20 items-center justify-center">
-                <MaterialIcons name="favorite-border" size={22} color="#fff" />
+              <Pressable
+                onPress={() => toggleFavorite(id!)}
+                className="w-10 h-10 rounded-full bg-surface/20 items-center justify-center"
+              >
+                <MaterialIcons
+                  name={isFavorite(id!) ? "favorite" : "favorite-border"}
+                  size={22}
+                  color="#fff"
+                />
               </Pressable>
             </View>
           </View>
