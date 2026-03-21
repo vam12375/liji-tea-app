@@ -95,7 +95,7 @@ export const posts: Post[] = [
     avatar:
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100",
     time: "昨天",
-    title: '建盏需要如何"养"才会有七彩光？',
+    title: "建盏需要如何\u201C养\u201D才会有七彩光？",
     description:
       "刚入手了一只油滴建盏，听说养好了会有七彩光，求大神指导正确的养盏方法！",
     answerCount: 12,
