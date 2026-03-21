@@ -9,7 +9,8 @@ export default function SeasonalStory() {
     <Pressable
       onPress={() => router.push("/(tabs)/culture" as any)}
       className="w-full aspect-video rounded-xl overflow-hidden"
-    >      <Image
+    >
+      <Image
         source={{
           uri: "https://images.unsplash.com/photo-1563822249366-3efb23b8e0c9?w=800",
         }}

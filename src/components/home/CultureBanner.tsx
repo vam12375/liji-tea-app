@@ -10,7 +10,8 @@ export default function CultureBanner() {
     <Pressable
       onPress={() => router.push("/(tabs)/culture" as any)}
       className="w-full h-32 rounded-xl overflow-hidden active:opacity-90"
-    >      {/* 暗色背景 + 水墨画 */}
+    >
+      {/* 暗色背景 + 水墨画 */}
       <View className="absolute inset-0 bg-[#2C2C2C]">
         <Image
           source={{
