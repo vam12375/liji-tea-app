@@ -1,0 +1,124 @@
+import { View, Text, Pressable } from "react-native";
+import { Image } from "expo-image";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Colors } from "@/constants/Colors";
+import type { Post } from "@/data/community";
+
+export default function PostCard({ post }: { post: Post }) {
+  if (post.type === "photo") return <PhotoPost post={post} />;
+  if (post.type === "brewing") return <BrewingPost post={post} />;
+  return <QuestionPost post={post} />;
+}
+
+function PostHeader({ post }: { post: Post }) {
+  return (
+    <View className="flex-row items-center justify-between">
+      <View className="flex-row items-center gap-2.5">
+        <Image source={{ uri: post.avatar }} className="w-10 h-10 rounded-full" contentFit="cover" />
+        <View>
+          <Text className="text-on-surface text-sm font-bold">{post.author}</Text>
+          <Text className="text-secondary/60 text-[11px]">
+            {post.time}{post.location ? ` · ${post.location}` : ""}
+          </Text>
+        </View>
+      </View>
+      <Pressable hitSlop={8}>
+        <MaterialIcons name="more-horiz" size={20} color={Colors.outline} />
+      </Pressable>
+    </View>
+  );
+}
+
+function PhotoPost({ post }: { post: Post }) {
+  return (
+    <View className="gap-3">
+      <PostHeader post={post} />
+      {post.image && (
+        <Image source={{ uri: post.image }} className="w-full h-72 rounded-xl" contentFit="cover" />
+      )}
+      <Text className="text-on-surface text-[15px] leading-relaxed">{post.caption}</Text>
+      <View className="flex-row justify-between items-center">
+        <View className="flex-row gap-5">
+          <Pressable className="flex-row items-center gap-1">
+            <MaterialIcons name="favorite-border" size={20} color={Colors.secondary} />
+            <Text className="text-secondary text-sm">{post.likes}</Text>
+          </Pressable>
+          <Pressable className="flex-row items-center gap-1">
+            <MaterialIcons name="chat-bubble-outline" size={20} color={Colors.secondary} />
+            <Text className="text-secondary text-sm">{post.comments}</Text>
+          </Pressable>
+        </View>
+        <View className="flex-row gap-4">
+          <Pressable hitSlop={8}>
+            <MaterialIcons name="bookmark-border" size={20} color={Colors.secondary} />
+          </Pressable>
+          <Pressable hitSlop={8}>
+            <MaterialIcons name="share" size={20} color={Colors.secondary} />
+          </Pressable>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function BrewingPost({ post }: { post: Post }) {
+  return (
+    <View className="bg-surface-container-low rounded-2xl border-l-4 border-primary-container p-5 gap-3">
+      <View className="flex-row items-center gap-2">
+        <View className="bg-primary-container/20 px-2 py-0.5 rounded">
+          <Text className="text-primary text-[10px] font-bold">冲泡分享</Text>
+        </View>
+        <Text className="text-on-surface text-sm font-bold">{post.author}</Text>
+      </View>
+      {post.brewingImages && (
+        <View className="flex-row gap-2">
+          {post.brewingImages.map((img, i) => (
+            <Image key={i} source={{ uri: img }} className="flex-1 h-32 rounded-lg" contentFit="cover" />
+          ))}
+        </View>
+      )}
+      <View className="bg-surface p-3 rounded-lg gap-2">
+        <View className="bg-secondary-container/30 self-start px-2 py-0.5 rounded">
+          <Text className="text-secondary text-[10px]">{post.teaName}</Text>
+        </View>
+        {post.brewingData && (
+          <View className="flex-row gap-4">
+            <View className="flex-row items-center gap-1">
+              <MaterialIcons name="thermostat" size={14} color={Colors.outline} />
+              <Text className="text-on-surface text-xs">{post.brewingData.temp}</Text>
+            </View>
+            <View className="flex-row items-center gap-1">
+              <MaterialIcons name="schedule" size={14} color={Colors.outline} />
+              <Text className="text-on-surface text-xs">{post.brewingData.time}</Text>
+            </View>
+            <View className="flex-row items-center gap-1">
+              <MaterialIcons name="scale" size={14} color={Colors.outline} />
+              <Text className="text-on-surface text-xs">{post.brewingData.amount}</Text>
+            </View>
+          </View>
+        )}
+        {post.quote && (
+          <Text className="text-secondary italic text-sm">"{post.quote}"</Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function QuestionPost({ post }: { post: Post }) {
+  return (
+    <View className="bg-surface-container-highest/40 p-6 rounded-3xl gap-3">
+      <View className="bg-tertiary-fixed self-start px-2.5 py-0.5 rounded-full">
+        <Text className="text-on-surface text-[10px] font-bold">求助</Text>
+      </View>
+      <Text className="font-headline text-on-surface text-lg font-bold">{post.title}</Text>
+      <Text className="text-on-surface/80 text-sm leading-relaxed">{post.description}</Text>
+      <View className="flex-row justify-between items-center pt-2">
+        <Text className="text-outline text-xs">{post.answerCount}+ 人已回答</Text>
+        <Pressable className="bg-primary px-5 py-2 rounded-full active:opacity-80">
+          <Text className="text-on-primary text-sm font-medium">我来回答</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
