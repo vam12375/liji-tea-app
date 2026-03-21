@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
-import { View, Text, Animated } from "react-native";
-import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useRouter } from "expo-router";
+import { useEffect, useRef } from "react";
+import { Animated, Text, View } from "react-native";
 
 const GOLD = "#C4A265";
 const DARK = "#2C2C2C";
@@ -35,7 +35,14 @@ export default function SplashScreenPage() {
   }, []);
 
   return (
-    <View style={{ flex: 1, backgroundColor: DARK, alignItems: "center", justifyContent: "center" }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: DARK,
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
       <Animated.View style={{ opacity: fadeIn, alignItems: "center" }}>
         {/* Logo 圆环 */}
         <View
@@ -65,7 +72,7 @@ export default function SplashScreenPage() {
           </View>
         </View>
 
-        {/* 品牌名 */}
+        {/* 品牌名 - 用 textAlign + width 确保居中 */}
         <Text
           style={{
             fontFamily: "NotoSerifSC_700Bold",
@@ -74,7 +81,8 @@ export default function SplashScreenPage() {
             fontWeight: "bold",
             letterSpacing: 24,
             marginBottom: 16,
-            paddingLeft: 24,
+            textAlign: "center",
+            width: "100%",
           }}
         >
           李记茶
@@ -89,9 +97,11 @@ export default function SplashScreenPage() {
             letterSpacing: 6,
             textTransform: "uppercase",
             marginBottom: 48,
+            textAlign: "center",
+            width: "100%",
           }}
         >
-          LIJI TEA · EST. 2024
+          LIJI TEA · EST. 2026
         </Text>
 
         {/* 标语 */}
@@ -101,7 +111,8 @@ export default function SplashScreenPage() {
             color: "#f8f3eb80",
             fontSize: 14,
             letterSpacing: 12,
-            paddingLeft: 12,
+            textAlign: "center",
+            width: "100%",
           }}
         >
           一叶一世界
