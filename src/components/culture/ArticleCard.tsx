@@ -1,12 +1,13 @@
 import { View, Text, Pressable } from "react-native";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import type { Article } from "@/data/articles";
 
 export default function ArticleCard({ article, large = false }: { article: Article; large?: boolean }) {
   return (
-    <Pressable className={`${large ? "" : "flex-1"} active:opacity-80`}>
+    <Pressable className={`${large ? "" : "flex-1"} active:opacity-80`} onPress={() => router.push(`/article/${article.id}` as any)}>
       <View className={`${large ? "aspect-video" : "aspect-square"} rounded-xl overflow-hidden mb-2`}>
         <Image source={{ uri: article.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
       </View>
