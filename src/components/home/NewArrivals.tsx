@@ -1,15 +1,23 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useProductStore } from "@/stores/productStore";
+import { useCartStore } from "@/stores/cartStore";
 
 export default function NewArrivals() {
   const router = useRouter();
   const { products } = useProductStore();
+  const addItem = useCartStore((s) => s.addItem);
   // 筛选新品
   const newArrivals = products.filter((p) => p.isNew);
+
+  /** 快速加购 → 添加到购物车并提示 */
+  const handleAddToCart = (product: (typeof products)[number]) => {
+    addItem(product);
+    Alert.alert("提示", "已加入购物车");
+  };
 
   return (
     <View className="gap-4">
@@ -42,7 +50,7 @@ export default function NewArrivals() {
               </Text>
               <View className="flex-row justify-between items-center pt-2">
                 <Text className="text-primary font-bold">¥{product.price}</Text>
-                <Pressable hitSlop={8}>
+                <Pressable hitSlop={8} onPress={() => handleAddToCart(product)}>
                   <MaterialIcons
                     name="add-circle"
                     size={22}

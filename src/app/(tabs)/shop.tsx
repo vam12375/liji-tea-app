@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
@@ -13,8 +13,14 @@ import { useProductStore } from "@/stores/productStore";
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  // 从首页分类导航传入的初始分类参数
+  const { category: initialCategory } = useLocalSearchParams<{
+    category?: string;
+  }>();
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState<TeaCategory>("全部");
+  const [category, setCategory] = useState<TeaCategory>(
+    (initialCategory as TeaCategory) || "全部"
+  );
   const { products: allProducts } = useProductStore();
 
   // 筛选产品
