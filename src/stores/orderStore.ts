@@ -30,70 +30,86 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
   loading: false,
 
   createOrder: async (params) => {
-    const userId = useUserStore.getState().session?.user?.id;
-    if (!userId) return { orderId: null, error: '未登录' };
+    try {
+      const userId = useUserStore.getState().session?.user?.id;
+      if (!userId) return { orderId: null, error: '未登录' };
 
-    // 创建订单主记录
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert({
-        user_id: userId,
-        address_id: params.addressId,
-        total: params.total,
-        delivery_type: params.deliveryType,
-        payment_method: params.paymentMethod,
-        notes: params.notes ?? null,
-        gift_wrap: params.giftWrap,
-        status: 'pending',
-      })
-      .select()
-      .single();
+      // 创建订单主记录
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          user_id: userId,
+          address_id: params.addressId,
+          total: params.total,
+          delivery_type: params.deliveryType,
+          payment_method: params.paymentMethod,
+          notes: params.notes ?? null,
+          gift_wrap: params.giftWrap,
+          status: 'pending',
+        })
+        .select()
+        .single();
 
-    if (orderError || !order) {
-      return { orderId: null, error: orderError?.message ?? '创建订单失败' };
+      if (orderError || !order) {
+        return { orderId: null, error: orderError?.message ?? '创建订单失败' };
+      }
+
+      // 创建订单明细
+      const orderItems = params.items.map((item) => ({
+        order_id: order.id,
+        product_id: item.productId,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+
+      if (itemsError) {
+        return { orderId: null, error: itemsError.message };
+      }
+
+      return { orderId: order.id, error: null };
+    } catch (err: any) {
+      console.warn('[orderStore] createOrder 失败:', err);
+      return { orderId: null, error: err?.message ?? '创建订单失败' };
     }
-
-    // 创建订单明细
-    const orderItems = params.items.map((item) => ({
-      order_id: order.id,
-      product_id: item.productId,
-      quantity: item.quantity,
-      unit_price: item.unitPrice,
-    }));
-
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems);
-
-    if (itemsError) {
-      return { orderId: null, error: itemsError.message };
-    }
-
-    return { orderId: order.id, error: null };
   },
 
   fetchOrders: async () => {
-    const userId = useUserStore.getState().session?.user?.id;
-    if (!userId) return;
+    try {
+      const userId = useUserStore.getState().session?.user?.id;
+      if (!userId) return;
 
-    set({ loading: true });
-    const { data } = await supabase
-      .from('orders')
-      .select('*, order_items(*, product:products(*))')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      set({ loading: true });
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*, product:products(*))')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-    set({ orders: (data as Order[]) ?? [], loading: false });
+      if (error) throw error;
+      set({ orders: (data as Order[]) ?? [], loading: false });
+    } catch (err) {
+      console.warn('[orderStore] fetchOrders 失败:', err);
+      set({ loading: false });
+    }
   },
 
   fetchOrderById: async (id) => {
-    const { data } = await supabase
-      .from('orders')
-      .select('*, order_items(*, product:products(*)), address:addresses(*)')
-      .eq('id', id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, order_items(*, product:products(*)), address:addresses(*)')
+        .eq('id', id)
+        .single();
 
-    if (data) set({ currentOrder: data as Order });
+      if (error) throw error;
+      if (data) set({ currentOrder: data as Order });
+    } catch (err) {
+      console.warn('[orderStore] fetchOrderById 失败:', err);
+    }
   },
 
   updateOrder: (updated) => {

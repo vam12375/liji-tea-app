@@ -65,43 +65,55 @@ export const useProductStore = create<ProductState>()((set, get) => ({
   error: null,
 
   fetchProducts: async () => {
-    set({ loading: true, error: null });
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: true });
+    try {
+      set({ loading: true, error: null });
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: true });
 
-    if (error) {
-      set({ loading: false, error: error.message });
-      return;
+      if (error) throw error;
+      set({ products: (data ?? []).map(mapProduct), loading: false });
+    } catch (err: any) {
+      console.warn('[productStore] fetchProducts 失败:', err);
+      set({ loading: false, error: err?.message ?? '加载失败' });
     }
-    set({ products: (data ?? []).map(mapProduct), loading: false });
   },
 
   fetchProductById: async (id) => {
-    const cached = get().products.find((p) => p.id === id);
-    if (cached) return cached;
+    try {
+      const cached = get().products.find((p) => p.id === id);
+      if (cached) return cached;
 
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('id', id)
-      .single();
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    if (error || !data) return null;
-    return mapProduct(data);
+      if (error) throw error;
+      return data ? mapProduct(data) : null;
+    } catch (err) {
+      console.warn('[productStore] fetchProductById 失败:', err);
+      return null;
+    }
   },
 
   searchProducts: async (query) => {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('is_active', true)
-      .or(`name.ilike.%${query}%,origin.ilike.%${query}%`);
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('is_active', true)
+        .or(`name.ilike.%${query}%,origin.ilike.%${query}%`);
 
-    if (error || !data) return [];
-    return data.map(mapProduct);
+      if (error) throw error;
+      return (data ?? []).map(mapProduct);
+    } catch (err) {
+      console.warn('[productStore] searchProducts 失败:', err);
+      return [];
+    }
   },
 
   updateProduct: (updated) => {
