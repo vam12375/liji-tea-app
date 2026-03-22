@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { View, Text, ScrollView, Pressable, Switch, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, Switch } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useUserStore } from "@/stores/userStore";
+import { showModal, showConfirm } from "@/stores/modalStore";
 
 /** 设置项类型 */
 interface SettingItem {
@@ -22,19 +23,19 @@ export default function SettingsScreen() {
   // 消息通知开关本地状态
   const [notificationEnabled, setNotificationEnabled] = useState(true);
 
+  /** 退出登录操作 */
+  const handleLogoutAction = async () => {
+    await signOut();
+    router.replace("/(tabs)");
+  };
+
   /** 退出登录确认 */
   const handleLogout = () => {
-    Alert.alert("确认退出", "确定要退出登录吗？", [
-      { text: "取消", style: "cancel" },
-      {
-        text: "确认",
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/(tabs)");
-        },
-      },
-    ]);
+    showConfirm("确认退出", "确定要退出登录吗？", handleLogoutAction, {
+      icon: "logout",
+      confirmText: "确认退出",
+      confirmStyle: "destructive",
+    });
   };
 
   // 设置项配置
@@ -48,19 +49,19 @@ export default function SettingsScreen() {
       icon: "privacy-tip",
       label: "隐私协议",
       type: "navigate",
-      onPress: () => Alert.alert("提示", "隐私协议页面即将上线"),
+      onPress: () => showModal("提示", "隐私协议页面即将上线"),
     },
     {
       icon: "info",
       label: "关于我们",
       type: "navigate",
-      onPress: () => Alert.alert("提示", "关于我们页面即将上线"),
+      onPress: () => showModal("提示", "关于我们页面即将上线"),
     },
     {
       icon: "delete-sweep",
       label: "清除缓存",
       type: "navigate",
-      onPress: () => Alert.alert("提示", "缓存已清除"),
+      onPress: () => showModal("提示", "缓存已清除", "success"),
     },
   ];
 

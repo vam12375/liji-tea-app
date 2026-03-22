@@ -1,10 +1,11 @@
-import { View, Text, Pressable, Alert } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useProductStore } from "@/stores/productStore";
 import { useCartStore } from "@/stores/cartStore";
+import { showModal } from "@/stores/modalStore";
 
 export default function NewArrivals() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function NewArrivals() {
   /** 快速加购 → 添加到购物车并提示 */
   const handleAddToCart = (product: (typeof products)[number]) => {
     addItem(product);
-    Alert.alert("提示", "已加入购物车");
+    showModal("提示", "已加入购物车", "cart");
   };
 
   return (

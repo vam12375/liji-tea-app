@@ -1,8 +1,9 @@
-import { View, Text, Pressable, Alert } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useUserStore } from "@/stores/userStore";
+import { showModal, showConfirm } from "@/stores/modalStore";
 
 // 菜单项类型定义（含可选的 badge、highlight 和 route 字段）
 interface MenuItem {
@@ -33,23 +34,20 @@ export default function MenuList() {
     if (item.route) {
       router.push(item.route as any);
     } else {
-      Alert.alert("提示", "该功能即将上线");
+      showModal("提示", "该功能即将上线");
     }
   };
 
   /** 退出登录确认 */
   const handleLogout = () => {
-    Alert.alert("确认退出", "确定要退出登录吗？", [
-      { text: "取消", style: "cancel" },
-      {
-        text: "确认",
-        style: "destructive",
-        onPress: async () => {
-          await signOut();
-          router.replace("/(tabs)");
-        },
-      },
-    ]);
+    showConfirm("确认退出", "确定要退出登录吗？", async () => {
+      await signOut();
+      router.replace("/(tabs)");
+    }, {
+      icon: "logout",
+      confirmText: "确认退出",
+      confirmStyle: "destructive",
+    });
   };
 
   return (
