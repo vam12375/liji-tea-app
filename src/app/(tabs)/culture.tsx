@@ -1,9 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
-import { articles, type CultureCategory } from "@/data/articles";
+import { type CultureCategory } from "@/data/articles";
+import { useArticleStore } from "@/stores/articleStore";
 import FeaturedArticle from "@/components/culture/FeaturedArticle";
 import CategoryTabs from "@/components/culture/CategoryTabs";
 import ArticleCard from "@/components/culture/ArticleCard";
@@ -13,10 +14,15 @@ import SeasonalPicks from "@/components/culture/SeasonalPicks";
 export default function CultureScreen() {
   const insets = useSafeAreaInsets();
   const [category, setCategory] = useState<CultureCategory>("全部");
+  const { articles, fetchArticles } = useArticleStore();
+
+  useEffect(() => {
+    fetchArticles();
+  }, []);
 
   const filtered = useMemo(
     () => category === "全部" ? articles : articles.filter((a) => a.category === category),
-    [category]
+    [category, articles]
   );
 
   return (

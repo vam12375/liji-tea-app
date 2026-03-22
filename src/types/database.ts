@@ -73,3 +73,23 @@ export interface Favorite {
   product_id: string;
   created_at: string;
 }
+
+export interface Article {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  category: string;
+  image_url: string | null;
+  read_time: string | null;
+  date: string | null;
+  is_featured: boolean;
+  created_at: string;
+}
+
+export interface SeasonalPick {
+  id: string;
+  name: string;
+  description: string | null;
+  image_url: string | null;
+  created_at: string;
+}
