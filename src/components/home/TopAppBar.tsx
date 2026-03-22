@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -14,9 +14,8 @@ export default function TopAppBar() {
       className="bg-background/70 px-6 pb-3"
     >
       <View className="flex-row justify-between items-center h-14">
-        {/* 左侧 - Logo */}
-        <View className="flex-row items-center gap-3">
-          <MaterialIcons name="menu" size={24} color={Colors.primary} />
+        {/* 左侧 - 品牌标识 */}
+        <View className="flex-row items-center">
           <Text className="font-headline text-2xl tracking-widest font-bold text-primary">
             李记茶
           </Text>
@@ -27,7 +26,11 @@ export default function TopAppBar() {
           <Pressable hitSlop={8} onPress={() => router.push("/search" as any)}>
             <MaterialIcons name="search" size={24} color={Colors.primary} />
           </Pressable>
-          <Pressable hitSlop={8}>
+          {/* 通知入口 — 功能即将上线 */}
+          <Pressable
+            hitSlop={8}
+            onPress={() => Alert.alert("提示", "消息通知功能即将上线")}
+          >
             <MaterialIcons name="notifications-none" size={24} color={Colors.primary} />
           </Pressable>
         </View>

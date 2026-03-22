@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { ScrollView, View, Text, Pressable } from "react-native";
+import { useEffect, useState } from "react";
+import { ScrollView, View, Text, Pressable, RefreshControl } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import TopAppBar from "@/components/home/TopAppBar";
@@ -11,6 +11,7 @@ import NewArrivals from "@/components/home/NewArrivals";
 import SeasonalStory from "@/components/home/SeasonalStory";
 import { useProductStore } from "@/stores/productStore";
 import { useCartStore } from "@/stores/cartStore";
+import { Colors } from "@/constants/Colors";
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -18,9 +19,19 @@ export default function HomeScreen() {
   const fetchProducts = useProductStore((s) => s.fetchProducts);
   const totalItems = useCartStore((s) => s.totalItems);
 
+  // 下拉刷新状态
+  const [refreshing, setRefreshing] = useState(false);
+
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  /** 下拉刷新处理 — 重新拉取产品列表 */
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchProducts();
+    setRefreshing(false);
+  };
 
   const cartCount = totalItems();
 
@@ -31,6 +42,14 @@ export default function HomeScreen() {
         className="flex-1"
         contentContainerClassName="px-4 pb-8 gap-8"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
       >
         <HeroBanner />
         <CategoryRow />
