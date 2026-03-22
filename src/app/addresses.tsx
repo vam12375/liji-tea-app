@@ -5,7 +5,6 @@ import {
   FlatList,
   Pressable,
   TextInput,
-  Alert,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
@@ -14,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useUserStore, type Address } from "@/stores/userStore";
+import { showModal, showConfirm } from "@/stores/modalStore";
 
 export default function AddressesScreen() {
   const router = useRouter();
@@ -44,15 +44,15 @@ export default function AddressesScreen() {
   const handleSave = async () => {
     // 简单校验
     if (!formName.trim()) {
-      Alert.alert("提示", "请输入姓名");
+      showModal("提示", "请输入姓名");
       return;
     }
     if (!formPhone.trim()) {
-      Alert.alert("提示", "请输入电话");
+      showModal("提示", "请输入电话");
       return;
     }
     if (!formAddress.trim()) {
-      Alert.alert("提示", "请输入详细地址");
+      showModal("提示", "请输入详细地址");
       return;
     }
 
@@ -64,7 +64,7 @@ export default function AddressesScreen() {
     });
 
     if (err) {
-      Alert.alert("保存失败", err);
+      showModal("保存失败", err, "error");
     } else {
       resetForm();
     }
@@ -72,14 +72,11 @@ export default function AddressesScreen() {
 
   /** 确认删除地址 */
   const handleRemove = (id: string) => {
-    Alert.alert("确认删除", "确定要删除该地址吗？", [
-      { text: "取消", style: "cancel" },
-      {
-        text: "删除",
-        style: "destructive",
-        onPress: () => removeAddress(id),
-      },
-    ]);
+    showConfirm("确认删除", "确定要删除该地址吗？", () => removeAddress(id), {
+      icon: "delete",
+      confirmText: "删除",
+      confirmStyle: "destructive",
+    });
   };
 
   /** 渲染单个地址卡片 */

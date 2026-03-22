@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   Pressable,
-  Alert,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
@@ -15,6 +14,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "@/constants/Colors";
 import { useUserStore } from "@/stores/userStore";
+import { showModal } from "@/stores/modalStore";
 
 /** 编辑资料页 — 修改头像、昵称、手机号 */
 export default function EditProfileScreen() {
@@ -39,9 +39,9 @@ export default function EditProfileScreen() {
     setSaving(false);
 
     if (err) {
-      Alert.alert("错误", err);
+      showModal("错误", err, "error");
     } else {
-      Alert.alert("提示", "资料已更新");
+      showModal("提示", "资料已更新", "success");
       router.back();
     }
   };
@@ -51,7 +51,7 @@ export default function EditProfileScreen() {
     // 请求相册权限
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("提示", "需要相册权限才能更换头像");
+      showModal("提示", "需要相册权限才能更换头像");
       return;
     }
 
@@ -71,7 +71,7 @@ export default function EditProfileScreen() {
 
     const err = await uploadAvatar(asset.base64, ext);
     if (err) {
-      Alert.alert("错误", err);
+      showModal("错误", err, "error");
     }
   };
 

@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
-import { View, Text, Pressable, Alert } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useUserStore } from "@/stores/userStore";
+import { showModal } from "@/stores/modalStore";
 
 /**
  * 会员等级阶梯配置
@@ -47,7 +48,7 @@ export default function MemberHeader() {
   const handlePickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
-      Alert.alert("提示", "需要相册权限才能更换头像");
+      showModal("提示", "需要相册权限才能更换头像");
       return;
     }
 
@@ -64,14 +65,14 @@ export default function MemberHeader() {
     const asset = result.assets[0];
 
     if (!asset.base64) {
-      Alert.alert("提示", "无法读取图片数据");
+      showModal("提示", "无法读取图片数据", "error");
       return;
     }
 
     // 检查文件大小（2MB 限制，base64 长度 × 0.75 ≈ 原始字节数）
     const approxBytes = asset.base64.length * 0.75;
     if (approxBytes > 2 * 1024 * 1024) {
-      Alert.alert("提示", "图片大小不能超过 2MB，请选择更小的图片");
+      showModal("提示", "图片大小不能超过 2MB，请选择更小的图片");
       return;
     }
 
@@ -82,7 +83,7 @@ export default function MemberHeader() {
     const error = await uploadAvatar(asset.base64, ext);
     setUploading(false);
 
-    if (error) Alert.alert("上传失败", error);
+    if (error) showModal("上传失败", error, "error");
   };
 
   // 跳转编辑资料页
