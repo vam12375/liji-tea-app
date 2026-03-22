@@ -1,9 +1,13 @@
+import { useEffect } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
+import { supabase } from "@/lib/supabase";
+import { useOrderStore } from "@/stores/orderStore";
+import { useUserStore } from "@/stores/userStore";
 
 const TIMELINE = [
   { status: "已签收", detail: "已由本人签收，感谢使用顺丰速运", time: "2026-03-20 14:32", active: true },
@@ -15,6 +19,28 @@ const TIMELINE = [
 export default function TrackingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const userId = useUserStore((s) => s.session?.user?.id);
+  const { updateOrder } = useOrderStore();
+
+  // 实时订阅当前用户的订单状态变化
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel('user-orders')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `user_id=eq.${userId}` },
+        (payload) => {
+          updateOrder(payload.new as any);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   return (
     <View className="flex-1 bg-background">
