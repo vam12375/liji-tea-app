@@ -6,7 +6,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useCartStore } from "@/stores/cartStore";
 import { useUserStore } from "@/stores/userStore";
-import { allProducts } from "@/data/products";
+import { useProductStore } from "@/stores/productStore";
 import AddressCard from "@/components/checkout/AddressCard";
 import OrderItemCard from "@/components/checkout/OrderItemCard";
 import DeliveryOptions from "@/components/checkout/DeliveryOptions";
@@ -20,14 +20,17 @@ export default function CheckoutScreen() {
   const { items: cartItems, subtotal: cartSubtotal, clearCart } = useCartStore();
   const { getDefaultAddress } = useUserStore();
 
+  // 从 store 获取产品列表
+  const products = useProductStore((s) => s.products);
+
   // 区分"直接购买"和"购物车结算"
   const orderItems = useMemo(() => {
     if (productId) {
-      const product = allProducts.find((p) => p.id === productId);
+      const product = products.find((p) => p.id === productId);
       if (product) return [{ product, quantity: 1 }];
     }
     return cartItems;
-  }, [productId, cartItems]);
+  }, [productId, cartItems, products]);
 
   const orderSubtotal = useMemo(
     () => orderItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),

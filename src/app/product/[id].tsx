@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
-import { allProducts } from "@/data/products";
+import { useProductStore } from "@/stores/productStore";
 import { useCartStore } from "@/stores/cartStore";
 import { useUserStore } from "@/stores/userStore";
 import TastingProfile from "@/components/product/TastingProfile";
@@ -20,7 +20,8 @@ export default function ProductDetailScreen() {
   const toggleFavorite = useUserStore((s) => s.toggleFavorite);
   const isFavorite = useUserStore((s) => s.isFavorite);
 
-  const product = allProducts.find((p) => p.id === id);
+  const products = useProductStore((s) => s.products);
+  const product = products.find((p) => p.id === id);
   if (!product) {
     return (
       <View className="flex-1 items-center justify-center bg-background">

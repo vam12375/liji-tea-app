@@ -1,10 +1,21 @@
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import ProductCard from "@/components/product/ProductCard";
-import { featuredProducts } from "@/data/products";
+import { useProductStore } from "@/stores/productStore";
 
 export default function FeaturedProducts() {
   const router = useRouter();
+  const { products, loading } = useProductStore();
+  // 取前 3 个作为推荐
+  const featuredProducts = products.slice(0, 3);
+
+  if (loading && products.length === 0) {
+    return (
+      <View className="h-40 items-center justify-center">
+        <ActivityIndicator color="#5b7553" />
+      </View>
+    );
+  }
 
   return (
     <View className="gap-4">
