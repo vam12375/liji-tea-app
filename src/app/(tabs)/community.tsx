@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
-import { posts } from "@/data/community";
+import { useCommunityStore } from "@/stores/communityStore";
 import CommunityTabs from "@/components/community/CommunityTabs";
 import StoryRow from "@/components/community/StoryRow";
 import PostCard from "@/components/community/PostCard";
@@ -11,6 +11,11 @@ import PostCard from "@/components/community/PostCard";
 export default function CommunityScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState("动态");
+  const { posts, fetchPosts } = useCommunityStore();
+
+  useEffect(() => {
+    fetchPosts();
+  }, []);
 
   return (
     <View className="flex-1 bg-background">

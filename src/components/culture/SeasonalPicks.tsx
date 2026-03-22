@@ -1,10 +1,17 @@
+import { useEffect } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
-import { seasonalPicks } from "@/data/articles";
+import { useArticleStore } from "@/stores/articleStore";
 
 export default function SeasonalPicks() {
+  const { seasonalPicks, fetchSeasonalPicks } = useArticleStore();
+
+  useEffect(() => {
+    fetchSeasonalPicks();
+  }, []);
+
   return (
     <View className="gap-4">
       <View className="flex-row items-center gap-2">

@@ -1,10 +1,17 @@
+import { useEffect } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
-import { stories } from "@/data/community";
+import { useCommunityStore } from "@/stores/communityStore";
 
 export default function StoryRow() {
+  const { stories, fetchStories } = useCommunityStore();
+
+  useEffect(() => {
+    fetchStories();
+  }, []);
+
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-4 px-1">
       {/* 我的故事 */}

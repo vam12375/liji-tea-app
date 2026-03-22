@@ -1,21 +1,36 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, Pressable, FlatList, Switch, Dimensions } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
-import { giftCards, giftSets, messageTags } from "@/data/gifts";
+import { messageTags } from "@/data/gifts";
+import { useGiftStore } from "@/stores/giftStore";
 
 const CARD_WIDTH = Dimensions.get("window").width - 64;
 
 export default function GiftScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [selectedCard, setSelectedCard] = useState(giftCards[0].id);
-  const [selectedSet, setSelectedSet] = useState(giftSets[1].id);
+  const { giftCards, giftSets, fetchGiftCards, fetchGiftSets } = useGiftStore();
+  const [selectedCard, setSelectedCard] = useState("");
+  const [selectedSet, setSelectedSet] = useState("");
   const [message, setMessage] = useState("");
   const [wechat, setWechat] = useState(false);
+
+  useEffect(() => {
+    fetchGiftCards();
+    fetchGiftSets();
+  }, []);
+
+  // 选中第一个（数据加载后）
+  useEffect(() => {
+    if (giftCards.length > 0 && !selectedCard) setSelectedCard(giftCards[0].id);
+  }, [giftCards]);
+  useEffect(() => {
+    if (giftSets.length > 1 && !selectedSet) setSelectedSet(giftSets[1].id);
+  }, [giftSets]);
 
   const selectedPrice = giftSets.find((s) => s.id === selectedSet)?.price ?? 0;
 
