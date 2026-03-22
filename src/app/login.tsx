@@ -4,7 +4,7 @@ import { useRouter, Stack } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
 import { useUserStore } from '@/stores/userStore';
-import { showModal } from '@/stores/modalStore';
+import { showModal, showConfirm } from '@/stores/modalStore';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -36,7 +36,9 @@ export default function LoginScreen() {
     } else {
       error = await signIn(email.trim(), password);
       if (!error) {
-        router.back();
+        // 登录成功 — 显示优雅提示后返回
+        showModal('欢迎回来', '登录成功，祝您品茶愉快', 'success');
+        setTimeout(() => router.back(), 800);
         setLoading(false);
         return;
       }

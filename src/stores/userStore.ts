@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile, Address as DBAddress } from '@/types/database';
+import { useCartStore } from '@/stores/cartStore';
 
 /** 地址类型（兼容旧代码） */
 export interface Address {
@@ -104,12 +105,17 @@ export const useUserStore = create<UserState>()((set, get) => ({
 
   signUp: async (email, password, name) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: { data: { name: name ?? '茶友' } },
       });
-      return error?.message ?? null;
+      if (error) return error.message;
+      // Supabase 对已存在邮箱返回空 identities（不报错，防止邮箱枚举）
+      if (data?.user?.identities?.length === 0) {
+        return '该邮箱已注册，请直接登录';
+      }
+      return null;
     } catch (err: any) {
       console.warn('[userStore] signUp 失败:', err);
       return err?.message ?? '注册失败';
@@ -132,6 +138,8 @@ export const useUserStore = create<UserState>()((set, get) => ({
     } catch (err) {
       console.warn('[userStore] signOut 失败:', err);
     }
+    // 清空用户数据和购物车
+    useCartStore.getState().clearCart();
     set({
       session: null,
       profile: null,
