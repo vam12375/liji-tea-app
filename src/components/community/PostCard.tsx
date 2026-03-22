@@ -1,13 +1,16 @@
 import { View, Text, Pressable } from "react-native";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import type { Post } from "@/data/community";
 
 export default function PostCard({ post }: { post: Post }) {
-  if (post.type === "photo") return <PhotoPost post={post} />;
-  if (post.type === "brewing") return <BrewingPost post={post} />;
-  return <QuestionPost post={post} />;
+  const onPress = () => router.push(`/post/${post.id}` as any);
+
+  if (post.type === "photo") return <PhotoPost post={post} onPress={onPress} />;
+  if (post.type === "brewing") return <BrewingPost post={post} onPress={onPress} />;
+  return <QuestionPost post={post} onPress={onPress} />;
 }
 
 function PostHeader({ post }: { post: Post }) {
@@ -29,9 +32,9 @@ function PostHeader({ post }: { post: Post }) {
   );
 }
 
-function PhotoPost({ post }: { post: Post }) {
+function PhotoPost({ post, onPress }: { post: Post; onPress: () => void }) {
   return (
-    <View className="gap-3">
+    <Pressable className="gap-3 active:opacity-90" onPress={onPress}>
       <PostHeader post={post} />
       {post.image && (
         <Image source={{ uri: post.image }} style={{ width: "100%", height: 288, borderRadius: 12 }} contentFit="cover" />
@@ -39,31 +42,27 @@ function PhotoPost({ post }: { post: Post }) {
       <Text className="text-on-surface text-[15px] leading-relaxed">{post.caption}</Text>
       <View className="flex-row justify-between items-center">
         <View className="flex-row gap-5">
-          <Pressable className="flex-row items-center gap-1">
+          <View className="flex-row items-center gap-1">
             <MaterialIcons name="favorite-border" size={20} color={Colors.secondary} />
             <Text className="text-secondary text-sm">{post.likes}</Text>
-          </Pressable>
-          <Pressable className="flex-row items-center gap-1">
+          </View>
+          <View className="flex-row items-center gap-1">
             <MaterialIcons name="chat-bubble-outline" size={20} color={Colors.secondary} />
             <Text className="text-secondary text-sm">{post.comments}</Text>
-          </Pressable>
+          </View>
         </View>
         <View className="flex-row gap-4">
-          <Pressable hitSlop={8}>
-            <MaterialIcons name="bookmark-border" size={20} color={Colors.secondary} />
-          </Pressable>
-          <Pressable hitSlop={8}>
-            <MaterialIcons name="share" size={20} color={Colors.secondary} />
-          </Pressable>
+          <MaterialIcons name="bookmark-border" size={20} color={Colors.secondary} />
+          <MaterialIcons name="share" size={20} color={Colors.secondary} />
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
-function BrewingPost({ post }: { post: Post }) {
+function BrewingPost({ post, onPress }: { post: Post; onPress: () => void }) {
   return (
-    <View className="bg-surface-container-low rounded-2xl border-l-4 border-primary-container p-5 gap-3">
+    <Pressable onPress={onPress} className="bg-surface-container-low rounded-2xl border-l-4 border-primary-container p-5 gap-3 active:opacity-90">
       <View className="flex-row items-center gap-2">
         <View className="bg-primary-container/20 px-2 py-0.5 rounded">
           <Text className="text-primary text-[10px] font-bold">冲泡分享</Text>
@@ -101,13 +100,13 @@ function BrewingPost({ post }: { post: Post }) {
           <Text className="text-secondary italic text-sm">"{post.quote}"</Text>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 
-function QuestionPost({ post }: { post: Post }) {
+function QuestionPost({ post, onPress }: { post: Post; onPress: () => void }) {
   return (
-    <View className="bg-surface-container-highest/40 p-6 rounded-3xl gap-3">
+    <Pressable onPress={onPress} className="bg-surface-container-highest/40 p-6 rounded-3xl gap-3 active:opacity-90">
       <View className="bg-tertiary-fixed self-start px-2.5 py-0.5 rounded-full">
         <Text className="text-on-surface text-[10px] font-bold">求助</Text>
       </View>
@@ -115,10 +114,10 @@ function QuestionPost({ post }: { post: Post }) {
       <Text className="text-on-surface/80 text-sm leading-relaxed">{post.description}</Text>
       <View className="flex-row justify-between items-center pt-2">
         <Text className="text-outline text-xs">{post.answerCount}+ 人已回答</Text>
-        <Pressable className="bg-primary px-5 py-2 rounded-full active:opacity-80">
+        <View className="bg-primary px-5 py-2 rounded-full">
           <Text className="text-on-primary text-sm font-medium">我来回答</Text>
-        </Pressable>
+        </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
