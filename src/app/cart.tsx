@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useCartStore } from "@/stores/cartStore";
+import { useUserStore } from "@/stores/userStore";
 import CartItemCard from "@/components/cart/CartItemCard";
 import OrderSummary from "@/components/cart/OrderSummary";
 
@@ -12,6 +13,7 @@ export default function CartScreen() {
   const insets = useSafeAreaInsets();
   const { items, updateQuantity, removeItem, subtotal, totalItems } =
     useCartStore();
+  const session = useUserStore((s) => s.session);
 
   const isEmpty = items.length === 0;
 
@@ -100,7 +102,13 @@ export default function CartScreen() {
               </Text>
             </View>
             <Pressable
-              onPress={() => router.push("/checkout" as any)}
+              onPress={() => {
+                if (!session) {
+                  router.push('/login' as any);
+                  return;
+                }
+                router.push("/checkout" as any);
+              }}
               className="bg-primary-container px-8 py-3 rounded-full active:bg-primary"
             >
               <Text className="text-on-primary font-medium">
