@@ -132,6 +132,15 @@ export default function ProductDetailScreen() {
               <Text className="font-headline text-lg text-on-surface">
                 产地故事
               </Text>
+              {/* 产地配图 */}
+              <View className="rounded-2xl overflow-hidden aspect-[16/10]">
+                <Image
+                  source={{ uri: product.image }}
+                  style={{ width: "100%", height: "100%" }}
+                  contentFit="cover"
+                  transition={300}
+                />
+              </View>
               <Text className="text-on-surface-variant text-sm leading-relaxed">
                 {product.originStory}
               </Text>
