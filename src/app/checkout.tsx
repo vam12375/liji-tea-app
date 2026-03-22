@@ -7,6 +7,7 @@ import { Colors } from "@/constants/Colors";
 import { useCartStore } from "@/stores/cartStore";
 import { useUserStore } from "@/stores/userStore";
 import { useProductStore } from "@/stores/productStore";
+import { useOrderStore } from "@/stores/orderStore";
 import AddressCard from "@/components/checkout/AddressCard";
 import OrderItemCard from "@/components/checkout/OrderItemCard";
 import DeliveryOptions from "@/components/checkout/DeliveryOptions";
@@ -19,6 +20,7 @@ export default function CheckoutScreen() {
   const { productId } = useLocalSearchParams<{ productId?: string }>();
   const { items: cartItems, subtotal: cartSubtotal, clearCart } = useCartStore();
   const { getDefaultAddress } = useUserStore();
+  const { createOrder } = useOrderStore();
 
   // 从 store 获取产品列表
   const products = useProductStore((s) => s.products);
@@ -48,14 +50,43 @@ export default function CheckoutScreen() {
   const giftBoxPrice = giftBox ? 28 : 0;
   const total = orderSubtotal + shippingCost - discount + giftBoxPrice;
 
-  const handleSubmit = () => {
-    Alert.alert("订单已提交", `订单金额: ¥${total}`, [
+  const handleSubmit = async () => {
+    const session = useUserStore.getState().session;
+    if (!session) {
+      router.push('/login' as any);
+      return;
+    }
+    if (!address) {
+      Alert.alert('提示', '请添加收货地址');
+      return;
+    }
+
+    const { orderId, error } = await createOrder({
+      items: orderItems.map((item) => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        unitPrice: item.product.price,
+      })),
+      addressId: address.id,
+      total,
+      deliveryType: delivery,
+      paymentMethod: payment,
+      notes: note || undefined,
+      giftWrap: giftBox,
+    });
+
+    if (error) {
+      Alert.alert('订单失败', error);
+      return;
+    }
+
+    Alert.alert('订单已提交', `订单金额: ¥${total}`, [
       {
-        text: "确定",
+        text: '确定',
         onPress: () => {
           // 购物车结算时清空购物车，直接购买不清空
           if (!productId) clearCart();
-          router.replace("/(tabs)" as any);
+          router.replace('/(tabs)' as any);
         },
       },
     ]);
