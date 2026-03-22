@@ -1,10 +1,12 @@
+import { useEffect } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
-import { allProducts } from "@/data/products";
+import { supabase } from "@/lib/supabase";
+import { useProductStore } from "@/stores/productStore";
 import { useCartStore } from "@/stores/cartStore";
 import { useUserStore } from "@/stores/userStore";
 import TastingProfile from "@/components/product/TastingProfile";
@@ -20,7 +22,29 @@ export default function ProductDetailScreen() {
   const toggleFavorite = useUserStore((s) => s.toggleFavorite);
   const isFavorite = useUserStore((s) => s.isFavorite);
 
-  const product = allProducts.find((p) => p.id === id);
+  const products = useProductStore((s) => s.products);
+  const product = products.find((p) => p.id === id);
+
+  // 实时订阅库存变化
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`product-${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'products', filter: `id=eq.${id}` },
+        (payload) => {
+          useProductStore.getState().updateProduct(payload.new as any);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [id]);
+
   if (!product) {
     return (
       <View className="flex-1 items-center justify-center bg-background">

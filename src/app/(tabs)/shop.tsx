@@ -7,13 +7,15 @@ import { Colors } from "@/constants/Colors";
 import SearchBar from "@/components/shop/SearchBar";
 import FilterChips from "@/components/shop/FilterChips";
 import ShopProductCard from "@/components/shop/ShopProductCard";
-import { allProducts, type TeaCategory } from "@/data/products";
+import { type TeaCategory } from "@/data/products";
+import { useProductStore } from "@/stores/productStore";
 
 export default function ShopScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<TeaCategory>("全部");
+  const { products: allProducts } = useProductStore();
 
   // 筛选产品
   const filteredProducts = useMemo(() => {
@@ -30,7 +32,7 @@ export default function ShopScreen() {
       );
     }
     return result;
-  }, [category, search]);
+  }, [allProducts, category, search]);
 
   return (
     <View className="flex-1 bg-background">

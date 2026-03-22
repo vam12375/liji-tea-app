@@ -3,10 +3,13 @@ import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
-import { newArrivals } from "@/data/products";
+import { useProductStore } from "@/stores/productStore";
 
 export default function NewArrivals() {
   const router = useRouter();
+  const { products } = useProductStore();
+  // 筛选新品
+  const newArrivals = products.filter((p) => p.isNew);
 
   return (
     <View className="gap-4">
