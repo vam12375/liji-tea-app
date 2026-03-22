@@ -115,7 +115,23 @@ export default function CheckoutScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* 收货地址 */}
-        {address && <AddressCard address={address} />}
+        {address ? (
+          <AddressCard address={address} />
+        ) : (
+          <Pressable
+            onPress={() => router.push("/addresses" as any)}
+            className="bg-surface-container-low rounded-xl p-4 flex-row items-center gap-3 active:opacity-80"
+          >
+            <View className="w-10 h-10 rounded-full bg-primary-fixed items-center justify-center">
+              <MaterialIcons name="add-location-alt" size={22} color={Colors.primary} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-on-surface font-medium text-sm">添加收货地址</Text>
+              <Text className="text-outline text-xs mt-0.5">请先添加收货地址再提交订单</Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={Colors.outline} />
+          </Pressable>
+        )}
 
         {/* 订单商品 */}
         <View className="bg-surface-container-lowest rounded-xl px-4">

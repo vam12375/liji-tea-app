@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import { useProductStore } from "@/stores/productStore";
 import { useCartStore } from "@/stores/cartStore";
 import { useUserStore } from "@/stores/userStore";
+import { showModal } from "@/stores/modalStore";
 import TastingProfile from "@/components/product/TastingProfile";
 import BrewingGuideCard from "@/components/product/BrewingGuideCard";
 import ProcessTimeline from "@/components/product/ProcessTimeline";
@@ -78,7 +79,10 @@ export default function ProductDetailScreen() {
               <MaterialIcons name="arrow-back" size={22} color="#fff" />
             </Pressable>
             <View className="flex-row gap-3">
-              <Pressable className="w-10 h-10 rounded-full bg-surface/20 items-center justify-center">
+              <Pressable
+                onPress={() => showModal("提示", "分享功能即将上线")}
+                className="w-10 h-10 rounded-full bg-surface/20 items-center justify-center"
+              >
                 <MaterialIcons name="share" size={22} color="#fff" />
               </Pressable>
               <Pressable
@@ -114,6 +118,17 @@ export default function ProductDetailScreen() {
                 /{product.unit}
               </Text>
             </Text>
+            {/* 库存信息 */}
+            <View className="flex-row items-center gap-1.5 mt-1">
+              <MaterialIcons
+                name={(product.stock ?? 0) > 10 ? "check-circle" : (product.stock ?? 0) > 0 ? "warning" : "cancel"}
+                size={14}
+                color={(product.stock ?? 0) > 10 ? Colors.primary : (product.stock ?? 0) > 0 ? "#e6a700" : Colors.error}
+              />
+              <Text className={`text-xs ${(product.stock ?? 0) > 10 ? "text-primary" : (product.stock ?? 0) > 0 ? "text-[#e6a700]" : "text-error"}`}>
+                {(product.stock ?? 0) > 10 ? "库存充足" : (product.stock ?? 0) > 0 ? `仅剩 ${product.stock} 件` : "已售罄"}
+              </Text>
+            </View>
           </View>
 
           {/* 风味赏析 */}
@@ -174,16 +189,22 @@ export default function ProductDetailScreen() {
 
         {/* 加入购物车 */}
         <Pressable
-          onPress={() => addItem(product)}
-          className="flex-1 bg-surface-container-high h-12 rounded-full items-center justify-center active:bg-surface-container-highest"
+          onPress={() => {
+            if ((product.stock ?? 0) === 0) return;
+            addItem(product);
+          }}
+          className={`flex-1 bg-surface-container-high h-12 rounded-full items-center justify-center active:bg-surface-container-highest ${(product.stock ?? 0) === 0 ? "opacity-50" : ""}`}
         >
           <Text className="text-on-surface font-medium">加入购物车</Text>
         </Pressable>
 
         {/* 立即购买 */}
         <Pressable
-          onPress={() => router.push(`/checkout?productId=${id}` as any)}
-          className="flex-1 bg-primary-container h-12 rounded-full items-center justify-center active:bg-primary"
+          onPress={() => {
+            if ((product.stock ?? 0) === 0) return;
+            router.push(`/checkout?productId=${id}` as any);
+          }}
+          className={`flex-1 bg-primary-container h-12 rounded-full items-center justify-center active:bg-primary ${(product.stock ?? 0) === 0 ? "opacity-50" : ""}`}
         >
           <Text className="text-on-primary font-medium">立即购买</Text>
         </Pressable>
