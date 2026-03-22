@@ -1,32 +1,64 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Alert } from "react-native";
+import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
+import { useUserStore } from "@/stores/userStore";
 
-// 菜单项类型定义（含可选的 badge 和 highlight 字段）
+// 菜单项类型定义（含可选的 badge、highlight 和 route 字段）
 interface MenuItem {
   icon: React.ComponentProps<typeof MaterialIcons>["name"];
   label: string;
   badge?: string;
   highlight?: boolean;
+  route?: string | null;
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  { icon: "location-on", label: "收货地址管理" },
-  { icon: "confirmation-number", label: "优惠券", badge: "3张可用" },
-  { icon: "receipt-long", label: "我的订单" },
-  { icon: "favorite", label: "我的收藏" },
-  { icon: "comment", label: "我的评价" },
-  { icon: "history-edu", label: "冲泡记录" },
-  { icon: "person-add", label: "邀请好友", highlight: true },
-  { icon: "settings", label: "设置" },
+  { icon: "location-on", label: "收货地址管理", route: "/addresses" },
+  { icon: "confirmation-number", label: "优惠券", badge: "3张可用", route: null },
+  { icon: "receipt-long", label: "我的订单", route: "/orders" },
+  { icon: "favorite", label: "我的收藏", route: "/favorites" },
+  { icon: "comment", label: "我的评价", route: null },
+  { icon: "history-edu", label: "冲泡记录", route: null },
+  { icon: "person-add", label: "邀请好友", highlight: true, route: null },
+  { icon: "settings", label: "设置", route: "/settings" },
 ];
 
 export default function MenuList() {
+  const router = useRouter();
+  const signOut = useUserStore((s) => s.signOut);
+
+  /** 菜单项点击处理 */
+  const handlePress = (item: MenuItem) => {
+    if (item.route) {
+      router.push(item.route as any);
+    } else {
+      Alert.alert("提示", "该功能即将上线");
+    }
+  };
+
+  /** 退出登录确认 */
+  const handleLogout = () => {
+    Alert.alert("确认退出", "确定要退出登录吗？", [
+      { text: "取消", style: "cancel" },
+      {
+        text: "确认",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+          router.replace("/(tabs)");
+        },
+      },
+    ]);
+  };
+
   return (
     <View className="px-4 gap-0">
+      {/* 菜单列表 */}
       {MENU_ITEMS.map((item) => (
         <Pressable
           key={item.label}
+          onPress={() => handlePress(item)}
           className={`flex-row items-center py-4 border-b border-outline-variant/10 active:bg-surface-container/50 ${
             item.highlight ? "bg-primary/5" : ""
           }`}
@@ -51,6 +83,14 @@ export default function MenuList() {
           <MaterialIcons name="chevron-right" size={18} color={Colors.outline} />
         </Pressable>
       ))}
+
+      {/* 退出登录按钮 */}
+      <Pressable
+        onPress={handleLogout}
+        className="mt-8 py-3 items-center active:opacity-70"
+      >
+        <Text className="text-error text-sm font-medium">退出登录</Text>
+      </Pressable>
     </View>
   );
 }
