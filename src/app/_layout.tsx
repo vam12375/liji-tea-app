@@ -15,6 +15,7 @@ import {
 } from "@expo-google-fonts/manrope";
 import { supabase } from "@/lib/supabase";
 import { useUserStore } from "@/stores/userStore";
+import TeaModal from "@/components/ui/TeaModal";
 
 // 防止启动屏在字体加载前消失
 SplashScreen.preventAutoHideAsync();
@@ -79,6 +80,8 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
+      {/* 全局自定义弹窗 */}
+      <TeaModal />
     </>
   );
 }

@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { View, Text, ScrollView, Pressable, Animated } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
@@ -19,12 +19,121 @@ export default function ProductDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const addItem = useCartStore((s) => s.addItem);
-  const totalItems = useCartStore((s) => s.totalItems);
+  // 直接订阅 items 以确保响应式更新
+  const cartItems = useCartStore((s) => s.items);
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const toggleFavorite = useUserStore((s) => s.toggleFavorite);
   const isFavorite = useUserStore((s) => s.isFavorite);
 
   const products = useProductStore((s) => s.products);
   const product = products.find((p) => p.id === id);
+
+  // ====== 加购动画状态 ======
+  const [showToast, setShowToast] = useState(false);
+  const [showDot, setShowDot] = useState(false);
+
+  // 动画值
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastTranslateY = useRef(new Animated.Value(20)).current;
+  const toastScale = useRef(new Animated.Value(0.8)).current;
+  const cartShake = useRef(new Animated.Value(0)).current;
+  const badgeScale = useRef(new Animated.Value(1)).current;
+  const dotOpacity = useRef(new Animated.Value(0)).current;
+  const dotTranslateY = useRef(new Animated.Value(0)).current;
+  const dotTranslateX = useRef(new Animated.Value(0)).current;
+  const dotScale = useRef(new Animated.Value(1)).current;
+  const checkScale = useRef(new Animated.Value(0)).current;
+
+  /** 加入购物车 + 动画编排 */
+  const handleAddToCart = useCallback(() => {
+    if (!product || (product.stock ?? 0) === 0) return;
+    addItem(product);
+
+    // 1. 显示打钩 Toast
+    setShowToast(true);
+    toastOpacity.setValue(0);
+    toastTranslateY.setValue(20);
+    toastScale.setValue(0.8);
+    checkScale.setValue(0);
+
+    Animated.parallel([
+      Animated.spring(toastOpacity, { toValue: 1, useNativeDriver: true }),
+      Animated.spring(toastTranslateY, { toValue: 0, useNativeDriver: true, damping: 12 }),
+      Animated.spring(toastScale, { toValue: 1, useNativeDriver: true, damping: 10 }),
+    ]).start();
+
+    // 打钩弹出
+    setTimeout(() => {
+      Animated.spring(checkScale, { toValue: 1, useNativeDriver: true, damping: 8 }).start();
+    }, 150);
+
+    // 2. 飞入红点动画（延迟 300ms）
+    setTimeout(() => {
+      setShowDot(true);
+      dotOpacity.setValue(1);
+      dotScale.setValue(1);
+      dotTranslateY.setValue(0);
+      dotTranslateX.setValue(0);
+
+      Animated.parallel([
+        // 红点飞向左侧购物车（向左移动、向下移动）
+        Animated.timing(dotTranslateX, {
+          toValue: -100,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        Animated.timing(dotTranslateY, {
+          toValue: 20,
+          duration: 450,
+          useNativeDriver: true,
+        }),
+        // 缩小消失
+        Animated.sequence([
+          Animated.delay(200),
+          Animated.timing(dotScale, {
+            toValue: 0.3,
+            duration: 250,
+            useNativeDriver: true,
+          }),
+        ]),
+        // 淡出
+        Animated.sequence([
+          Animated.delay(350),
+          Animated.timing(dotOpacity, {
+            toValue: 0,
+            duration: 100,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start(() => setShowDot(false));
+    }, 300);
+
+    // 3. 购物车图标抖动（延迟 700ms，红点到达时触发）
+    setTimeout(() => {
+      Animated.sequence([
+        Animated.timing(cartShake, { toValue: 8, duration: 60, useNativeDriver: true }),
+        Animated.timing(cartShake, { toValue: -8, duration: 60, useNativeDriver: true }),
+        Animated.timing(cartShake, { toValue: 6, duration: 50, useNativeDriver: true }),
+        Animated.timing(cartShake, { toValue: -6, duration: 50, useNativeDriver: true }),
+        Animated.timing(cartShake, { toValue: 3, duration: 40, useNativeDriver: true }),
+        Animated.timing(cartShake, { toValue: 0, duration: 40, useNativeDriver: true }),
+      ]).start();
+
+      // Badge 弹跳
+      Animated.sequence([
+        Animated.spring(badgeScale, { toValue: 1.4, useNativeDriver: true, damping: 6 }),
+        Animated.spring(badgeScale, { toValue: 1, useNativeDriver: true, damping: 8 }),
+      ]).start();
+    }, 700);
+
+    // 4. Toast 自动消失
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(toastOpacity, { toValue: 0, duration: 250, useNativeDriver: true }),
+        Animated.timing(toastTranslateY, { toValue: -10, duration: 250, useNativeDriver: true }),
+      ]).start(() => setShowToast(false));
+    }, 1800);
+  }, [product, addItem]);
 
   // 实时订阅库存变化
   useEffect(() => {
@@ -167,32 +276,85 @@ export default function ProductDetailScreen() {
         </View>
       </ScrollView>
 
+      {/* ====== 加购成功 Toast ====== */}
+      {showToast && (
+        <Animated.View
+          style={{
+            position: "absolute",
+            bottom: 100 + (insets.bottom || 16),
+            alignSelf: "center",
+            opacity: toastOpacity,
+            transform: [
+              { translateY: toastTranslateY },
+              { scale: toastScale },
+            ],
+          }}
+          className="bg-on-surface/85 rounded-2xl px-6 py-3 flex-row items-center gap-3"
+          pointerEvents="none"
+        >
+          {/* 打钩圆圈 */}
+          <Animated.View
+            style={{ transform: [{ scale: checkScale }] }}
+            className="w-7 h-7 rounded-full bg-primary items-center justify-center"
+          >
+            <MaterialIcons name="check" size={18} color="#fff" />
+          </Animated.View>
+          <Text className="text-surface-bright text-sm font-medium">
+            已加入购物车
+          </Text>
+        </Animated.View>
+      )}
+
+      {/* ====== 飞入红点 ====== */}
+      {showDot && (
+        <Animated.View
+          style={{
+            position: "absolute",
+            bottom: 36 + (insets.bottom || 16),
+            right: "38%",
+            width: 14,
+            height: 14,
+            borderRadius: 7,
+            backgroundColor: Colors.error,
+            opacity: dotOpacity,
+            transform: [
+              { translateX: dotTranslateX },
+              { translateY: dotTranslateY },
+              { scale: dotScale },
+            ],
+          }}
+          pointerEvents="none"
+        />
+      )}
+
       {/* 底部操作栏 */}
       <View
         style={{ paddingBottom: insets.bottom || 16 }}
         className="absolute bottom-0 left-0 right-0 bg-background/95 border-t border-outline-variant/10 px-4 pt-3 flex-row items-center gap-3"
       >
-        {/* 购物车图标 */}
-        <Pressable
-          onPress={() => router.push("/cart" as any)}
-          className="w-12 h-12 rounded-full border border-outline-variant items-center justify-center relative"
-        >
-          <MaterialIcons name="shopping-cart" size={22} color={Colors.primary} />
-          {totalItems() > 0 && (
-            <View className="absolute -top-1 -right-1 bg-error w-5 h-5 rounded-full items-center justify-center">
-              <Text className="text-on-error text-[10px] font-bold">
-                {totalItems()}
-              </Text>
-            </View>
-          )}
-        </Pressable>
+        {/* 购物车图标（带抖动动画） */}
+        <Animated.View style={{ transform: [{ translateX: cartShake }] }}>
+          <Pressable
+            onPress={() => router.push("/cart" as any)}
+            className="w-12 h-12 rounded-full border border-outline-variant items-center justify-center relative"
+          >
+            <MaterialIcons name="shopping-cart" size={22} color={Colors.primary} />
+            {cartCount > 0 && (
+              <Animated.View
+                style={{ transform: [{ scale: badgeScale }] }}
+                className="absolute -top-1 -right-1 bg-error w-5 h-5 rounded-full items-center justify-center"
+              >
+                <Text className="text-on-error text-[10px] font-bold">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </Text>
+              </Animated.View>
+            )}
+          </Pressable>
+        </Animated.View>
 
         {/* 加入购物车 */}
         <Pressable
-          onPress={() => {
-            if ((product.stock ?? 0) === 0) return;
-            addItem(product);
-          }}
+          onPress={handleAddToCart}
           className={`flex-1 bg-surface-container-high h-12 rounded-full items-center justify-center active:bg-surface-container-highest ${(product.stock ?? 0) === 0 ? "opacity-50" : ""}`}
         >
           <Text className="text-on-surface font-medium">加入购物车</Text>

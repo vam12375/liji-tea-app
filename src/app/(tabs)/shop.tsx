@@ -49,8 +49,9 @@ export default function ShopScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const { products: allProducts, loading, fetchProducts } = useProductStore();
-  const totalItems = useCartStore((s) => s.totalItems);
-
+  // 直接订阅 items 确保购物车数量响应式更新
+  const cartItems = useCartStore((s) => s.items);
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   // 当前排序的显示名称
   const sortLabel = SORT_OPTIONS.find((o) => o.key === sort)?.label ?? "推荐";
 
@@ -99,9 +100,6 @@ export default function ShopScreen() {
     await fetchProducts();
     setRefreshing(false);
   }, [fetchProducts]);
-
-  // 购物车商品数量
-  const cartCount = totalItems();
 
   // Loading 状态：首次加载中且无产品数据
   if (loading && allProducts.length === 0) {

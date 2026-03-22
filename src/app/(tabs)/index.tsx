@@ -17,7 +17,9 @@ export default function HomeScreen() {
   const router = useRouter();
   // 首页挂载时拉取产品数据
   const fetchProducts = useProductStore((s) => s.fetchProducts);
-  const totalItems = useCartStore((s) => s.totalItems);
+  // 直接订阅 items 确保购物车数量响应式更新
+  const cartItems = useCartStore((s) => s.items);
+  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   // 下拉刷新状态
   const [refreshing, setRefreshing] = useState(false);
@@ -32,8 +34,6 @@ export default function HomeScreen() {
     await fetchProducts();
     setRefreshing(false);
   };
-
-  const cartCount = totalItems();
 
   return (
     <View className="flex-1 bg-background">
