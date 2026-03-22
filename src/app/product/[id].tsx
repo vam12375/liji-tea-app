@@ -23,7 +23,9 @@ export default function ProductDetailScreen() {
   const cartItems = useCartStore((s) => s.items);
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const toggleFavorite = useUserStore((s) => s.toggleFavorite);
-  const isFavorite = useUserStore((s) => s.isFavorite);
+  // 直接订阅 favorites 确保收藏状态实时响应
+  const favorites = useUserStore((s) => s.favorites);
+  const isFav = id ? favorites.includes(id) : false;
 
   const products = useProductStore((s) => s.products);
   const product = products.find((p) => p.id === id);
@@ -43,6 +45,19 @@ export default function ProductDetailScreen() {
   const dotTranslateX = useRef(new Animated.Value(0)).current;
   const dotScale = useRef(new Animated.Value(1)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
+
+  // 收藏心跳动画
+  const heartScale = useRef(new Animated.Value(1)).current;
+
+  /** 收藏切换 + 心跳动画 */
+  const handleToggleFavorite = useCallback(() => {
+    if (!id) return;
+    toggleFavorite(id);
+    Animated.sequence([
+      Animated.spring(heartScale, { toValue: 1.5, useNativeDriver: true, damping: 6 }),
+      Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, damping: 8 }),
+    ]).start();
+  }, [id, toggleFavorite]);
 
   /** 加入购物车 + 动画编排 */
   const handleAddToCart = useCallback(() => {
@@ -195,14 +210,16 @@ export default function ProductDetailScreen() {
                 <MaterialIcons name="share" size={22} color="#fff" />
               </Pressable>
               <Pressable
-                onPress={() => toggleFavorite(id!)}
+                onPress={handleToggleFavorite}
                 className="w-10 h-10 rounded-full bg-surface/20 items-center justify-center"
               >
-                <MaterialIcons
-                  name={isFavorite(id!) ? "favorite" : "favorite-border"}
-                  size={22}
-                  color="#fff"
-                />
+                <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                  <MaterialIcons
+                    name={isFav ? "favorite" : "favorite-border"}
+                    size={22}
+                    color={isFav ? "#ff4d6a" : "#fff"}
+                  />
+                </Animated.View>
               </Pressable>
             </View>
           </View>
