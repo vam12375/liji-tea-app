@@ -1,4 +1,5 @@
 import { View, Text, ScrollView, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import type { ComponentProps } from "react";
@@ -8,12 +9,11 @@ type IconName = ComponentProps<typeof MaterialIcons>["name"];
 interface Category {
   label: string;
   icon: IconName;
-  active?: boolean;
 }
 
 /** 茶类分类数据 */
 const CATEGORIES: Category[] = [
-  { label: "岩茶", icon: "energy-savings-leaf", active: true },
+  { label: "岩茶", icon: "energy-savings-leaf" },
   { label: "绿茶", icon: "eco" },
   { label: "白茶", icon: "spa" },
   { label: "红茶", icon: "coffee" },
@@ -23,6 +23,15 @@ const CATEGORIES: Category[] = [
 ];
 
 export default function CategoryRow() {
+  const router = useRouter();
+
+  /** 点击分类 → 跳转商城页并带上分类筛选参数 */
+  const handleCategoryPress = (label: string) => {
+    router.push(
+      ("/(tabs)/shop?category=" + encodeURIComponent(label)) as any
+    );
+  };
+
   return (
     <ScrollView
       horizontal
@@ -30,18 +39,16 @@ export default function CategoryRow() {
       contentContainerClassName="gap-6 px-1"
     >
       {CATEGORIES.map((cat) => (
-        <Pressable key={cat.label} className="items-center gap-2">
-          <View
-            className={`w-14 h-14 rounded-full items-center justify-center ${
-              cat.active
-                ? "bg-surface-container-high border-2 border-primary-container"
-                : "bg-surface-container-high"
-            }`}
-          >
+        <Pressable
+          key={cat.label}
+          className="items-center gap-2 active:opacity-70"
+          onPress={() => handleCategoryPress(cat.label)}
+        >
+          <View className="w-14 h-14 rounded-full items-center justify-center bg-surface-container-high">
             <MaterialIcons
               name={cat.icon}
               size={24}
-              color={cat.active ? Colors.primary : Colors.secondary}
+              color={Colors.secondary}
             />
           </View>
           <Text className="text-xs font-medium text-on-surface">

@@ -52,21 +52,32 @@ export const useGiftStore = create<GiftState>()((set) => ({
   loading: false,
 
   fetchGiftCards: async () => {
-    const { data } = await supabase
-      .from('gift_cards')
-      .select('*')
-      .order('created_at');
+    try {
+      const { data, error } = await supabase
+        .from('gift_cards')
+        .select('*')
+        .order('created_at');
 
-    if (data) set({ giftCards: data.map(mapGiftCard) });
+      if (error) throw error;
+      if (data) set({ giftCards: data.map(mapGiftCard) });
+    } catch (err) {
+      console.warn('[giftStore] fetchGiftCards 失败:', err);
+    }
   },
 
   fetchGiftSets: async () => {
-    set({ loading: true });
-    const { data } = await supabase
-      .from('gift_sets')
-      .select('*')
-      .order('created_at');
+    try {
+      set({ loading: true });
+      const { data, error } = await supabase
+        .from('gift_sets')
+        .select('*')
+        .order('created_at');
 
-    set({ giftSets: (data ?? []).map(mapGiftSet), loading: false });
+      if (error) throw error;
+      set({ giftSets: (data ?? []).map(mapGiftSet), loading: false });
+    } catch (err) {
+      console.warn('[giftStore] fetchGiftSets 失败:', err);
+      set({ loading: false });
+    }
   },
 }));

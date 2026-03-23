@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
-import { useRouter, Stack } from "expo-router";
+import { useRouter, useLocalSearchParams, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -19,8 +19,22 @@ const TIMELINE = [
 export default function TrackingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { orderId } = useLocalSearchParams<{ orderId?: string }>();
   const userId = useUserStore((s) => s.session?.user?.id);
-  const { updateOrder } = useOrderStore();
+  const { updateOrder, fetchOrderById, currentOrder } = useOrderStore();
+
+  // 根据 orderId 获取订单详情
+  useEffect(() => {
+    if (orderId) fetchOrderById(orderId);
+  }, [orderId]);
+
+  // 动态包裹信息：从订单明细中提取商品名称和数量
+  const packageName = currentOrder?.order_items?.length
+    ? currentOrder.order_items.map((item) => item.product?.name ?? "商品").join(" & ")
+    : "特级龙井 & 熟普洱套装";
+  const packageCount = currentOrder?.order_items?.length
+    ? currentOrder.order_items.reduce((sum, item) => sum + item.quantity, 0)
+    : 2;
 
   // 实时订阅当前用户的订单状态变化
   useEffect(() => {
@@ -142,8 +156,8 @@ export default function TrackingScreen() {
               />
             </View>
             <View className="gap-0.5">
-              <Text className="text-on-surface text-sm font-medium">特级龙井 & 熟普洱套装</Text>
-              <Text className="text-outline text-xs">共2件商品</Text>
+              <Text className="text-on-surface text-sm font-medium">{packageName}</Text>
+              <Text className="text-outline text-xs">共{packageCount}件商品</Text>
             </View>
           </View>
           <MaterialIcons name="chevron-right" size={20} color={Colors.outline} />

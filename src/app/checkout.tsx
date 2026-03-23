@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, Switch, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput, Switch } from "react-native";
 import { useRouter, useLocalSearchParams, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -13,12 +13,13 @@ import OrderItemCard from "@/components/checkout/OrderItemCard";
 import DeliveryOptions from "@/components/checkout/DeliveryOptions";
 import PaymentMethods from "@/components/checkout/PaymentMethods";
 import PriceBreakdown from "@/components/checkout/PriceBreakdown";
+import { showModal } from "@/stores/modalStore";
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { productId } = useLocalSearchParams<{ productId?: string }>();
-  const { items: cartItems, subtotal: cartSubtotal, clearCart } = useCartStore();
+  const { items: cartItems, subtotal: cartSubtotal } = useCartStore();
   const { getDefaultAddress } = useUserStore();
   const { createOrder } = useOrderStore();
 
@@ -57,7 +58,7 @@ export default function CheckoutScreen() {
       return;
     }
     if (!address) {
-      Alert.alert('提示', '请添加收货地址');
+      showModal('提示', '请添加收货地址');
       return;
     }
 
@@ -76,20 +77,14 @@ export default function CheckoutScreen() {
     });
 
     if (error) {
-      Alert.alert('订单失败', error);
+      showModal('订单失败', error, 'error');
       return;
     }
 
-    Alert.alert('订单已提交', `订单金额: ¥${total}`, [
-      {
-        text: '确定',
-        onPress: () => {
-          // 购物车结算时清空购物车，直接购买不清空
-          if (!productId) clearCart();
-          router.replace('/(tabs)' as any);
-        },
-      },
-    ]);
+    // 跳转到模拟支付页面
+    router.replace(
+      `/payment?orderId=${orderId}&total=${total.toFixed(2)}&paymentMethod=${payment}&fromCart=${productId ? "0" : "1"}` as any
+    );
   };
 
   return (
@@ -115,7 +110,23 @@ export default function CheckoutScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* 收货地址 */}
-        {address && <AddressCard address={address} />}
+        {address ? (
+          <AddressCard address={address} />
+        ) : (
+          <Pressable
+            onPress={() => router.push("/addresses" as any)}
+            className="bg-surface-container-low rounded-xl p-4 flex-row items-center gap-3 active:opacity-80"
+          >
+            <View className="w-10 h-10 rounded-full bg-primary-fixed items-center justify-center">
+              <MaterialIcons name="add-location-alt" size={22} color={Colors.primary} />
+            </View>
+            <View className="flex-1">
+              <Text className="text-on-surface font-medium text-sm">添加收货地址</Text>
+              <Text className="text-outline text-xs mt-0.5">请先添加收货地址再提交订单</Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color={Colors.outline} />
+          </Pressable>
+        )}
 
         {/* 订单商品 */}
         <View className="bg-surface-container-lowest rounded-xl px-4">

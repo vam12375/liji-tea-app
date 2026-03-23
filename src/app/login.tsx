@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { View, Text, TextInput, Pressable, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
 import { useUserStore } from '@/stores/userStore';
+import { showModal, showConfirm } from '@/stores/modalStore';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function LoginScreen() {
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('提示', '请填写邮箱和密码');
+      showModal('提示', '请填写邮箱和密码');
       return;
     }
 
@@ -27,7 +28,7 @@ export default function LoginScreen() {
     if (isSignUp) {
       error = await signUp(email.trim(), password, name.trim() || undefined);
       if (!error) {
-        Alert.alert('注册成功', '请查收验证邮件后登录');
+        showModal('注册成功', '请查收验证邮件后登录', 'success');
         setIsSignUp(false);
         setLoading(false);
         return;
@@ -35,13 +36,15 @@ export default function LoginScreen() {
     } else {
       error = await signIn(email.trim(), password);
       if (!error) {
-        router.back();
+        // 登录成功 — 显示优雅提示后返回
+        showModal('欢迎回来', '登录成功，祝您品茶愉快', 'success');
+        setTimeout(() => router.back(), 800);
         setLoading(false);
         return;
       }
     }
 
-    if (error) Alert.alert('错误', error);
+    if (error) showModal('错误', error, 'error');
     setLoading(false);
   };
 

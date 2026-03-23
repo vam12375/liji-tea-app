@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { Profile, Address as DBAddress } from '@/types/database';
+import { useCartStore } from '@/stores/cartStore';
 
 /** 地址类型（兼容旧代码） */
 export interface Address {
@@ -70,6 +71,9 @@ interface UserState {
   setDefaultAddress: (id: string) => Promise<void>;
   getDefaultAddress: () => Address | undefined;
 
+  // Avatar 方法
+  uploadAvatar: (base64: string, ext?: string) => Promise<string | null>;
+
   // Favorites 方法
   fetchFavorites: () => Promise<void>;
   toggleFavorite: (productId: string) => void;
@@ -100,21 +104,42 @@ export const useUserStore = create<UserState>()((set, get) => ({
   setInitialized: () => set({ initialized: true }),
 
   signUp: async (email, password, name) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name: name ?? '茶友' } },
-    });
-    return error?.message ?? null;
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name: name ?? '茶友' } },
+      });
+      if (error) return error.message;
+      // Supabase 对已存在邮箱返回空 identities（不报错，防止邮箱枚举）
+      if (data?.user?.identities?.length === 0) {
+        return '该邮箱已注册，请直接登录';
+      }
+      return null;
+    } catch (err: any) {
+      console.warn('[userStore] signUp 失败:', err);
+      return err?.message ?? '注册失败';
+    }
   },
 
   signIn: async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return error?.message ?? null;
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return error?.message ?? null;
+    } catch (err: any) {
+      console.warn('[userStore] signIn 失败:', err);
+      return err?.message ?? '登录失败';
+    }
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('[userStore] signOut 失败:', err);
+    }
+    // 清空用户数据和购物车
+    useCartStore.getState().clearCart();
     set({
       session: null,
       profile: null,
@@ -125,105 +150,183 @@ export const useUserStore = create<UserState>()((set, get) => ({
   },
 
   fetchProfile: async () => {
-    const userId = get().session?.user?.id;
-    if (!userId) return;
+    try {
+      const userId = get().session?.user?.id;
+      if (!userId) return;
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (data) {
-      set((state) => ({
-        profile: data,
-        ...deriveUserFields(state.session, data),
-      }));
+      if (error) throw error;
+      if (data) {
+        set((state) => ({
+          profile: data,
+          ...deriveUserFields(state.session, data),
+        }));
+      }
+    } catch (err) {
+      console.warn('[userStore] fetchProfile 失败:', err);
     }
   },
 
   updateProfile: async (updates) => {
-    const userId = get().session?.user?.id;
-    if (!userId) return '未登录';
+    try {
+      const userId = get().session?.user?.id;
+      if (!userId) return '未登录';
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', userId);
+      const { error } = await supabase
+        .from('profiles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', userId);
 
-    if (error) return error.message;
-    await get().fetchProfile();
-    return null;
+      if (error) return error.message;
+      await get().fetchProfile();
+      return null;
+    } catch (err: any) {
+      console.warn('[userStore] updateProfile 失败:', err);
+      return err?.message ?? '更新失败';
+    }
   },
 
   fetchAddresses: async () => {
-    const userId = get().session?.user?.id;
-    if (!userId) return;
+    try {
+      const userId = get().session?.user?.id;
+      if (!userId) return;
 
-    const { data } = await supabase
-      .from('addresses')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at');
+      const { data, error } = await supabase
+        .from('addresses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at');
 
-    if (data) set({ addresses: data.map(mapAddress) });
+      if (error) throw error;
+      if (data) set({ addresses: data.map(mapAddress) });
+    } catch (err) {
+      console.warn('[userStore] fetchAddresses 失败:', err);
+    }
   },
 
   addAddress: async (address) => {
-    const userId = get().session?.user?.id;
-    if (!userId) return '未登录';
+    try {
+      const userId = get().session?.user?.id;
+      if (!userId) return '未登录';
 
-    // 如果新增地址为默认，先将已有地址全部取消默认
-    if (address.is_default) {
+      // 如果新增地址为默认，先将已有地址全部取消默认
+      if (address.is_default) {
+        await supabase
+          .from('addresses')
+          .update({ is_default: false })
+          .eq('user_id', userId);
+      }
+
+      const { error } = await supabase
+        .from('addresses')
+        .insert({ ...address, user_id: userId });
+
+      if (error) return error.message;
+      await get().fetchAddresses();
+      return null;
+    } catch (err: any) {
+      console.warn('[userStore] addAddress 失败:', err);
+      return err?.message ?? '添加地址失败';
+    }
+  },
+
+  removeAddress: async (id) => {
+    try {
+      await supabase.from('addresses').delete().eq('id', id);
+      await get().fetchAddresses();
+    } catch (err) {
+      console.warn('[userStore] removeAddress 失败:', err);
+    }
+  },
+
+  setDefaultAddress: async (id) => {
+    try {
+      const userId = get().session?.user?.id;
+      if (!userId) return;
+
+      // 先取消所有默认，再设置指定地址为默认
       await supabase
         .from('addresses')
         .update({ is_default: false })
         .eq('user_id', userId);
+      await supabase
+        .from('addresses')
+        .update({ is_default: true })
+        .eq('id', id);
+
+      await get().fetchAddresses();
+    } catch (err) {
+      console.warn('[userStore] setDefaultAddress 失败:', err);
     }
-
-    const { error } = await supabase
-      .from('addresses')
-      .insert({ ...address, user_id: userId });
-
-    if (error) return error.message;
-    await get().fetchAddresses();
-    return null;
-  },
-
-  removeAddress: async (id) => {
-    await supabase.from('addresses').delete().eq('id', id);
-    await get().fetchAddresses();
-  },
-
-  setDefaultAddress: async (id) => {
-    const userId = get().session?.user?.id;
-    if (!userId) return;
-
-    // 先取消所有默认，再设置指定地址为默认
-    await supabase
-      .from('addresses')
-      .update({ is_default: false })
-      .eq('user_id', userId);
-    await supabase
-      .from('addresses')
-      .update({ is_default: true })
-      .eq('id', id);
-
-    await get().fetchAddresses();
   },
 
   getDefaultAddress: () => get().addresses.find((a) => a.is_default),
 
+  uploadAvatar: async (base64, ext = 'jpg') => {
+    try {
+      const userId = get().session?.user?.id;
+      if (!userId) return '未登录';
+
+      // 将 base64 解码为 Uint8Array
+      const binaryString = atob(base64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+
+      // 限制 2MB
+      const MAX_SIZE = 2 * 1024 * 1024;
+      if (bytes.byteLength > MAX_SIZE) {
+        return '图片大小不能超过 2MB';
+      }
+
+      const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      const filePath = `${userId}/avatar.${ext}`;
+
+      // 上传到 Supabase Storage（覆盖旧头像）
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, bytes, { upsert: true, contentType: mimeType });
+
+      if (uploadError) return uploadError.message;
+
+      // 获取公开 URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // 追加时间戳避免缓存
+      const avatarUrl = `${publicUrl}?t=${Date.now()}`;
+
+      // 更新 profiles 表
+      const err = await get().updateProfile({ avatar_url: avatarUrl });
+      return err;
+    } catch (err: any) {
+      console.warn('[userStore] uploadAvatar 失败:', err);
+      return err?.message ?? '上传头像失败';
+    }
+  },
+
   fetchFavorites: async () => {
-    const userId = get().session?.user?.id;
-    if (!userId) return;
+    try {
+      const userId = get().session?.user?.id;
+      if (!userId) return;
 
-    const { data } = await supabase
-      .from('favorites')
-      .select('product_id')
-      .eq('user_id', userId);
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('product_id')
+        .eq('user_id', userId);
 
-    if (data) set({ favorites: data.map((f) => f.product_id) });
+      if (error) throw error;
+      if (data) set({ favorites: data.map((f) => f.product_id) });
+    } catch (err) {
+      console.warn('[userStore] fetchFavorites 失败:', err);
+    }
   },
 
   // 保持同步签名 — 乐观更新 UI，后台异步同步到 Supabase
