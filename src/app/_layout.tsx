@@ -1,18 +1,14 @@
 import "../../global.css";
 import { useEffect } from "react";
 import { Stack } from "expo-router";
+import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
-import {
-  useFonts,
-  NotoSerifSC_400Regular,
-  NotoSerifSC_700Bold,
-} from "@expo-google-fonts/noto-serif-sc";
-import {
-  Manrope_400Regular,
-  Manrope_500Medium,
-  Manrope_700Bold,
-} from "@expo-google-fonts/manrope";
+import { NotoSerifSC_400Regular } from "@expo-google-fonts/noto-serif-sc/400Regular";
+import { NotoSerifSC_700Bold } from "@expo-google-fonts/noto-serif-sc/700Bold";
+import { Manrope_400Regular } from "@expo-google-fonts/manrope/400Regular";
+import { Manrope_500Medium } from "@expo-google-fonts/manrope/500Medium";
+import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
 import { supabase } from "@/lib/supabase";
 import { useUserStore } from "@/stores/userStore";
 import TeaModal from "@/components/ui/TeaModal";

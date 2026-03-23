@@ -13,13 +13,13 @@ import OrderItemCard from "@/components/checkout/OrderItemCard";
 import DeliveryOptions from "@/components/checkout/DeliveryOptions";
 import PaymentMethods from "@/components/checkout/PaymentMethods";
 import PriceBreakdown from "@/components/checkout/PriceBreakdown";
-import { showModal, showConfirm } from "@/stores/modalStore";
+import { showModal } from "@/stores/modalStore";
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { productId } = useLocalSearchParams<{ productId?: string }>();
-  const { items: cartItems, subtotal: cartSubtotal, clearCart } = useCartStore();
+  const { items: cartItems, subtotal: cartSubtotal } = useCartStore();
   const { getDefaultAddress } = useUserStore();
   const { createOrder } = useOrderStore();
 
@@ -81,15 +81,10 @@ export default function CheckoutScreen() {
       return;
     }
 
-    showConfirm('订单已提交', '感谢您的购买', () => {
-      // 购物车结算时清空购物车，直接购买不清空
-      if (!productId) clearCart();
-      router.replace('/(tabs)' as any);
-    }, {
-      icon: 'order',
-      confirmText: '确定',
-      detail: { label: '订单金额', value: `¥ ${total.toFixed(2)}` },
-    });
+    // 跳转到模拟支付页面
+    router.replace(
+      `/payment?orderId=${orderId}&total=${total.toFixed(2)}&paymentMethod=${payment}&fromCart=${productId ? "0" : "1"}` as any
+    );
   };
 
   return (

@@ -20,6 +20,8 @@ interface OrderState {
 
   fetchOrders: () => Promise<void>;
   fetchOrderById: (id: string) => Promise<void>;
+  /** 更新订单状态（如 pending → paid） */
+  updateOrderStatus: (orderId: string, status: string) => Promise<{ error: string | null }>;
   /** 实时回调：更新订单状态 */
   updateOrder: (updated: Order) => void;
 }
@@ -109,6 +111,33 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
       if (data) set({ currentOrder: data as Order });
     } catch (err) {
       console.warn('[orderStore] fetchOrderById 失败:', err);
+    }
+  },
+
+  updateOrderStatus: async (orderId, status) => {
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .update({ status })
+        .eq('id', orderId);
+
+      if (error) return { error: error.message };
+
+      // 同步更新本地状态
+      set((state) => ({
+        orders: state.orders.map((o) =>
+          o.id === orderId ? { ...o, status } : o
+        ),
+        currentOrder:
+          state.currentOrder?.id === orderId
+            ? { ...state.currentOrder, status }
+            : state.currentOrder,
+      }));
+
+      return { error: null };
+    } catch (err: any) {
+      console.warn('[orderStore] updateOrderStatus 失败:', err);
+      return { error: err?.message ?? '更新状态失败' };
     }
   },
 

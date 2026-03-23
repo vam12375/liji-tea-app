@@ -1,21 +1,22 @@
 {
   "expo": {
-    "name": "liji-tea-app",
+    "name": "李记茶",
     "slug": "liji-tea-app",
-    "version": "1.0.0",
+    "owner": "vam12375",
+    "version": "2.7.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/liji-logo.png",
     "scheme": "lijiteaapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/liji-logo.png"
     },
     "android": {
+      "package": "com.liji.teaapp",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/liji-logo.png",
+        "monochromeImage": "./assets/images/liji-logo.png"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -41,6 +42,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "9a2b0a1d-b43e-4840-a97b-2b8e4e8b88d0"
+      }
     }
   }
 }
