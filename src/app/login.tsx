@@ -4,17 +4,40 @@ import { useRouter, Stack } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
 import { useUserStore } from '@/stores/userStore';
-import { showModal, showConfirm } from '@/stores/modalStore';
+import { showModal } from '@/stores/modalStore';
+// 阿里云一键登录 Hook
+import { useOneClickLogin } from '@/hooks/useOneClickLogin';
 
 export default function LoginScreen() {
   const router = useRouter();
   const { signIn, signUp } = useUserStore();
+  // 阿里云一键登录
+  const { loading: oneClickLoading, isSupported, login: doOneClickLogin } = useOneClickLogin();
 
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  /**
+   * 一键登录处理函数
+   *
+   * 流程：调用 useOneClickLogin.login()
+   * - 成功：显示欢迎提示并返回上一页
+   * - 失败：显示错误提示
+   * - 取消：静默返回
+   */
+  const handleOneClickLogin = async () => {
+    const result = await doOneClickLogin();
+    if (result.success) {
+      showModal('欢迎回来', '登录成功，祝您品茶愉快', 'success');
+      setTimeout(() => router.back(), 800);
+    } else if (result.error) {
+      showModal('登录失败', result.error, 'error');
+    }
+    // 用户取消不显示任何提示
+  };
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -75,6 +98,31 @@ export default function LoginScreen() {
             <Text className="font-headline text-4xl text-primary font-bold">李记茶</Text>
             <Text className="text-outline text-sm">一叶一世界</Text>
           </View>
+
+          {/* 一键登录入口（仅在运营商支持时显示） */}
+          {isSupported && (
+            <>
+              <Pressable
+                onPress={handleOneClickLogin}
+                disabled={oneClickLoading}
+                className="bg-primary rounded-full py-4 items-center justify-center active:bg-primary/90"
+              >
+                <View className="flex-row items-center gap-2">
+                  <MaterialIcons name="phone-android" size={20} color="white" />
+                  <Text className="text-white font-medium text-base">
+                    {oneClickLoading ? '登录中...' : '本机号码一键登录'}
+                  </Text>
+                </View>
+              </Pressable>
+
+              {/* 分隔线 */}
+              <View className="flex-row items-center gap-3">
+                <View className="flex-1 h-px bg-outline/30" />
+                <Text className="text-outline text-xs">或</Text>
+                <View className="flex-1 h-px bg-outline/30" />
+              </View>
+            </>
+          )}
 
           {/* 表单 */}
           {isSignUp && (
