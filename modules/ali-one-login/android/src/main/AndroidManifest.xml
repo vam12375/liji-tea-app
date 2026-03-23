@@ -1,0 +1,40 @@
+<!--
+    AndroidManifest.xml - 阿里云一键登录 Android 原生模块清单文件
+    声明所需权限和 SDK 相关组件配置
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ============ 阿里云一键登录所需权限 ============ -->
+
+    <!-- 网络权限：必须，用于与阿里云服务器通信获取 Token -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- 读取手机状态：用于检测当前运营商网络环境是否支持一键登录 -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+    <!-- 网络状态：用于检测当前网络连接状态 -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <application>
+
+        <!--
+            阿里云 SDK AppKey 配置
+            值由 android/app/build.gradle 的 buildConfigField 传入
+        -->
+        <meta-data
+            android:name="com.aliyun.aliyun.APP_KEY"
+            android:value="${ALI_APP_KEY}" />
+
+        <!--
+            阿里云一键登录授权页 Activity
+            SDK 会启动此 Activity 展示用户授权界面
+        -->
+        <activity
+            android:name="com.alipay.mobile.nebulaauth-sdk.android.activity.UcSdkWebActivity"
+            android:configChanges="orientation|keyboardHidden"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+    </application>
+</manifest>
