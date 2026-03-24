@@ -7,6 +7,8 @@ interface OrderState {
   orders: Order[];
   currentOrder: Order | null;
   loading: boolean;
+  /** 订单详情页专用加载态，避免与订单列表 loading 混用。 */
+  currentOrderLoading: boolean;
 
   createOrder: (params: {
     items: { productId: string; quantity: number; unitPrice: number }[];
@@ -30,6 +32,7 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
   orders: [],
   currentOrder: null,
   loading: false,
+  currentOrderLoading: false,
 
   createOrder: async (params) => {
     try {
@@ -101,6 +104,9 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
 
   fetchOrderById: async (id) => {
     try {
+      // 进入订单详情页时先清空旧详情，避免从 A 订单切到 B 订单时短暂显示旧数据。
+      set({ currentOrder: null, currentOrderLoading: true });
+
       const { data, error } = await supabase
         .from('orders')
         .select('*, order_items(*, product:products(*)), address:addresses(*)')
@@ -108,9 +114,16 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
         .single();
 
       if (error) throw error;
-      if (data) set({ currentOrder: data as Order });
+      if (data) {
+        set({ currentOrder: data as Order, currentOrderLoading: false });
+        return;
+      }
+
+      // 兜底分支：理论上 single() 找不到会抛错，这里仍显式回落为空详情状态。
+      set({ currentOrder: null, currentOrderLoading: false });
     } catch (err) {
       console.warn('[orderStore] fetchOrderById 失败:', err);
+      set({ currentOrder: null, currentOrderLoading: false });
     }
   },
 
