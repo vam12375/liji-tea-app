@@ -1,3 +1,5 @@
+import type { OrderPaymentStatus, PaymentChannel } from "@/types/payment";
+
 /** Supabase 数据库类型定义 */
 
 export interface Profile {
@@ -48,7 +50,15 @@ export interface Order {
   status: 'pending' | 'paid' | 'shipping' | 'delivered' | 'cancelled';
   total: number;
   delivery_type: string;
-  payment_method: string | null;
+  payment_method: PaymentChannel | null;
+  payment_channel?: PaymentChannel | null;
+  payment_status?: OrderPaymentStatus | null;
+  out_trade_no?: string | null;
+  paid_amount?: number | null;
+  paid_at?: string | null;
+  trade_no?: string | null;
+  payment_error_code?: string | null;
+  payment_error_message?: string | null;
   notes: string | null;
   gift_wrap: boolean;
   created_at: string;

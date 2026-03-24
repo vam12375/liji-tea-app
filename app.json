@@ -26,6 +26,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-dev-client",
       [
         "expo-splash-screen",
         {
@@ -42,6 +43,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "autolinking": {
+      "nativeModulesDir": "./modules"
     },
     "extra": {
       "router": {},

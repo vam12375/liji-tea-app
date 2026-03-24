@@ -47,3 +47,7 @@ app-example
 /android
 
 .claude/
+.idea/
+.vscode/
+stitch/
+docs/

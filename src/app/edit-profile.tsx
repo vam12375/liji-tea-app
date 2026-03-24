@@ -66,10 +66,12 @@ export default function EditProfileScreen() {
     if (result.canceled || !result.assets[0]?.base64) return;
 
     const asset = result.assets[0];
+    const base64 = asset.base64;
+    if (!base64) return;
     // 从 URI 推断扩展名
     const ext = asset.uri.split(".").pop()?.toLowerCase() === "png" ? "png" : "jpg";
 
-    const err = await uploadAvatar(asset.base64, ext);
+    const err = await uploadAvatar(base64, ext);
     if (err) {
       showModal("错误", err, "error");
     }
