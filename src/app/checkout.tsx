@@ -14,6 +14,7 @@ import DeliveryOptions from "@/components/checkout/DeliveryOptions";
 import PaymentMethods from "@/components/checkout/PaymentMethods";
 import PriceBreakdown from "@/components/checkout/PriceBreakdown";
 import { showModal } from "@/stores/modalStore";
+import type { PaymentChannel } from "@/types/payment";
 
 export default function CheckoutScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function CheckoutScreen() {
   );
 
   const [delivery, setDelivery] = useState("standard");
-  const [payment, setPayment] = useState("wechat");
+  const [payment, setPayment] = useState<PaymentChannel>("alipay");
   const [note, setNote] = useState("");
   const [giftBox, setGiftBox] = useState(false);
 
@@ -59,6 +60,10 @@ export default function CheckoutScreen() {
     }
     if (!address) {
       showModal('提示', '请添加收货地址');
+      return;
+    }
+    if (payment !== "alipay") {
+      showModal("暂未开放", "当前版本仅接入支付宝沙箱支付。");
       return;
     }
 
@@ -81,7 +86,7 @@ export default function CheckoutScreen() {
       return;
     }
 
-    // 跳转到模拟支付页面
+    // 跳转到支付页，由服务端生成支付单并等待服务端确认
     router.replace(
       `/payment?orderId=${orderId}&total=${total.toFixed(2)}&paymentMethod=${payment}&fromCart=${productId ? "0" : "1"}` as any
     );
