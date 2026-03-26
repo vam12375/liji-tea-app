@@ -2,40 +2,46 @@
 // 遵循 KISS/YAGNI/SOLID 原则：最小依赖，只包含必要配置
 
 plugins {
-    id("com.android.library")
-    id("org.jetbrains.kotlin.android")
+    id 'com.android.library'
+    id 'org.jetbrains.kotlin.android'
 }
 
 android {
     // 命名空间必须与包名一致
-    namespace = "com.lijitea.alioneclick"
-    compileSdk = 34
+    namespace 'com.lijitea.alioneclick'
+    compileSdk 34
 
     defaultConfig {
-        minSdk = 24
-        targetSdk = 34
+        minSdk 24
+        targetSdk 34
         // 构建配置字段：存储阿里云 AppKey（运行时由 MainApplication 传入）
-        buildConfigField "String", "ALI_APP_KEY", "\"${project.findProperty("ALI_APP_KEY") ?: ""}\""
+        def aliAppKey = project.findProperty('ALI_APP_KEY') ?: ''
+        buildConfigField 'String', 'ALI_APP_KEY', "\"${aliAppKey}\""
+        // AndroidManifest.xml 中 ${ALI_APP_KEY} 占位符替换
+        manifestPlaceholders = [ALI_APP_KEY: aliAppKey]
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget '17'
+    }
+
+    buildFeatures {
+        buildConfig true
     }
 }
 
 dependencies {
     // React Native 核心库（必须）
-    implementation("com.facebook.react:react-android")
+    implementation 'com.facebook.react:react-android'
 
-    // 阿里云一键登录 SDK（实际使用时取消注释）
-    // implementation("com.aliyun.aliyun:android-yunos-auth-commons:1.1.4")
-    // implementation("com.aliyun.aliyun:android-dypns-sdk:1.1.0")
+    // 阿里云融合认证 SDK（本地 AAR）
+    implementation fileTree(dir: 'libs', include: ['*.aar'])
 
     // Kotlin 协程（用于异步操作）
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
 }

@@ -17,24 +17,50 @@
 
     <application>
 
-        <!--
-            阿里云 SDK AppKey 配置
-            值由 android/app/build.gradle 的 buildConfigField 传入
-        -->
-        <meta-data
-            android:name="com.aliyun.aliyun.APP_KEY"
-            android:value="${ALI_APP_KEY}" />
-
-        <!--
-            阿里云一键登录授权页 Activity
-            SDK 会启动此 Activity 展示用户授权界面
-        -->
+        <!-- 融合认证：号码认证授权页 -->
         <activity
-            android:name="com.alipay.mobile.nebulaauth-sdk.android.activity.UcSdkWebActivity"
-            android:configChanges="orientation|keyboardHidden"
+            android:name="com.alicom.fusion.auth.numberauth.FusionNumberAuthActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
             android:exported="false"
-            android:screenOrientation="portrait"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+            android:screenOrientation="behind" />
+
+        <!-- 融合认证：上行短信页 -->
+        <activity
+            android:name="com.alicom.fusion.auth.upsms.AlicomFusionUpSmsActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="false"
+            android:screenOrientation="behind" />
+
+        <!-- 融合认证：短信验证码页 -->
+        <activity
+            android:name="com.alicom.fusion.auth.smsauth.FusionSmsActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="false"
+            android:screenOrientation="behind" />
+
+        <!-- 融合认证：图形验证码页 -->
+        <activity
+            android:name="com.alicom.fusion.auth.graphauth.FusionGraphAuthActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="false"
+            android:screenOrientation="behind" />
+
+        <!-- 融合认证：号码认证底层 Activity（来自 alicloud-android-dypns） -->
+        <activity
+            android:name="com.mobile.auth.gatewayauth.LoginAuthActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="behind"
+            android:theme="@style/authsdk_activity_dialog" />
+
+        <activity
+            android:name="com.mobile.auth.gatewayauth.PrivacyDialogActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:screenOrientation="behind"
+            android:theme="@style/authsdk_activity_dialog" />
 
     </application>
 </manifest>

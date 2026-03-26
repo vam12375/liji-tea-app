@@ -46,6 +46,10 @@ app-example
 /ios
 /android
 
+# 模块级构建缓存
+modules/*/android/.gradle/
+supabase/.temp/
+
 .claude/
 .idea/
 .vscode/

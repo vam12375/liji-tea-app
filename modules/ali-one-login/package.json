@@ -1,0 +1,23 @@
+{
+  "name": "ali-one-login",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "keywords": [
+    "expo",
+    "expo-module",
+    "ali-one-login"
+  ],
+  "peerDependencies": {
+    "expo": "*",
+    "expo-modules-core": "*"
+  },
+  "dependencies": {
+    "expo-modules-core": "*"
+  },
+  "exports": {
+    ".": {
+      "default": "./index.ts"
+    }
+  }
+}
