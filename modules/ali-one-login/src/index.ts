@@ -12,4 +12,5 @@
  */
 
 export { default as AliOneClickModule } from './AliOneClickModule';
-export type { OneClickLoginResult } from './AliOneClickModule';
+export type { FusionLoginResult } from './AliOneClickModule';
+export { AliLoginErrorCodes } from './AliOneClickModule';
