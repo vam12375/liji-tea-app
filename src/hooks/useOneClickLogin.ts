@@ -55,9 +55,10 @@ export function useOneClickLogin(): UseOneClickLogin {
       await AliOneClickModule.initWithToken(tokenData.authToken);
 
       // ========== 步骤 3：调起融合认证页面，获取 verifyToken ==========
+      const templateId = process.env.EXPO_PUBLIC_ALI_TEMPLATE_ID ?? '';
       let verifyToken: string;
       try {
-        const result = await AliOneClickModule.login();
+        const result = await AliOneClickModule.login(templateId);
         verifyToken = result.verifyToken;
       } catch (err: any) {
         if (err?.code === AliLoginErrorCodes.USER_CANCEL) {
