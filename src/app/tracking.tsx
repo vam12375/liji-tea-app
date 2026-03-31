@@ -1,14 +1,19 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Image } from "expo-image";
 
 import { Colors } from "@/constants/Colors";
+import { updateMockLogistics } from "@/lib/payment";
 import { supabase } from "@/lib/supabase";
+import { showModal } from "@/stores/modalStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 import type { Order, OrderItem } from "@/types/database";
+import type { MockLogisticsAction, TrackingEvent } from "@/types/payment";
+
+const PENDING_ORDER_EXPIRE_MS = 10 * 60 * 1000;
 
 type TimelineState = "done" | "current" | "pending" | "cancelled";
 
@@ -31,6 +36,14 @@ interface PackageSummary {
   title: string;
   count: number;
   imageUrls: string[];
+}
+
+interface TrackingEventRow {
+  status: string;
+  title: string;
+  detail: string;
+  event_time: string;
+  sort_order: number;
 }
 
 /**
@@ -104,6 +117,22 @@ function hasPaymentEvidence(order: Order) {
       order.status === "shipping" ||
       order.status === "delivered"
   );
+}
+
+function getPendingPaymentDeadline(createdAt: string) {
+  const createdTime = new Date(createdAt).getTime();
+  if (Number.isNaN(createdTime)) {
+    return null;
+  }
+
+  return createdTime + PENDING_ORDER_EXPIRE_MS;
+}
+
+function formatRemainingPaymentTime(remainingMs: number) {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 /**
@@ -384,11 +413,41 @@ function TrackingInfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+function getLogisticsStatusLabel(status?: string | null) {
+  switch (status) {
+    case "pending":
+      return "待发货";
+    case "shipped":
+      return "已发货";
+    case "in_transit":
+      return "运输中";
+    case "pickup_pending":
+      return "待到店自提";
+    case "delivered":
+      return "已送达";
+    default:
+      return status ? `物流状态：${status}` : "待同步";
+  }
+}
+
+function mapTrackingEvents(rows: TrackingEventRow[] | null | undefined): TrackingEvent[] {
+  return (rows ?? []).map((item) => ({
+    status: item.status,
+    title: item.title,
+    detail: item.detail,
+    eventTime: item.event_time,
+    sortOrder: item.sort_order,
+  }));
+}
+
 export default function TrackingScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId?: string }>();
   const userId = useUserStore((state) => state.session?.user?.id);
   const { currentOrder, currentOrderLoading, fetchOrderById, updateOrder } = useOrderStore();
+  const [trackingEvents, setTrackingEvents] = useState<TrackingEvent[]>([]);
+  const [actionLoading, setActionLoading] = useState<MockLogisticsAction | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!orderId) {
@@ -423,6 +482,79 @@ export default function TrackingScreen() {
     };
   }, [updateOrder, userId]);
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!orderId || !userId) {
+      setTrackingEvents([]);
+      return;
+    }
+
+    let active = true;
+
+    const loadTrackingEvents = async () => {
+      const { data, error } = await supabase
+        .from("order_tracking_events")
+        .select("status, title, detail, event_time, sort_order")
+        .eq("order_id", orderId)
+        .order("sort_order", { ascending: false })
+        .order("event_time", { ascending: false })
+        .returns<TrackingEventRow[]>();
+
+      if (error) {
+        console.warn("[tracking] fetch order_tracking_events 失败:", error);
+        if (active) {
+          setTrackingEvents([]);
+        }
+        return;
+      }
+
+      if (active) {
+        setTrackingEvents(mapTrackingEvents(data));
+      }
+    };
+
+    void loadTrackingEvents();
+
+    return () => {
+      active = false;
+    };
+  }, [orderId, userId, currentOrder?.updated_at]);
+
+  const handleAdvanceLogistics = async () => {
+    if (!orderId || !currentOrder) {
+      return;
+    }
+
+    const action: MockLogisticsAction = "advance";
+
+    try {
+      setActionLoading(action);
+      const result = await updateMockLogistics(orderId, action);
+
+      updateOrder({
+        id: orderId,
+        status: result.status as Order["status"],
+        logistics_status: result.logisticsStatus,
+        shipped_at: result.shippedAt,
+        delivered_at: result.deliveredAt,
+        updated_at: new Date().toISOString(),
+      });
+      setTrackingEvents(result.trackingEvents);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "更新模拟物流失败。";
+      showModal("物流更新失败", message, "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const statusMeta = useMemo(
     () => (currentOrder ? getTrackingStatusMeta(currentOrder.status) : null),
     [currentOrder]
@@ -435,6 +567,14 @@ export default function TrackingScreen() {
     () => summarizeOrderItems(currentOrder?.order_items),
     [currentOrder?.order_items]
   );
+  const canAdvanceLogistics = currentOrder?.status === "paid" || currentOrder?.status === "shipping";
+  const logisticsActionLabel = currentOrder?.status === "paid" ? "模拟发货" : "模拟签收";
+  const paymentDeadline = currentOrder ? getPendingPaymentDeadline(currentOrder.created_at) : null;
+  const remainingPaymentMs = paymentDeadline === null ? null : paymentDeadline - now;
+  const canRepay = currentOrder?.status === "pending" && remainingPaymentMs !== null && remainingPaymentMs > 0;
+  const remainingPaymentText = canRepay && remainingPaymentMs !== null
+    ? formatRemainingPaymentTime(remainingPaymentMs)
+    : null;
 
   if (currentOrderLoading) {
     return (
@@ -543,6 +683,35 @@ export default function TrackingScreen() {
             <TrackingInfoRow label="下单时间" value={formatDateTime(currentOrder.created_at)} />
             <TrackingInfoRow label="配送方式" value={getDeliveryLabel(currentOrder.delivery_type)} />
           </View>
+
+          {currentOrder.status === "pending" ? (
+            <View className="rounded-xl bg-background/80 p-4 gap-3">
+              <View className="gap-1">
+                <Text className="text-on-surface text-sm font-medium">
+                  {canRepay && remainingPaymentText
+                    ? `请在 ${remainingPaymentText} 内完成支付`
+                    : "订单支付已超时，系统正在自动取消"}
+                </Text>
+                <Text className="text-outline text-xs leading-5">
+                  待付款订单会在下单 10 分钟后自动关闭，超时后将无法继续支付。
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() =>
+                  router.push(
+                    `/payment?orderId=${currentOrder.id}&total=${currentOrder.total}&paymentMethod=${currentOrder.payment_method ?? "alipay"}` as any
+                  )
+                }
+                disabled={!canRepay}
+                className={`rounded-full py-3 items-center justify-center ${canRepay ? "bg-primary-container active:bg-primary" : "bg-surface"}`}
+              >
+                <Text className={`font-medium ${canRepay ? "text-on-primary" : "text-outline"}`}>
+                  立即付款
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         {/* 收货信息：明确告诉用户订单最终会送到哪里，替代原来的假地图和假起终点。 */}
@@ -562,6 +731,76 @@ export default function TrackingScreen() {
             </View>
           ) : (
             <Text className="text-outline text-sm">暂未获取收货地址</Text>
+          )}
+        </View>
+
+        <View className="bg-surface-container-low rounded-2xl p-4 gap-4">
+          <View className="flex-row items-center gap-2">
+            <MaterialIcons name="local-shipping" size={18} color={Colors.primaryContainer} />
+            <Text className="text-on-surface text-base font-bold">物流信息</Text>
+          </View>
+
+          <View className="rounded-xl bg-background px-3 py-3 gap-3">
+            <TrackingInfoRow label="物流公司" value={currentOrder.logistics_company ?? "模拟快递"} />
+            <TrackingInfoRow label="运单号" value={currentOrder.logistics_tracking_no ?? "待生成"} />
+            <TrackingInfoRow label="物流状态" value={getLogisticsStatusLabel(currentOrder.logistics_status)} />
+            <TrackingInfoRow label="发货时间" value={formatDateTime(currentOrder.shipped_at)} />
+            <TrackingInfoRow label="签收时间" value={formatDateTime(currentOrder.delivered_at)} />
+          </View>
+
+          {canAdvanceLogistics ? (
+            <Pressable
+              onPress={handleAdvanceLogistics}
+              disabled={actionLoading !== null}
+              className="rounded-full bg-primary-container py-3 items-center justify-center active:bg-primary"
+            >
+              <Text className="text-on-primary font-medium">
+                {actionLoading ? "正在推进物流..." : logisticsActionLabel}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        <View className="bg-surface-container-low rounded-2xl p-4 gap-4">
+          <View className="flex-row items-center gap-2">
+            <MaterialIcons name="fact-check" size={18} color={Colors.primaryContainer} />
+            <Text className="text-on-surface text-base font-bold">最新物流轨迹</Text>
+          </View>
+
+          {trackingEvents.length > 0 ? (
+            <View className="relative">
+              <View className="absolute left-[11px] top-3 bottom-3 w-[2px] bg-outline-variant/40" />
+
+              {trackingEvents.map((item, index) => {
+                const markerState: TimelineState =
+                  item.status === "delivered"
+                    ? "done"
+                    : index === 0
+                      ? "current"
+                      : "done";
+
+                return (
+                  <View
+                    key={`${item.title}-${item.eventTime}-${index}`}
+                    className={index === trackingEvents.length - 1 ? "flex-row gap-4" : "flex-row gap-4 pb-6"}
+                  >
+                    <View className="items-center w-6 pt-1">{renderTimelineMarker(markerState)}</View>
+                    <View className="flex-1 gap-1">
+                      <Text className="text-on-surface text-sm font-medium">{item.title}</Text>
+                      <Text className="text-on-surface-variant text-xs leading-5">{item.detail}</Text>
+                      <Text className="text-outline text-[10px] mt-0.5">{formatDateTime(item.eventTime)}</Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          ) : (
+            <View className="rounded-xl bg-background px-3 py-4 gap-1">
+              <Text className="text-on-surface text-sm font-medium">暂无物流轨迹</Text>
+              <Text className="text-outline text-xs leading-5">
+                支付成功后，系统会初始化物流轨迹；后续可在此页面继续模拟推进发货与签收。
+              </Text>
+            </View>
           )}
         </View>
 
