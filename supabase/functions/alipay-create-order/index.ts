@@ -1,9 +1,17 @@
-﻿import {
+﻿declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void;
+  env: {
+    get: (name: string) => string | undefined;
+  };
+};
+
+import {
   buildAlipayOrderString,
   createOutTradeNo,
   formatAmount,
 } from "../_shared/alipay.ts";
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
+import { closeExpiredPendingOrder } from "../_shared/payment.ts";
 import {
   createServiceClient,
   getRequiredEnv,
@@ -24,6 +32,7 @@ interface OrderRow {
   id: string;
   user_id: string;
   status: string;
+  created_at: string;
   total: number | string | null;
   delivery_type: string | null;
   gift_wrap: boolean | null;
@@ -67,7 +76,7 @@ function buildOrderSubject(orderItems: OrderItemRow[]) {
   return `李记茶 · ${firstProductName} 等${orderItems.length}件商品`;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const corsResponse = handleCors(req);
   if (corsResponse) {
     return corsResponse;
@@ -99,35 +108,68 @@ Deno.serve(async (req) => {
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .select(
-        "id, user_id, status, total, delivery_type, gift_wrap, payment_status, payment_channel, out_trade_no, order_items(quantity, product:products(name, price))"
+        "id, user_id, status, created_at, total, delivery_type, gift_wrap, payment_status, payment_channel, out_trade_no, order_items(quantity, product:products(name, price))",
       )
       .eq("id", orderId)
       .single<OrderRow>();
 
     if (orderError || !order) {
-      return errorResponse("订单不存在。", 404, "order_not_found", orderError?.message);
+      return errorResponse(
+        "订单不存在。",
+        404,
+        "order_not_found",
+        orderError?.message,
+      );
     }
 
     if (order.user_id !== user.id) {
       return errorResponse("无权访问该订单。", 403, "forbidden");
     }
 
+    if (order.status === "pending") {
+      const expiredResult = await closeExpiredPendingOrder(order);
+      if (expiredResult.error) {
+        return errorResponse(
+          "检查待付款订单是否超时失败。",
+          500,
+          "pending_order_expire_check_failed",
+          expiredResult.error.message,
+        );
+      }
+
+      if (expiredResult.expired) {
+        return errorResponse(
+          "待付款订单已超过 10 分钟，系统已自动取消。",
+          409,
+          "order_expired",
+        );
+      }
+    }
+
     if (order.status !== "pending") {
       return errorResponse(
         "当前订单状态不允许再次发起支付。",
         409,
-        "invalid_order_status"
+        "invalid_order_status",
       );
     }
 
     const orderItems = order.order_items ?? [];
     if (orderItems.length === 0) {
-      return errorResponse("订单明细为空，无法发起支付。", 422, "empty_order_items");
+      return errorResponse(
+        "订单明细为空，无法发起支付。",
+        422,
+        "empty_order_items",
+      );
     }
 
     const amount = calculateOrderAmount(order);
     if (amount <= 0) {
-      return errorResponse("订单金额异常，无法发起支付。", 422, "invalid_amount");
+      return errorResponse(
+        "订单金额异常，无法发起支付。",
+        422,
+        "invalid_amount",
+      );
     }
 
     // 构造支付宝 App 支付单串，私钥仅保留在服务端。
@@ -165,7 +207,7 @@ Deno.serve(async (req) => {
         "更新订单支付信息失败。",
         500,
         "order_update_failed",
-        orderUpdateError.message
+        orderUpdateError.message,
       );
     }
 
@@ -191,7 +233,7 @@ Deno.serve(async (req) => {
         },
         {
           onConflict: "out_trade_no",
-        }
+        },
       );
 
     if (transactionError) {
@@ -199,7 +241,7 @@ Deno.serve(async (req) => {
         "写入支付流水失败。",
         500,
         "transaction_upsert_failed",
-        transactionError.message
+        transactionError.message,
       );
     }
 
@@ -213,7 +255,7 @@ Deno.serve(async (req) => {
     return errorResponse(
       error instanceof Error ? error.message : "创建支付宝支付单失败。",
       500,
-      "internal_error"
+      "internal_error",
     );
   }
 });
