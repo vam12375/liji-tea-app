@@ -1,41 +1,28 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   xmlns:tools="http://schemas.android.com/tools">
 
-  <!-- 支付宝 App 支付必须的网络权限 -->
+  <!-- 支付宝 App 支付所需的基础网络权限。 -->
   <uses-permission android:name="android.permission.INTERNET" />
   <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
   <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
-  <!-- 支付宝 SDK 可能需要的额外权限（按需启用） -->
-  <!-- <uses-permission android:name="android.permission.READ_PHONE_STATE" /> -->
-  <!-- <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-    android:maxSdkVersion="28" /> -->
-
   <application>
-
-    <!-- 支付宝 App 支付无需额外 Activity 注册，但以下配置用于：
-         1. 某些特殊网络环境下的 H5 支付兜底
-         2. 确保外部浏览器能正确回调回本 App
-         如果仅使用纯 App 支付（PayTask.payV2），可以移除此 Activity。
-    -->
+    <!-- 纯 App 支付通常不依赖回调 Activity。
+         这里保留一个轻量兜底入口，兼容极少数 scheme 回跳场景。 -->
     <activity
       android:name=".LijiAlipayCallbackActivity"
       android:exported="true"
       android:launchMode="singleTop"
       android:theme="@android:style/Theme.Translucent.NoTitleBar"
       tools:replace="android:theme">
-
-      <!-- 支付宝 H5 支付回调 scheme -->
-      <!-- 格式：alipay{appId}:// 是支付宝客户端回调本 App 的标准 scheme -->
       <intent-filter>
         <action android:name="android.intent.action.VIEW" />
         <category android:name="android.intent.category.DEFAULT" />
         <category android:name="android.intent.category.BROWSABLE" />
         <data
-          android:scheme="lijitea"
+          android:scheme="lijiteaapp"
           android:host="safepay" />
       </intent-filter>
     </activity>
-
   </application>
 </manifest>
