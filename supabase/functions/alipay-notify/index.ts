@@ -1,18 +1,24 @@
-﻿import {
+﻿declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void;
+  env: {
+    get: (name: string) => string | undefined;
+  };
+};
+
+import {
   formatAmount,
   parseFormBody,
   verifyAlipaySignature,
 } from "../_shared/alipay.ts";
 import { handleCors, textResponse } from "../_shared/http.ts";
+import {
+  calculateOrderAmount,
+  fetchPaymentOrderById,
+  formatAmountNumber,
+  markOrderPaid,
+  type PaymentOrderRow,
+} from "../_shared/payment.ts";
 import { createServiceClient, getRequiredEnv } from "../_shared/supabase.ts";
-
-interface NotifyOrderRow {
-  id: string;
-  user_id: string;
-  status: string;
-  total: number | string | null;
-  payment_status: string | null;
-}
 
 /** 兼容数据库 numeric / text 返回值。 */
 function toNumber(value: number | string | null | undefined) {
@@ -33,7 +39,7 @@ function mapTradeStatus(tradeStatus: string) {
   return "paying";
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   const corsResponse = handleCors(req);
   if (corsResponse) {
     return corsResponse;
@@ -64,13 +70,19 @@ Deno.serve(async (req) => {
     const verified = await verifyAlipaySignature(params, publicKey);
 
     // 通过商户支付单号定位订单，notify 不依赖客户端 token。
-    const { data: order, error: orderError } = await supabase
+    const { data: matchedOrder, error: orderError } = await supabase
       .from("orders")
-      .select("id, user_id, status, total, payment_status")
+      .select("id")
       .eq("out_trade_no", outTradeNo)
-      .maybeSingle<NotifyOrderRow>();
+      .maybeSingle<{ id: string }>();
 
-    if (orderError || !order) {
+    if (orderError || !matchedOrder) {
+      return textResponse("failure", { status: 404 });
+    }
+
+    const { data: order, error: paymentOrderError } = await fetchPaymentOrderById(matchedOrder.id);
+
+    if (paymentOrderError || !order) {
       return textResponse("failure", { status: 404 });
     }
 
@@ -114,7 +126,7 @@ Deno.serve(async (req) => {
       return textResponse("failure", { status: 400 });
     }
 
-    if (formatAmount(totalAmount) !== formatAmount(toNumber(order.total))) {
+    if (formatAmount(totalAmount) !== formatAmount(formatAmountNumber(calculateOrderAmount(order)))) {
       await supabase
         .from("orders")
         .update({
@@ -133,7 +145,27 @@ Deno.serve(async (req) => {
       return textResponse("success");
     }
 
-    // 只有服务端验签通过后，才允许写入最终支付状态。
+    if (normalizedTradeStatus === "success") {
+      const { error: paidError } = await markOrderPaid({
+        order: order as PaymentOrderRow,
+        channel: "alipay",
+        paymentStatus: "success",
+        outTradeNo,
+        tradeNo: params.trade_no ?? outTradeNo,
+        paidAt: now,
+        paidAmount: totalAmount,
+        requestPayload: null,
+        notifyPayload: params,
+        notifyVerified: true,
+      });
+
+      if (paidError) {
+        return textResponse("failure", { status: 500 });
+      }
+
+      return textResponse("success");
+    }
+
     const orderUpdate: Record<string, unknown> = {
       payment_channel: "alipay",
       payment_status: normalizedTradeStatus,
@@ -145,12 +177,6 @@ Deno.serve(async (req) => {
         normalizedTradeStatus === "closed" ? "支付宝订单已关闭" : null,
       updated_at: now,
     };
-
-    if (normalizedTradeStatus === "success") {
-      orderUpdate.status = "paid";
-      orderUpdate.paid_amount = totalAmount;
-      orderUpdate.paid_at = now;
-    }
 
     const { error: updateError } = await supabase
       .from("orders")
