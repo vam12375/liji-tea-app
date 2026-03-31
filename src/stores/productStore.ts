@@ -102,11 +102,13 @@ export const useProductStore = create<ProductState>()((set, get) => ({
 
   searchProducts: async (query) => {
     try {
+      // 清理 LIKE 特殊字符，防止注入
+      const safe = query.replace(/[%_\\]/g, '\\$&');
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('is_active', true)
-        .or(`name.ilike.%${query}%,origin.ilike.%${query}%`);
+        .or(`name.ilike.%${safe}%,origin.ilike.%${safe}%`);
 
       if (error) throw error;
       return (data ?? []).map(mapProduct);

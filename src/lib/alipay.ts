@@ -8,7 +8,22 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function getFunctionErrorMessage(error: unknown, fallback: string) {
+/** 从 Supabase FunctionsHttpError 中提取服务端返回的实际错误信息。 */
+async function getFunctionErrorMessage(error: unknown, fallback: string) {
+  // supabase-js 在非 2xx 响应时返回 FunctionsHttpError，
+  // 其 context 是未消费的 Response 对象，message 是固定通用文本。
+  if (error && typeof error === "object" && "context" in error) {
+    try {
+      const response = (error as { context: Response }).context;
+      const body = await response.json();
+      if (body?.message) {
+        return body.message as string;
+      }
+    } catch {
+      // response body 解析失败，回退到 error.message
+    }
+  }
+
   if (error instanceof Error && error.message) {
     return error.message;
   }
@@ -25,7 +40,7 @@ export async function createAlipayOrder(orderId: string) {
   );
 
   if (error) {
-    throw new Error(getFunctionErrorMessage(error, "创建支付宝支付单失败。"));
+    throw new Error(await getFunctionErrorMessage(error, "创建支付宝支付单失败。"));
   }
 
   if (!data?.orderString || !data?.outTradeNo || !data?.amount) {
@@ -44,7 +59,7 @@ export async function fetchPaymentOrderStatus(orderId: string) {
   );
 
   if (error) {
-    throw new Error(getFunctionErrorMessage(error, "查询订单支付状态失败。"));
+    throw new Error(await getFunctionErrorMessage(error, "查询订单支付状态失败。"));
   }
 
   if (!data?.orderId) {

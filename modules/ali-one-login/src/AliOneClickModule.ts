@@ -16,7 +16,7 @@ import { NativeModules, Platform } from 'react-native';
 
 interface AliOneClickNativeModule {
   initWithToken(authToken: string): Promise<boolean>;
-  login(): Promise<FusionLoginResult>;
+  login(templateId: string): Promise<FusionLoginResult>;
   quit(): Promise<void>;
 }
 
@@ -115,11 +115,11 @@ const AliOneClickModule = {
    * @throws error.code === 'E_USER_CANCEL' 用户取消
    * @throws error.code === 'E_NOT_INIT' 未初始化
    */
-  login: async (): Promise<FusionLoginResult> => {
+  login: async (templateId: string): Promise<FusionLoginResult> => {
     if (!isModuleAvailable()) {
       throw Object.assign(new Error('原生模块未加载'), { code: AliLoginErrorCodes.NOT_INIT });
     }
-    return await NativeModule.login();
+    return await NativeModule.login(templateId);
   },
 
   /**

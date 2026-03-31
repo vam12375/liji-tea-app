@@ -1,6 +1,6 @@
 {
   "platforms": ["android"],
   "android": {
-    "modules": ["com.lijitea.alioneclick.AliOneClickModule"]
+    "packages": ["com.lijitea.alioneclick.AliOneClickPackage"]
   }
 }

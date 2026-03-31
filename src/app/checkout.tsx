@@ -1,26 +1,39 @@
-import { useState, useMemo } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, Switch } from "react-native";
-import { useRouter, useLocalSearchParams, Stack } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Colors } from "@/constants/Colors";
-import { useCartStore } from "@/stores/cartStore";
-import { useUserStore } from "@/stores/userStore";
-import { useProductStore } from "@/stores/productStore";
-import { useOrderStore } from "@/stores/orderStore";
 import AddressCard from "@/components/checkout/AddressCard";
-import OrderItemCard from "@/components/checkout/OrderItemCard";
 import DeliveryOptions from "@/components/checkout/DeliveryOptions";
+import OrderItemCard from "@/components/checkout/OrderItemCard";
 import PaymentMethods from "@/components/checkout/PaymentMethods";
 import PriceBreakdown from "@/components/checkout/PriceBreakdown";
+import { Colors } from "@/constants/Colors";
+import { useCartStore } from "@/stores/cartStore";
 import { showModal } from "@/stores/modalStore";
+import { useOrderStore } from "@/stores/orderStore";
+import { useProductStore } from "@/stores/productStore";
+import { useUserStore } from "@/stores/userStore";
 import type { PaymentChannel } from "@/types/payment";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useMemo, useState } from "react";
+import {
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
+// 订单业务规则常量 — 修改价格只需改这里
+const SHIPPING_EXPRESS = 15;
+const DISCOUNT_THRESHOLD = 1000;
+const DISCOUNT_AMOUNT = 50;
+const GIFT_BOX_PRICE = 28;
 
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { productId } = useLocalSearchParams<{ productId?: string }>();
-  const { items: cartItems, subtotal: cartSubtotal } = useCartStore();
+  const { items: cartItems } = useCartStore();
   const { getDefaultAddress } = useUserStore();
   const { createOrder } = useOrderStore();
 
@@ -37,8 +50,12 @@ export default function CheckoutScreen() {
   }, [productId, cartItems, products]);
 
   const orderSubtotal = useMemo(
-    () => orderItems.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
-    [orderItems]
+    () =>
+      orderItems.reduce(
+        (sum, item) => sum + item.product.price * item.quantity,
+        0,
+      ),
+    [orderItems],
   );
 
   const [delivery, setDelivery] = useState("standard");
@@ -47,26 +64,23 @@ export default function CheckoutScreen() {
   const [giftBox, setGiftBox] = useState(false);
 
   const address = getDefaultAddress();
-  const shippingCost = delivery === "express" ? 15 : 0;
-  const discount = orderSubtotal >= 1000 ? 50 : 0;
-  const giftBoxPrice = giftBox ? 28 : 0;
-  const total = orderSubtotal + shippingCost - discount + giftBoxPrice;
+  const shippingCost = delivery === "express" ? SHIPPING_EXPRESS : 0;
+  const discount = orderSubtotal >= DISCOUNT_THRESHOLD ? DISCOUNT_AMOUNT : 0;
+  const giftBoxPrice = giftBox ? GIFT_BOX_PRICE : 0;
+  const total =
+    Math.round((orderSubtotal + shippingCost - discount + giftBoxPrice) * 100) /
+    100;
 
   const handleSubmit = async () => {
     const session = useUserStore.getState().session;
     if (!session) {
-      router.push('/login' as any);
+      router.push("/login" as any);
       return;
     }
     if (!address) {
-      showModal('提示', '请添加收货地址');
+      showModal("提示", "请添加收货地址");
       return;
     }
-    if (payment !== "alipay") {
-      showModal("暂未开放", "当前版本仅接入支付宝沙箱支付。");
-      return;
-    }
-
     const { orderId, error } = await createOrder({
       items: orderItems.map((item) => ({
         productId: item.product.id,
@@ -82,13 +96,13 @@ export default function CheckoutScreen() {
     });
 
     if (error) {
-      showModal('订单失败', error, 'error');
+      showModal("订单失败", error, "error");
       return;
     }
 
     // 跳转到支付页，由服务端生成支付单并等待服务端确认
     router.replace(
-      `/payment?orderId=${orderId}&total=${total.toFixed(2)}&paymentMethod=${payment}&fromCart=${productId ? "0" : "1"}` as any
+      `/payment?orderId=${orderId}&total=${total.toFixed(2)}&paymentMethod=${payment}&fromCart=${productId ? "0" : "1"}` as any,
     );
   };
 
@@ -103,7 +117,11 @@ export default function CheckoutScreen() {
           headerShadowVisible: false,
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={8}>
-              <MaterialIcons name="arrow-back" size={24} color={Colors.onSurface} />
+              <MaterialIcons
+                name="arrow-back"
+                size={24}
+                color={Colors.onSurface}
+              />
             </Pressable>
           ),
         }}
@@ -123,13 +141,25 @@ export default function CheckoutScreen() {
             className="bg-surface-container-low rounded-xl p-4 flex-row items-center gap-3 active:opacity-80"
           >
             <View className="w-10 h-10 rounded-full bg-primary-fixed items-center justify-center">
-              <MaterialIcons name="add-location-alt" size={22} color={Colors.primary} />
+              <MaterialIcons
+                name="add-location-alt"
+                size={22}
+                color={Colors.primary}
+              />
             </View>
             <View className="flex-1">
-              <Text className="text-on-surface font-medium text-sm">添加收货地址</Text>
-              <Text className="text-outline text-xs mt-0.5">请先添加收货地址再提交订单</Text>
+              <Text className="text-on-surface font-medium text-sm">
+                添加收货地址
+              </Text>
+              <Text className="text-outline text-xs mt-0.5">
+                请先添加收货地址再提交订单
+              </Text>
             </View>
-            <MaterialIcons name="chevron-right" size={20} color={Colors.outline} />
+            <MaterialIcons
+              name="chevron-right"
+              size={20}
+              color={Colors.outline}
+            />
           </Pressable>
         )}
 
@@ -159,16 +189,25 @@ export default function CheckoutScreen() {
         {/* 礼盒包装 */}
         <View className="flex-row items-center justify-between bg-surface-container-low rounded-xl px-4 py-3">
           <View className="flex-row items-center gap-3">
-            <MaterialIcons name="card-giftcard" size={20} color={Colors.tertiary} />
+            <MaterialIcons
+              name="card-giftcard"
+              size={20}
+              color={Colors.tertiary}
+            />
             <Text className="text-on-surface text-sm">
               精美礼盒包装{" "}
-              <Text className="text-tertiary font-medium">+¥28</Text>
+              <Text className="text-tertiary font-medium">
+                +¥{GIFT_BOX_PRICE}
+              </Text>
             </Text>
           </View>
           <Switch
             value={giftBox}
             onValueChange={setGiftBox}
-            trackColor={{ true: Colors.primaryContainer, false: Colors.outlineVariant }}
+            trackColor={{
+              true: Colors.primaryContainer,
+              false: Colors.outlineVariant,
+            }}
             thumbColor="#fff"
           />
         </View>
@@ -191,7 +230,9 @@ export default function CheckoutScreen() {
           onPress={handleSubmit}
           className="bg-primary-container rounded-full py-4 flex-row items-center justify-center gap-4 active:bg-primary"
         >
-          <Text className="text-on-primary font-medium text-base">提交订单</Text>
+          <Text className="text-on-primary font-medium text-base">
+            提交订单
+          </Text>
           <Text className="text-on-primary font-headline text-lg font-bold">
             ¥{total}
           </Text>

@@ -1,5 +1,6 @@
 import "../../global.css";
 import { useEffect } from "react";
+import { View } from "react-native";
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
@@ -57,7 +58,7 @@ export default function RootLayout() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [setSession, setInitialized, fetchProfile, fetchAddresses, fetchFavorites]);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -66,7 +67,7 @@ export default function RootLayout() {
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
-    return null;
+    return <View style={{ flex: 1 }} />;
   }
 
   return (

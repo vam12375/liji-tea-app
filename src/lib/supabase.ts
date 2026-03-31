@@ -15,10 +15,14 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 });
 
 // 前台自动刷新 token，后台停止刷新
-AppState.addEventListener('change', (state) => {
+const appStateSubscription = AppState.addEventListener('change', (state) => {
   if (state === 'active') {
     supabase.auth.startAutoRefresh();
   } else {
     supabase.auth.stopAutoRefresh();
   }
 });
+
+export function removeSupabaseAppStateListener() {
+  appStateSubscription.remove();
+}

@@ -1,16 +1,16 @@
-import { useEffect, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  FlatList,
-  Pressable,
-  ActivityIndicator,
-} from "react-native";
-import { useRouter, Stack, useLocalSearchParams } from "expo-router";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useOrderStore } from "@/stores/orderStore";
 import type { Order } from "@/types/database";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 
 /** 标签页定义 */
 const TABS = [
@@ -48,20 +48,47 @@ function formatDate(dateStr: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+const PENDING_ORDER_EXPIRE_MS = 10 * 60 * 1000;
+
+function getPendingPaymentDeadline(createdAt: string) {
+  const createdTime = new Date(createdAt).getTime();
+  if (Number.isNaN(createdTime)) {
+    return null;
+  }
+
+  return createdTime + PENDING_ORDER_EXPIRE_MS;
+}
+
+function formatRemainingPaymentTime(remainingMs: number) {
+  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
 export default function OrdersScreen() {
   const router = useRouter();
   const { initialTab } = useLocalSearchParams<{ initialTab?: string }>();
 
   // 根据 initialTab 参数决定初始选中标签
   const [activeTab, setActiveTab] = useState(
-    initialTab ? STATUS_TO_TAB[initialTab] ?? "全部" : "全部"
+    initialTab ? (STATUS_TO_TAB[initialTab] ?? "全部") : "全部",
   );
 
   const { orders, loading, fetchOrders } = useOrderStore();
+  const [now, setNow] = useState(() => Date.now());
 
   // 挂载时拉取订单
   useEffect(() => {
-    fetchOrders();
+    void fetchOrders();
+  }, [fetchOrders]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
   // 按当前标签过滤订单
@@ -76,6 +103,18 @@ export default function OrdersScreen() {
       const badge = STATUS_BADGE[item.status];
       const itemCount =
         item.order_items?.reduce((sum, oi) => sum + oi.quantity, 0) ?? 0;
+      const paymentDeadline =
+        item.status === "pending"
+          ? getPendingPaymentDeadline(item.created_at)
+          : null;
+      const remainingMs =
+        paymentDeadline === null ? null : paymentDeadline - now;
+      const isPayable =
+        item.status === "pending" && remainingMs !== null && remainingMs > 0;
+      const remainingText =
+        isPayable && remainingMs !== null
+          ? formatRemainingPaymentTime(remainingMs)
+          : null;
 
       return (
         <Pressable
@@ -91,7 +130,10 @@ export default function OrdersScreen() {
               style={{ backgroundColor: badge.bg }}
               className="px-2 py-0.5 rounded-full"
             >
-              <Text style={{ color: badge.color }} className="text-xs font-medium">
+              <Text
+                style={{ color: badge.color }}
+                className="text-xs font-medium"
+              >
                 {badge.label}
               </Text>
             </View>
@@ -102,6 +144,19 @@ export default function OrdersScreen() {
             {formatDate(item.created_at)}
           </Text>
 
+          {item.status === "pending" ? (
+            <View className="rounded-xl bg-background px-3 py-3 gap-1">
+              <Text className="text-on-surface text-sm font-medium">
+                {isPayable && remainingText
+                  ? `请在 ${remainingText} 内完成支付`
+                  : "订单支付已超时，系统正在自动取消"}
+              </Text>
+              <Text className="text-outline text-xs leading-5">
+                待付款订单会在下单 10 分钟后自动关闭，超时后将无法继续支付。
+              </Text>
+            </View>
+          ) : null}
+
           {/* 底部：商品件数 + 金额 */}
           <View className="flex-row items-center justify-between">
             <Text className="text-outline text-xs">共 {itemCount} 件商品</Text>
@@ -109,10 +164,30 @@ export default function OrdersScreen() {
               ¥{item.total.toFixed(2)}
             </Text>
           </View>
+
+          {item.status === "pending" ? (
+            <View className="flex-row justify-end">
+              <Pressable
+                onPress={() =>
+                  router.push(
+                    `/payment?orderId=${item.id}&total=${item.total}&paymentMethod=${item.payment_method ?? "alipay"}` as any,
+                  )
+                }
+                disabled={!isPayable}
+                className={`rounded-full px-5 py-2.5 ${isPayable ? "bg-primary-container active:bg-primary" : "bg-surface"}`}
+              >
+                <Text
+                  className={`font-medium ${isPayable ? "text-on-primary" : "text-outline"}`}
+                >
+                  立即付款
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
         </Pressable>
       );
     },
-    [router]
+    [now, router],
   );
 
   return (

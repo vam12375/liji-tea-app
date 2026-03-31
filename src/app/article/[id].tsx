@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ScrollView, Pressable, Share } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -11,6 +12,16 @@ export default function ArticleDetailScreen() {
   const insets = useSafeAreaInsets();
   const articles = useArticleStore((s) => s.articles);
   const article = articles.find((a) => a.id === id);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+
+  /** 分享文章 */
+  const handleShare = async () => {
+    if (!article) return;
+    try {
+      await Share.share({ message: `【李记茶铺】${article.title}\n${article.subtitle ?? ''}` });
+    } catch { /* 用户取消分享 */ }
+  };
 
   if (!article) {
     return (
@@ -48,10 +59,11 @@ export default function ArticleDetailScreen() {
 
           {/* 收藏按钮 */}
           <Pressable
+            onPress={() => setIsBookmarked((v) => !v)}
             style={{ top: insets.top + 8 }}
             className="absolute right-4 w-10 h-10 bg-black/30 rounded-full items-center justify-center active:bg-black/50"
           >
-            <MaterialIcons name="bookmark-border" size={22} color="#fff" />
+            <MaterialIcons name={isBookmarked ? "bookmark" : "bookmark-border"} size={22} color={isBookmarked ? Colors.primary : "#fff"} />
           </Pressable>
         </View>
 
@@ -92,11 +104,17 @@ export default function ArticleDetailScreen() {
           <Text className="text-on-surface font-bold text-sm">喜欢这篇文章？</Text>
           <Text className="text-on-surface-variant text-xs">分享给更多茶友，传递茶文化的温度</Text>
           <View className="flex-row gap-3 mt-1">
-            <Pressable className="flex-row items-center gap-1.5 bg-primary-container/20 px-4 py-2 rounded-full active:opacity-80">
-              <MaterialIcons name="favorite-border" size={16} color={Colors.primary} />
-              <Text className="text-primary text-xs font-medium">点赞</Text>
+            <Pressable
+              onPress={() => setIsLiked((v) => !v)}
+              className="flex-row items-center gap-1.5 bg-primary-container/20 px-4 py-2 rounded-full active:opacity-80"
+            >
+              <MaterialIcons name={isLiked ? "favorite" : "favorite-border"} size={16} color={isLiked ? Colors.error : Colors.primary} />
+              <Text className="text-primary text-xs font-medium">{isLiked ? "已点赞" : "点赞"}</Text>
             </Pressable>
-            <Pressable className="flex-row items-center gap-1.5 bg-primary-container/20 px-4 py-2 rounded-full active:opacity-80">
+            <Pressable
+              onPress={handleShare}
+              className="flex-row items-center gap-1.5 bg-primary-container/20 px-4 py-2 rounded-full active:opacity-80"
+            >
               <MaterialIcons name="share" size={16} color={Colors.primary} />
               <Text className="text-primary text-xs font-medium">分享</Text>
             </Pressable>

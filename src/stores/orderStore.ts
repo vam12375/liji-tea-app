@@ -1,8 +1,45 @@
-import { create } from 'zustand';
-import { supabase } from '@/lib/supabase';
-import type { Order } from '@/types/database';
-import type { OrderPaymentStatus, PaymentChannel } from '@/types/payment';
-import { useUserStore } from '@/stores/userStore';
+import { supabase } from "@/lib/supabase";
+import { useUserStore } from "@/stores/userStore";
+import type { Order } from "@/types/database";
+import type { OrderPaymentStatus, PaymentChannel } from "@/types/payment";
+import { create } from "zustand";
+
+const PENDING_ORDER_EXPIRE_MS = 10 * 60 * 1000;
+
+function isPendingOrderExpired(order: Pick<Order, "status" | "created_at">) {
+  if (order.status !== "pending") {
+    return false;
+  }
+
+  const createdAt = new Date(order.created_at).getTime();
+  if (Number.isNaN(createdAt)) {
+    return false;
+  }
+
+  return Date.now() - createdAt >= PENDING_ORDER_EXPIRE_MS;
+}
+
+async function closeExpiredPendingOrder(orderId: string) {
+  const now = new Date().toISOString();
+  const update = {
+    status: "cancelled" as const,
+    payment_status: "closed" as const,
+    payment_error_code: "order_expired",
+    payment_error_message: "待付款订单已超过 10 分钟，系统已自动取消。",
+    updated_at: now,
+  };
+
+  const { error } = await supabase
+    .from("orders")
+    .update(update)
+    .eq("id", orderId)
+    .eq("status", "pending");
+
+  return {
+    error,
+    update,
+  };
+}
 
 /** 支付宝通知后需要更新的完整支付字段集合。 */
 export interface PaymentStatusUpdate {
@@ -14,7 +51,7 @@ export interface PaymentStatusUpdate {
   paidAt?: string | null;
   paymentErrorCode?: string | null;
   paymentErrorMessage?: string | null;
-  status?: Order['status'];
+  status?: Order["status"];
 }
 
 interface OrderState {
@@ -37,9 +74,15 @@ interface OrderState {
   fetchOrders: () => Promise<void>;
   fetchOrderById: (id: string) => Promise<void>;
   /** 仅更新订单主状态（pending → paid） */
-  updateOrderStatus: (orderId: string, status: Order["status"]) => Promise<{ error: string | null }>;
+  updateOrderStatus: (
+    orderId: string,
+    status: Order["status"],
+  ) => Promise<{ error: string | null }>;
   /** 更新支付相关字段（支付宝回调后使用） */
-  updatePaymentStatus: (orderId: string, update: PaymentStatusUpdate) => Promise<{ error: string | null }>;
+  updatePaymentStatus: (
+    orderId: string,
+    update: PaymentStatusUpdate,
+  ) => Promise<{ error: string | null }>;
   /** 实时回调：更新订单状态 */
   updateOrder: (updated: Partial<Order> & { id: string }) => void;
 }
@@ -53,11 +96,11 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
   createOrder: async (params) => {
     try {
       const userId = useUserStore.getState().session?.user?.id;
-      if (!userId) return { orderId: null, error: '未登录' };
+      if (!userId) return { orderId: null, error: "未登录" };
 
       // 创建订单主记录
       const { data: order, error: orderError } = await supabase
-        .from('orders')
+        .from("orders")
         .insert({
           user_id: userId,
           address_id: params.addressId,
@@ -65,16 +108,16 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
           delivery_type: params.deliveryType,
           payment_method: params.paymentMethod,
           payment_channel: params.paymentMethod,
-          payment_status: params.paymentMethod === 'alipay' ? 'pending_payment' : null,
+          payment_status: "pending_payment",
           notes: params.notes ?? null,
           gift_wrap: params.giftWrap,
-          status: 'pending',
+          status: "pending",
         })
         .select()
         .single();
 
       if (orderError || !order) {
-        return { orderId: null, error: orderError?.message ?? '创建订单失败' };
+        return { orderId: null, error: orderError?.message ?? "创建订单失败" };
       }
 
       // 创建订单明细
@@ -86,7 +129,7 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
       }));
 
       const { error: itemsError } = await supabase
-        .from('order_items')
+        .from("order_items")
         .insert(orderItems);
 
       if (itemsError) {
@@ -95,8 +138,8 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
 
       return { orderId: order.id, error: null };
     } catch (err: any) {
-      console.warn('[orderStore] createOrder 失败:', err);
-      return { orderId: null, error: err?.message ?? '创建订单失败' };
+      console.warn("[orderStore] createOrder 失败:", err);
+      return { orderId: null, error: err?.message ?? "创建订单失败" };
     }
   },
 
@@ -107,15 +150,36 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
 
       set({ loading: true });
       const { data, error } = await supabase
-        .from('orders')
-        .select('*, order_items(*, product:products(*))')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+        .from("orders")
+        .select("*, order_items(*, product:products(*))")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
-      set({ orders: (data as Order[]) ?? [], loading: false });
+
+      const orders = (data as Order[]) ?? [];
+      const normalizedOrders = await Promise.all(
+        orders.map(async (order) => {
+          if (!isPendingOrderExpired(order)) {
+            return order;
+          }
+
+          const result = await closeExpiredPendingOrder(order.id);
+          if (result.error) {
+            console.warn("[orderStore] 自动关闭超时订单失败:", result.error);
+            return order;
+          }
+
+          return {
+            ...order,
+            ...result.update,
+          } as Order;
+        }),
+      );
+
+      set({ orders: normalizedOrders, loading: false });
     } catch (err) {
-      console.warn('[orderStore] fetchOrders 失败:', err);
+      console.warn("[orderStore] fetchOrders 失败:", err);
       set({ loading: false });
     }
   },
@@ -126,21 +190,35 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
       set({ currentOrder: null, currentOrderLoading: true });
 
       const { data, error } = await supabase
-        .from('orders')
-        .select('*, order_items(*, product:products(*)), address:addresses(*)')
-        .eq('id', id)
+        .from("orders")
+        .select("*, order_items(*, product:products(*)), address:addresses(*)")
+        .eq("id", id)
         .single();
 
       if (error) throw error;
       if (data) {
-        set({ currentOrder: data as Order, currentOrderLoading: false });
+        let currentOrder = data as Order;
+
+        if (isPendingOrderExpired(currentOrder)) {
+          const result = await closeExpiredPendingOrder(currentOrder.id);
+          if (result.error) {
+            console.warn("[orderStore] 自动关闭超时订单详情失败:", result.error);
+          } else {
+            currentOrder = {
+              ...currentOrder,
+              ...result.update,
+            } as Order;
+          }
+        }
+
+        set({ currentOrder, currentOrderLoading: false });
         return;
       }
 
       // 兜底分支：理论上 single() 找不到会抛错，这里仍显式回落为空详情状态。
       set({ currentOrder: null, currentOrderLoading: false });
     } catch (err) {
-      console.warn('[orderStore] fetchOrderById 失败:', err);
+      console.warn("[orderStore] fetchOrderById 失败:", err);
       set({ currentOrder: null, currentOrderLoading: false });
     }
   },
@@ -148,16 +226,16 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
   updateOrderStatus: async (orderId, status) => {
     try {
       const { error } = await supabase
-        .from('orders')
+        .from("orders")
         .update({ status })
-        .eq('id', orderId);
+        .eq("id", orderId);
 
       if (error) return { error: error.message };
 
       // 同步更新本地状态
       set((state) => ({
         orders: state.orders.map((o) =>
-          o.id === orderId ? { ...o, status } : o
+          o.id === orderId ? { ...o, status } : o,
         ),
         currentOrder:
           state.currentOrder?.id === orderId
@@ -167,8 +245,8 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
 
       return { error: null };
     } catch (err: any) {
-      console.warn('[orderStore] updateOrderStatus 失败:', err);
-      return { error: err?.message ?? '更新状态失败' };
+      console.warn("[orderStore] updateOrderStatus 失败:", err);
+      return { error: err?.message ?? "更新状态失败" };
     }
   },
 
@@ -176,49 +254,60 @@ export const useOrderStore = create<OrderState>()((set, get) => ({
   updatePaymentStatus: async (orderId, update) => {
     try {
       // 仅构造有值的字段，避免覆盖无关数据
-      const dbUpdate: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      const dbUpdate: Record<string, unknown> = {
+        updated_at: new Date().toISOString(),
+      };
 
-      if (update.paymentStatus !== undefined) dbUpdate.payment_status = update.paymentStatus;
-      if (update.paymentChannel !== undefined) dbUpdate.payment_channel = update.paymentChannel;
-      if (update.outTradeNo !== undefined) dbUpdate.out_trade_no = update.outTradeNo;
+      if (update.paymentStatus !== undefined)
+        dbUpdate.payment_status = update.paymentStatus;
+      if (update.paymentChannel !== undefined)
+        dbUpdate.payment_channel = update.paymentChannel;
+      if (update.outTradeNo !== undefined)
+        dbUpdate.out_trade_no = update.outTradeNo;
       if (update.tradeNo !== undefined) dbUpdate.trade_no = update.tradeNo;
-      if (update.paidAmount !== undefined) dbUpdate.paid_amount = update.paidAmount;
+      if (update.paidAmount !== undefined)
+        dbUpdate.paid_amount = update.paidAmount;
       if (update.paidAt !== undefined) dbUpdate.paid_at = update.paidAt;
-      if (update.paymentErrorCode !== undefined) dbUpdate.payment_error_code = update.paymentErrorCode;
-      if (update.paymentErrorMessage !== undefined) dbUpdate.payment_error_message = update.paymentErrorMessage;
+      if (update.paymentErrorCode !== undefined)
+        dbUpdate.payment_error_code = update.paymentErrorCode;
+      if (update.paymentErrorMessage !== undefined)
+        dbUpdate.payment_error_message = update.paymentErrorMessage;
       if (update.status !== undefined) dbUpdate.status = update.status;
 
       const { error } = await supabase
-        .from('orders')
+        .from("orders")
         .update(dbUpdate)
-        .eq('id', orderId);
+        .eq("id", orderId);
 
       if (error) return { error: error.message };
 
       // 同步更新本地缓存的订单数据
       set((state) => ({
         orders: state.orders.map((o) =>
-          o.id === orderId ? { ...o, ...dbUpdate } as Order : o
+          o.id === orderId ? ({ ...o, ...dbUpdate } as Order) : o,
         ),
         currentOrder:
           state.currentOrder?.id === orderId
-            ? { ...state.currentOrder, ...dbUpdate } as Order
+            ? ({ ...state.currentOrder, ...dbUpdate } as Order)
             : state.currentOrder,
       }));
 
       return { error: null };
     } catch (err: any) {
-      console.warn('[orderStore] updatePaymentStatus 失败:', err);
-      return { error: err?.message ?? '更新支付状态失败' };
+      console.warn("[orderStore] updatePaymentStatus 失败:", err);
+      return { error: err?.message ?? "更新支付状态失败" };
     }
   },
 
   updateOrder: (updated) => {
     set((state) => ({
-      orders: state.orders.map((o) => (o.id === updated.id ? { ...o, ...updated } as Order : o)),
-      currentOrder: state.currentOrder?.id === updated.id
-        ? { ...state.currentOrder, ...updated } as Order
-        : state.currentOrder,
+      orders: state.orders.map((o) =>
+        o.id === updated.id ? ({ ...o, ...updated } as Order) : o,
+      ),
+      currentOrder:
+        state.currentOrder?.id === updated.id
+          ? ({ ...state.currentOrder, ...updated } as Order)
+          : state.currentOrder,
     }));
   },
 }));

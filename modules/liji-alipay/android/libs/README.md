@@ -1,4 +1,4 @@
-﻿请将支付宝官方 Android SDK 的 AAR 文件放到当前目录，例如：
+请将支付宝官方 Android SDK 的 AAR 文件放到当前目录，例如：
 - `alipaySdk.aar`
 - `alipaySdk-15.8.xx.aar`
 

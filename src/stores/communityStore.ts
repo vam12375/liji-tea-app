@@ -225,16 +225,28 @@ interface CommunityState {
   stories: Story[];
   posts: Post[];
   loading: boolean;
+  /** 当前用户点赞过的帖子 ID 集合 */
+  likedPostIds: Set<string>;
+  /** 当前用户点赞过的评论 ID 集合 */
+  likedCommentIds: Set<string>;
 
   fetchStories: () => Promise<void>;
   fetchPosts: () => Promise<void>;
+  /** 切换帖子点赞 */
+  togglePostLike: (postId: string) => void;
+  /** 添加评论 */
+  addComment: (postId: string, author: string, avatar: string, content: string) => void;
+  /** 切换评论点赞 */
+  toggleCommentLike: (postId: string, commentId: string) => void;
 }
 
-export const useCommunityStore = create<CommunityState>()((set) => ({
+export const useCommunityStore = create<CommunityState>()((set, get) => ({
   // 初始值直接使用模拟数据，确保页面立即有内容
   stories: MOCK_STORIES,
   posts: MOCK_POSTS,
   loading: false,
+  likedPostIds: new Set<string>(),
+  likedCommentIds: new Set<string>(),
 
   fetchStories: async () => {
     try {
@@ -273,5 +285,68 @@ export const useCommunityStore = create<CommunityState>()((set) => ({
       console.warn('[communityStore] fetchPosts 失败，保持模拟数据:', err);
       set({ loading: false });
     }
+  },
+
+  togglePostLike: (postId) => {
+    const { likedPostIds } = get();
+    const isLiked = likedPostIds.has(postId);
+    const next = new Set(likedPostIds);
+    if (isLiked) {
+      next.delete(postId);
+    } else {
+      next.add(postId);
+    }
+    set({
+      likedPostIds: next,
+      posts: get().posts.map((p) =>
+        p.id === postId ? { ...p, likes: (p.likes ?? 0) + (isLiked ? -1 : 1) } : p
+      ),
+    });
+  },
+
+  addComment: (postId, author, avatar, content) => {
+    const newComment: Comment = {
+      id: `c-${Date.now()}`,
+      author,
+      avatar,
+      content,
+      time: '刚刚',
+      likes: 0,
+    };
+    set({
+      posts: get().posts.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              comments: (p.comments ?? 0) + 1,
+              commentList: [...(p.commentList ?? []), newComment],
+            }
+          : p
+      ),
+    });
+  },
+
+  toggleCommentLike: (postId, commentId) => {
+    const { likedCommentIds } = get();
+    const isLiked = likedCommentIds.has(commentId);
+    const next = new Set(likedCommentIds);
+    if (isLiked) {
+      next.delete(commentId);
+    } else {
+      next.add(commentId);
+    }
+    set({
+      likedCommentIds: next,
+      posts: get().posts.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              commentList: p.commentList?.map((c) =>
+                c.id === commentId ? { ...c, likes: c.likes + (isLiked ? -1 : 1) } : c
+              ),
+            }
+          : p
+      ),
+    });
   },
 }));
