@@ -7,6 +7,16 @@ export type OrderPaymentStatus =
   | "failed"
   | "closed";
 
+export type MockLogisticsAction = "advance" | "ship" | "deliver";
+
+export interface TrackingEvent {
+  status: string;
+  title: string;
+  detail: string;
+  eventTime: string;
+  sortOrder: number;
+}
+
 export interface AlipayCreateOrderResponse {
   orderString: string;
   outTradeNo: string;
@@ -23,6 +33,28 @@ export interface PaymentOrderStatusResponse {
   paidAmount: number | null;
   paymentErrorCode: string | null;
   paymentErrorMessage: string | null;
+}
+
+export interface MockPaymentConfirmResponse {
+  orderId: string;
+  status: string;
+  paymentStatus: OrderPaymentStatus | null;
+  paymentChannel: PaymentChannel;
+  paidAt: string | null;
+  paidAmount: number | null;
+  outTradeNo: string | null;
+  tradeNo: string | null;
+  logisticsCompany: string | null;
+  logisticsTrackingNo: string | null;
+}
+
+export interface MockLogisticsUpdateResponse {
+  orderId: string;
+  status: string;
+  logisticsStatus: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+  trackingEvents: TrackingEvent[];
 }
 
 export interface AlipayNativePayResult {

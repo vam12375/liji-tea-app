@@ -34,8 +34,15 @@ export interface Product {
   is_new: boolean;
   category: string;
   tagline: string | null;
-  tasting_profile: { label: string; description: string; value: number }[] | null;
-  brewing_guide: { temperature: string; time: string; amount: string; equipment: string } | null;
+  tasting_profile:
+    | { label: string; description: string; value: number }[]
+    | null;
+  brewing_guide: {
+    temperature: string;
+    time: string;
+    amount: string;
+    equipment: string;
+  } | null;
   origin_story: string | null;
   process: string[] | null;
   stock: number;
@@ -47,7 +54,7 @@ export interface Order {
   id: string;
   user_id: string;
   address_id: string | null;
-  status: 'pending' | 'paid' | 'shipping' | 'delivered' | 'cancelled';
+  status: "pending" | "paid" | "shipping" | "delivered" | "cancelled";
   total: number;
   delivery_type: string;
   payment_method: PaymentChannel | null;
@@ -59,6 +66,14 @@ export interface Order {
   trade_no?: string | null;
   payment_error_code?: string | null;
   payment_error_message?: string | null;
+  logistics_company?: string | null;
+  logistics_tracking_no?: string | null;
+  logistics_status?: string | null;
+  logistics_receiver_name?: string | null;
+  logistics_receiver_phone?: string | null;
+  logistics_address?: string | null;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
   notes: string | null;
   gift_wrap: boolean;
   created_at: string;
