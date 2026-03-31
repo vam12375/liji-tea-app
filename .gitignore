@@ -46,12 +46,23 @@ app-example
 /ios
 /android
 
-# 模块级构建缓存
+# 模块级构建缓存与中间产物
+# Android Gradle 构建输出 — 每次构建自动生成，不应纳入版本控制
+modules/*/android/build/
 modules/*/android/.gradle/
+
+# 全局 Gradle 主目录缓存（本地机器专属）
+gradle-cache/
+.gradle-home/
+
+# Supabase 临时文件
 supabase/.temp/
 
+# IDE / 编辑器
 .claude/
 .idea/
 .vscode/
+
+# 原型与文档（本地开发用，不上传到远程）
 stitch/
 docs/
