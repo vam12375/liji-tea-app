@@ -66,9 +66,9 @@ function formatDateTime(value?: string | null) {
   )}:${pad(date.getMinutes())}`;
 }
 
-/** 订单号通常较长，物流页只展示更适合用户识别的后 8 位。 */
-function getDisplayOrderCode(orderId: string) {
-  return orderId.slice(-8);
+/** 优先展示面向用户的 order_no，无则回落到 UUID 后 8 位。 */
+function getDisplayOrderCode(orderId: string, orderNo?: string | null) {
+  return orderNo ?? orderId.slice(-8);
 }
 
 /**
@@ -679,7 +679,7 @@ export default function TrackingScreen() {
           </View>
 
           <View className="rounded-xl bg-background/80 p-4 gap-3">
-            <TrackingInfoRow label="订单号" value={getDisplayOrderCode(currentOrder.id)} />
+            <TrackingInfoRow label="订单号" value={getDisplayOrderCode(currentOrder.id, currentOrder.order_no)} />
             <TrackingInfoRow label="下单时间" value={formatDateTime(currentOrder.created_at)} />
             <TrackingInfoRow label="配送方式" value={getDeliveryLabel(currentOrder.delivery_type)} />
           </View>

@@ -52,6 +52,8 @@ export interface Product {
 
 export interface Order {
   id: string;
+  /** 面向用户的展示订单号，格式 LJ{YYYYMMDDHHmmss}{4位序号}，由数据库触发器自动生成。 */
+  order_no?: string | null;
   user_id: string;
   address_id: string | null;
   status: "pending" | "paid" | "shipping" | "delivered" | "cancelled";
