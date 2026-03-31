@@ -3,6 +3,8 @@ import { View, Text, ScrollView, Pressable, Switch } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Image as ExpoImage } from "expo-image";
 import { Colors } from "@/constants/Colors";
 import { useUserStore } from "@/stores/userStore";
 import { showModal, showConfirm } from "@/stores/modalStore";
@@ -38,6 +40,48 @@ export default function SettingsScreen() {
     });
   };
 
+  /** 隐私协议 */
+  const handlePrivacy = () => {
+    showModal("隐私协议", [
+      "李记茶铺尊重并保护您的个人隐私。",
+      "",
+      "1. 我们收集的信息仅用于提供服务，包括姓名、手机号、收货地址等。",
+      "2. 您的信息将通过加密传输和存储，不会出售或共享给第三方。",
+      "3. 您可以随时在「设置」中修改或删除个人信息。",
+      "4. 我们使用支付宝等第三方支付服务，支付信息由对方安全处理。",
+      "5. 如有疑问，请联系 privacy@lijitea.com。",
+    ].join("\n"));
+  };
+
+  /** 关于我们 */
+  const handleAbout = () => {
+    showModal("关于李记茶铺", [
+      "李记茶铺 v2.7.0",
+      "",
+      "传承中国茶文化，精选高山好茶。",
+      "从茶园到茶杯，每一片茶叶都经过严格筛选。",
+      "",
+      "联系我们：support@lijitea.com",
+      "官方微信：lijitea_official",
+    ].join("\n"));
+  };
+
+  /** 清除缓存 */
+  const handleClearCache = () => {
+    showConfirm("清除缓存", "将清除图片缓存和本地存储数据，确定继续？", async () => {
+      try {
+        // 清除 expo-image 图片缓存
+        await ExpoImage.clearDiskCache();
+        await ExpoImage.clearMemoryCache();
+        // 清除 AsyncStorage（购物车等本地数据）
+        await AsyncStorage.clear();
+        showModal("提示", "缓存已清除，部分数据将在下次打开时重新加载", "success");
+      } catch {
+        showModal("提示", "清除缓存失败，请稍后重试", "error");
+      }
+    });
+  };
+
   // 设置项配置
   const settingItems: SettingItem[] = [
     {
@@ -49,19 +93,19 @@ export default function SettingsScreen() {
       icon: "privacy-tip",
       label: "隐私协议",
       type: "navigate",
-      onPress: () => showModal("提示", "隐私协议页面即将上线"),
+      onPress: () => handlePrivacy(),
     },
     {
       icon: "info",
       label: "关于我们",
       type: "navigate",
-      onPress: () => showModal("提示", "关于我们页面即将上线"),
+      onPress: () => handleAbout(),
     },
     {
       icon: "delete-sweep",
       label: "清除缓存",
       type: "navigate",
-      onPress: () => showModal("提示", "缓存已清除", "success"),
+      onPress: () => handleClearCache(),
     },
   ];
 
