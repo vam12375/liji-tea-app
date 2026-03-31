@@ -1,4 +1,4 @@
-﻿/** 支付宝 RSA2 签名算法配置。 */
+/** 支付宝 RSA2 签名算法配置。 */
 const SIGN_ALGORITHM: RsaHashedImportParams = {
   name: "RSASSA-PKCS1-v1_5",
   hash: "SHA-256",
@@ -20,17 +20,45 @@ interface BuildAlipayOrderStringOptions {
 /** 去掉 PEM 包裹头尾和空白，转换为可导入的纯 base64 内容。 */
 function normalizePem(pem: string) {
   return pem
+    // 去掉外层引号（env 中可能带有多余引号）
+    .replace(/^["']+|["']+$/g, "")
+    // 去掉 PEM 头尾
     .replace(/-----BEGIN [^-]+-----/g, "")
     .replace(/-----END [^-]+-----/g, "")
+    // 处理各种换行符变体：字面量 \\n、字面量 \n、真实换行
+    .replace(/\\\\n/g, "")
+    .replace(/\\n/g, "")
+    .replace(/\r?\n/g, "")
+    // 清除所有空白
     .replace(/\s+/g, "");
 }
 
-function base64ToBytes(base64: string) {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
+/** base64 查表解码，完全不依赖 atob，兼容 Deno 严格模式。 */
+const B64_LOOKUP = new Uint8Array(128);
+{
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  for (let i = 0; i < chars.length; i++) {
+    B64_LOOKUP[chars.charCodeAt(i)] = i;
+  }
+}
 
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index);
+function base64ToBytes(raw: string) {
+  // 仅保留合法 base64 字符，自动跳过填充和杂质
+  const base64 = raw.replace(/[^A-Za-z0-9+/]/g, "");
+  const len = base64.length;
+  const byteLen = (len * 3) >>> 2;
+  const bytes = new Uint8Array(byteLen);
+
+  let p = 0;
+  for (let i = 0; i < len; i += 4) {
+    const a = B64_LOOKUP[base64.charCodeAt(i)];
+    const b = i + 1 < len ? B64_LOOKUP[base64.charCodeAt(i + 1)] : 0;
+    const c = i + 2 < len ? B64_LOOKUP[base64.charCodeAt(i + 2)] : 0;
+    const d = i + 3 < len ? B64_LOOKUP[base64.charCodeAt(i + 3)] : 0;
+
+    if (p < byteLen) bytes[p++] = (a << 2) | (b >> 4);
+    if (p < byteLen) bytes[p++] = ((b & 0xf) << 4) | (c >> 2);
+    if (p < byteLen) bytes[p++] = ((c & 0x3) << 6) | d;
   }
 
   return bytes;
@@ -77,10 +105,109 @@ function formatTimestamp(date = new Date()) {
   )}`;
 }
 
+/**
+ * 解析 DER 结构外层 SEQUENCE 的 tag + length，返回完整 DER 的有效字节数。
+ * 用于截断私钥 base64 解码后可能存在的多余尾部数据。
+ */
+function getDerTotalLength(bytes: Uint8Array): number {
+  if (bytes.length < 2 || bytes[0] !== 0x30) {
+    // 不是 SEQUENCE 标签，无法解析，返回原始长度
+    return bytes.length;
+  }
+
+  const firstLenByte = bytes[1];
+
+  if (firstLenByte < 0x80) {
+    // 短格式：长度直接编码在 1 字节中
+    return 2 + firstLenByte;
+  }
+
+  // 长格式：firstLenByte 的低 7 位表示后续有几个字节用于编码长度
+  const numLenBytes = firstLenByte & 0x7f;
+
+  if (numLenBytes === 0 || numLenBytes > 4 || 2 + numLenBytes > bytes.length) {
+    return bytes.length;
+  }
+
+  let contentLen = 0;
+
+  for (let i = 0; i < numLenBytes; i++) {
+    contentLen = (contentLen << 8) | bytes[2 + i];
+  }
+
+  // 总长度 = tag(1) + 首字节(1) + 长度字节数 + 内容长度
+  return 2 + numLenBytes + contentLen;
+}
+
+/** 将 PKCS#1 (RSA PRIVATE KEY) DER 字节包装为 PKCS#8 (PRIVATE KEY) DER 字节。 */
+function wrapPkcs1ToPkcs8(pkcs1: Uint8Array) {
+  // PKCS#8 PrivateKeyInfo ASN.1 结构：
+  // SEQUENCE { version INTEGER(0), algorithm AlgorithmIdentifier, privateKey OCTET STRING }
+  const algorithmId = new Uint8Array([
+    0x30, 0x0d,
+    0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, // OID rsaEncryption
+    0x05, 0x00, // NULL
+  ]);
+  const version = new Uint8Array([0x02, 0x01, 0x00]);
+
+  // OCTET STRING 包裹 PKCS#1 字节
+  const octetString = derWrap(0x04, pkcs1);
+  // 外层 SEQUENCE
+  const content = concatBytes(version, algorithmId, octetString);
+  return derWrap(0x30, content);
+}
+
+/** 用 DER tag + length 包裹内容。 */
+function derWrap(tag: number, content: Uint8Array) {
+  const len = content.length;
+  let header: Uint8Array;
+
+  if (len < 0x80) {
+    header = new Uint8Array([tag, len]);
+  } else if (len < 0x100) {
+    header = new Uint8Array([tag, 0x81, len]);
+  } else {
+    header = new Uint8Array([tag, 0x82, (len >> 8) & 0xff, len & 0xff]);
+  }
+
+  return concatBytes(header, content);
+}
+
+function concatBytes(...arrays: Uint8Array[]) {
+  const total = arrays.reduce((sum, a) => sum + a.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const arr of arrays) {
+    result.set(arr, offset);
+    offset += arr.length;
+  }
+  return result;
+}
+
 async function importPrivateKey(privateKeyPem: string) {
+  const isPkcs1 = privateKeyPem.includes("RSA PRIVATE KEY");
+  let keyBytes = base64ToBytes(normalizePem(privateKeyPem));
+
+  // 根据 DER 外层 SEQUENCE 声明的长度截断多余尾部数据
+  const expectedLen = getDerTotalLength(keyBytes);
+
+  if (keyBytes.length > expectedLen) {
+    console.warn(
+      `[alipay] 私钥 DER 有 ${
+        keyBytes.length - expectedLen
+      } 字节多余尾部数据，已自动截断`
+    );
+    keyBytes = keyBytes.slice(0, expectedLen);
+  }
+
+  // Web Crypto API 只支持 PKCS#8，如果是 PKCS#1 需要包装
+  if (isPkcs1) {
+    keyBytes = wrapPkcs1ToPkcs8(keyBytes);
+  }
+
   return crypto.subtle.importKey(
     "pkcs8",
-    base64ToBytes(normalizePem(privateKeyPem)),
+    keyBytes,
     SIGN_ALGORITHM,
     false,
     ["sign"]
