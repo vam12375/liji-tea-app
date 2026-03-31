@@ -1,4 +1,4 @@
-﻿package com.lijitea.alipay
+package com.lijitea.alipay
 
 import android.app.Activity
 import expo.modules.kotlin.exception.Exceptions
@@ -24,6 +24,8 @@ class LijiAlipayModule : Module() {
 
       return@Coroutine withContext(appContext.backgroundCoroutineScope.coroutineContext) {
         val payTaskClass = loadPayTaskClass()
+        ensureSandboxEnvironment()
+
         val payTask = payTaskClass.getConstructor(Activity::class.java).newInstance(activity)
         val payMethod = payTaskClass.getMethod(
           "payV2",
@@ -59,7 +61,27 @@ class LijiAlipayModule : Module() {
     }
   }
 
+  /**
+   * 沙箱支付在 Android 侧需要显式切换到 SANDBOX 环境。
+   * 这里使用反射，避免在未放入 AAR 时产生编译期直接依赖。
+   */
+  private fun ensureSandboxEnvironment() {
+    runCatching {
+      val envUtilsClass = Class.forName(ENV_UTILS_CLASS_NAME)
+      val envEnumClass = Class.forName(ENV_ENUM_CLASS_NAME)
+      val sandboxValue = envEnumClass.getField("SANDBOX").get(null)
+      val setEnvMethod = envUtilsClass.getMethod("setEnv", envEnumClass)
+      setEnvMethod.invoke(null, sandboxValue)
+    }.getOrElse { error ->
+      throw IllegalStateException(
+        "切换支付宝沙箱环境失败，请确认 SDK AAR 版本支持 EnvUtils。", error
+      )
+    }
+  }
+
   private companion object {
     const val PAY_TASK_CLASS_NAME = "com.alipay.sdk.app.PayTask"
+    const val ENV_UTILS_CLASS_NAME = "com.alipay.sdk.app.EnvUtils"
+    const val ENV_ENUM_CLASS_NAME = "com.alipay.sdk.app.EnvUtils\$EnvEnum"
   }
 }
