@@ -1,74 +1,161 @@
-import { useState, useEffect } from "react";
+import { Colors } from "@/constants/Colors";
+import { showConfirm, showModal } from "@/stores/modalStore";
+import { useUserStore, type Address } from "@/stores/userStore";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { Stack, useRouter } from "expo-router";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
   FlatList,
-  Pressable,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Colors } from "@/constants/Colors";
-import { useUserStore, type Address } from "@/stores/userStore";
-import { showModal, showConfirm } from "@/stores/modalStore";
 
-export default function AddressesScreen() {
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { addresses, fetchAddresses, addAddress, removeAddress, setDefaultAddress } =
-    useUserStore();
+type AddressFormValues = {
+  name: string;
+  phone: string;
+  address: string;
+};
 
-  // 新增地址表单状态
-  const [showForm, setShowForm] = useState(false);
+type AddressFormProps = {
+  onSave: (values: AddressFormValues) => Promise<void>;
+  onCancel: () => void;
+};
+
+const AddressForm = memo(function AddressForm({
+  onSave,
+  onCancel,
+}: AddressFormProps) {
   const [formName, setFormName] = useState("");
   const [formPhone, setFormPhone] = useState("");
   const [formAddress, setFormAddress] = useState("");
 
-  // 页面加载时拉取地址数据
-  useEffect(() => {
-    fetchAddresses();
-  }, []);
+  const handlePhoneChange = (text: string) => {
+    setFormPhone(text.replace(/\D/g, "").slice(0, 11));
+  };
 
-  /** 重置并隐藏表单 */
-  const resetForm = () => {
+  const handleSave = async () => {
+    const name = formName.trim();
+    const phone = formPhone.trim();
+    const address = formAddress.trim();
+
+    if (!name) {
+      showModal("提示", "请输入收件人姓名");
+      return;
+    }
+    if (!phone || phone.length !== 11) {
+      showModal("提示", "请输入正确的11位手机号码");
+      return;
+    }
+    if (!address) {
+      showModal("提示", "请输入详细收货地址");
+      return;
+    }
+
+    await onSave({ name, phone, address });
     setFormName("");
     setFormPhone("");
     setFormAddress("");
-    setShowForm(false);
   };
 
-  /** 保存新地址 */
-  const handleSave = async () => {
-    // 简单校验
-    if (!formName.trim()) {
-      showModal("提示", "请输入姓名");
-      return;
-    }
-    if (!formPhone.trim()) {
-      showModal("提示", "请输入电话");
-      return;
-    }
-    if (!formAddress.trim()) {
-      showModal("提示", "请输入详细地址");
-      return;
-    }
+  const handleCancel = () => {
+    setFormName("");
+    setFormPhone("");
+    setFormAddress("");
+    onCancel();
+  };
 
+  return (
+    <View className="bg-surface-container-low rounded-xl px-4 py-4 mb-4">
+      <Text className="text-on-surface text-sm font-medium mb-3">新增地址</Text>
+
+      <TextInput
+        value={formName}
+        onChangeText={setFormName}
+        placeholder="请输入收件人姓名"
+        placeholderTextColor={Colors.outline}
+        className="border border-outline-variant/30 rounded-lg px-3 py-2.5 text-sm text-on-surface mb-2"
+      />
+      <TextInput
+        value={formPhone}
+        onChangeText={handlePhoneChange}
+        placeholder="请输入11位手机号码"
+        placeholderTextColor={Colors.outline}
+        keyboardType="number-pad"
+        maxLength={11}
+        className="border border-outline-variant/30 rounded-lg px-3 py-2.5 text-sm text-on-surface mb-2"
+      />
+      <TextInput
+        value={formAddress}
+        onChangeText={setFormAddress}
+        placeholder="请输入详细收货地址"
+        placeholderTextColor={Colors.outline}
+        multiline
+        className="border border-outline-variant/30 rounded-lg px-3 py-2.5 text-sm text-on-surface mb-3"
+      />
+
+      <View className="flex-row gap-3">
+        <Pressable
+          onPress={handleCancel}
+          className="flex-1 py-2.5 rounded-lg border border-outline-variant/30 items-center active:opacity-70"
+        >
+          <Text className="text-outline text-sm">取消</Text>
+        </Pressable>
+        <Pressable
+          onPress={handleSave}
+          className="flex-1 py-2.5 rounded-lg bg-primary-container items-center active:opacity-70"
+        >
+          <Text className="text-on-primary text-sm font-medium">保存</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+});
+
+export default function AddressesScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const {
+    addresses,
+    fetchAddresses,
+    addAddress,
+    removeAddress,
+    setDefaultAddress,
+  } = useUserStore();
+
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    fetchAddresses();
+  }, [fetchAddresses]);
+
+  const handleCancelForm = useCallback(() => {
+    setShowForm(false);
+  }, []);
+
+  const handleSaveAddress = useCallback(async ({
+    name,
+    phone,
+    address,
+  }: AddressFormValues) => {
     const err = await addAddress({
-      name: formName.trim(),
-      phone: formPhone.trim(),
-      address: formAddress.trim(),
+      name,
+      phone,
+      address,
       is_default: addresses.length === 0,
     });
 
     if (err) {
       showModal("保存失败", err, "error");
-    } else {
-      resetForm();
+      return;
     }
-  };
+
+    setShowForm(false);
+  }, [addAddress, addresses.length]);
 
   /** 确认删除地址 */
   const handleRemove = (id: string) => {
@@ -94,7 +181,9 @@ export default function AddressesScreen() {
       </View>
 
       {/* 第二行：地址文本 */}
-      <Text className="text-outline text-xs leading-4 mb-2">{item.address}</Text>
+      <Text className="text-outline text-xs leading-4 mb-2">
+        {item.address}
+      </Text>
 
       {/* 操作按钮 */}
       <View className="flex-row items-center border-t border-outline-variant/10 pt-2 gap-4">
@@ -116,60 +205,24 @@ export default function AddressesScreen() {
     </View>
   );
 
-  /** 新增地址内联表单 */
-  const renderForm = () => {
-    if (!showForm) return null;
+  const listHeaderComponent = useMemo(() => {
+    if (!showForm) {
+      return null;
+    }
 
     return (
-      <View className="bg-surface-container-low rounded-xl px-4 py-4 mb-4">
-        <Text className="text-on-surface text-sm font-medium mb-3">新增地址</Text>
-
-        <TextInput
-          value={formName}
-          onChangeText={setFormName}
-          placeholder="姓名"
-          placeholderTextColor={Colors.outline}
-          className="border border-outline-variant/30 rounded-lg px-3 py-2.5 text-sm text-on-surface mb-2"
-        />
-        <TextInput
-          value={formPhone}
-          onChangeText={setFormPhone}
-          placeholder="电话"
-          placeholderTextColor={Colors.outline}
-          keyboardType="phone-pad"
-          className="border border-outline-variant/30 rounded-lg px-3 py-2.5 text-sm text-on-surface mb-2"
-        />
-        <TextInput
-          value={formAddress}
-          onChangeText={setFormAddress}
-          placeholder="详细地址"
-          placeholderTextColor={Colors.outline}
-          multiline
-          className="border border-outline-variant/30 rounded-lg px-3 py-2.5 text-sm text-on-surface mb-3"
-        />
-
-        <View className="flex-row gap-3">
-          <Pressable
-            onPress={resetForm}
-            className="flex-1 py-2.5 rounded-lg border border-outline-variant/30 items-center active:opacity-70"
-          >
-            <Text className="text-outline text-sm">取消</Text>
-          </Pressable>
-          <Pressable
-            onPress={handleSave}
-            className="flex-1 py-2.5 rounded-lg bg-primary-container items-center active:opacity-70"
-          >
-            <Text className="text-on-primary text-sm font-medium">保存</Text>
-          </Pressable>
-        </View>
-      </View>
+      <AddressForm onSave={handleSaveAddress} onCancel={handleCancelForm} />
     );
-  };
+  }, [handleCancelForm, handleSaveAddress, showForm]);
 
   /** 空状态提示 */
   const renderEmpty = () => (
     <View className="flex-1 items-center justify-center py-20">
-      <MaterialIcons name="location-off" size={56} color={Colors.outlineVariant} />
+      <MaterialIcons
+        name="location-off"
+        size={56}
+        color={Colors.outlineVariant}
+      />
       <Text className="text-outline text-sm mt-3">暂无收货地址</Text>
     </View>
   );
@@ -185,7 +238,11 @@ export default function AddressesScreen() {
           headerShadowVisible: false,
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={8}>
-              <MaterialIcons name="arrow-back" size={24} color={Colors.onSurface} />
+              <MaterialIcons
+                name="arrow-back"
+                size={24}
+                color={Colors.onSurface}
+              />
             </Pressable>
           ),
         }}
@@ -199,7 +256,7 @@ export default function AddressesScreen() {
           data={addresses}
           keyExtractor={(item) => item.id}
           renderItem={renderAddressCard}
-          ListHeaderComponent={renderForm}
+          ListHeaderComponent={listHeaderComponent}
           ListEmptyComponent={showForm ? null : renderEmpty}
           contentContainerStyle={{
             paddingHorizontal: 16,

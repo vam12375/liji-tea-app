@@ -1,18 +1,55 @@
 import { useState } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
-import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Share, Keyboard } from 'react-native';
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
 import { useCommunityStore, type Post, type Comment } from '@/stores/communityStore';
+import { useUserStore } from '@/stores/userStore';
+import { showModal } from '@/stores/modalStore';
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
   const posts = useCommunityStore((s) => s.posts);
+  const likedPostIds = useCommunityStore((s) => s.likedPostIds);
+  const likedCommentIds = useCommunityStore((s) => s.likedCommentIds);
+  const togglePostLike = useCommunityStore((s) => s.togglePostLike);
+  const addComment = useCommunityStore((s) => s.addComment);
+  const toggleCommentLike = useCommunityStore((s) => s.toggleCommentLike);
+  const profile = useUserStore((s) => s.profile);
   const post = posts.find((p) => p.id === id);
   const [commentText, setCommentText] = useState('');
+  const [isBookmarked, setIsBookmarked] = useState(false);
+
+  /** 发送评论 */
+  const handleSendComment = () => {
+    const text = commentText.trim();
+    if (!text || !post) return;
+    addComment(
+      post.id,
+      profile?.name ?? '匿名茶友',
+      profile?.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent('茶友')}&background=8B5E3C&color=fff&size=100`,
+      text,
+    );
+    setCommentText('');
+    Keyboard.dismiss();
+  };
+
+  /** 分享帖子 */
+  const handleShare = async () => {
+    if (!post) return;
+    const text = post.caption ?? post.title ?? post.quote ?? '';
+    try {
+      await Share.share({ message: `【李记茶铺社区】${post.author}：${text}` });
+    } catch { /* 用户取消 */ }
+  };
+
+  /** 三点菜单 */
+  const handleMenu = () => {
+    showModal("操作", "感谢您的反馈，我们会认真处理", "info");
+  };
 
   if (!post) {
     return (
@@ -43,7 +80,7 @@ export default function PostDetailScreen() {
               <Text className="text-outline text-[10px]">{post.time}</Text>
             </View>
           </View>
-          <Pressable hitSlop={8}>
+          <Pressable hitSlop={8} onPress={handleMenu}>
             <MaterialIcons name="more-horiz" size={22} color={Colors.outline} />
           </Pressable>
         </View>
@@ -58,20 +95,24 @@ export default function PostDetailScreen() {
         {/* 互动栏 */}
         <View className="px-5 pb-4 flex-row justify-between items-center border-b border-outline-variant/10">
           <View className="flex-row gap-5">
-            <Pressable className="flex-row items-center gap-1.5">
-              <MaterialIcons name="favorite-border" size={22} color={Colors.secondary} />
-              <Text className="text-secondary text-sm">{post.likes ?? 0}</Text>
+            <Pressable onPress={() => post && togglePostLike(post.id)} className="flex-row items-center gap-1.5">
+              <MaterialIcons
+                name={post && likedPostIds.has(post.id) ? "favorite" : "favorite-border"}
+                size={22}
+                color={post && likedPostIds.has(post.id) ? Colors.error : Colors.secondary}
+              />
+              <Text className="text-secondary text-sm">{post?.likes ?? 0}</Text>
             </Pressable>
             <Pressable className="flex-row items-center gap-1.5">
               <MaterialIcons name="chat-bubble-outline" size={22} color={Colors.secondary} />
-              <Text className="text-secondary text-sm">{post.commentList?.length ?? post.comments ?? 0}</Text>
+              <Text className="text-secondary text-sm">{post?.commentList?.length ?? post?.comments ?? 0}</Text>
             </Pressable>
           </View>
           <View className="flex-row gap-4">
-            <Pressable hitSlop={8}>
-              <MaterialIcons name="bookmark-border" size={22} color={Colors.secondary} />
+            <Pressable hitSlop={8} onPress={() => setIsBookmarked((v) => !v)}>
+              <MaterialIcons name={isBookmarked ? "bookmark" : "bookmark-border"} size={22} color={isBookmarked ? Colors.primary : Colors.secondary} />
             </Pressable>
-            <Pressable hitSlop={8}>
+            <Pressable hitSlop={8} onPress={handleShare}>
               <MaterialIcons name="share" size={22} color={Colors.secondary} />
             </Pressable>
           </View>
@@ -83,7 +124,12 @@ export default function PostDetailScreen() {
             评论 ({post.commentList?.length ?? 0})
           </Text>
           {post.commentList?.map((comment) => (
-            <CommentItem key={comment.id} comment={comment} />
+            <CommentItem
+              key={comment.id}
+              comment={comment}
+              isLiked={likedCommentIds.has(comment.id)}
+              onToggleLike={() => post && toggleCommentLike(post.id, comment.id)}
+            />
           ))}
         </View>
 
@@ -105,6 +151,7 @@ export default function PostDetailScreen() {
             className="flex-1 bg-surface-container-low rounded-full px-4 py-2.5 text-on-surface text-sm"
           />
           <Pressable
+            onPress={handleSendComment}
             className="w-10 h-10 bg-primary rounded-full items-center justify-center active:opacity-80"
             disabled={!commentText.trim()}
           >
@@ -190,7 +237,7 @@ function PostContent({ post }: { post: Post }) {
 }
 
 /** 评论项 */
-function CommentItem({ comment }: { comment: Comment }) {
+function CommentItem({ comment, isLiked, onToggleLike }: { comment: Comment; isLiked: boolean; onToggleLike: () => void }) {
   return (
     <View className="flex-row gap-3 mb-5">
       <Image source={{ uri: comment.avatar }} style={{ width: 36, height: 36, borderRadius: 9999 }} contentFit="cover" />
@@ -201,8 +248,8 @@ function CommentItem({ comment }: { comment: Comment }) {
         </View>
         <Text className="text-on-surface/90 text-sm leading-6 mt-1">{comment.content}</Text>
         <View className="flex-row items-center gap-1 mt-2">
-          <Pressable className="flex-row items-center gap-0.5" hitSlop={8}>
-            <MaterialIcons name="favorite-border" size={14} color={Colors.outline} />
+          <Pressable onPress={onToggleLike} className="flex-row items-center gap-0.5" hitSlop={8}>
+            <MaterialIcons name={isLiked ? "favorite" : "favorite-border"} size={14} color={isLiked ? Colors.error : Colors.outline} />
             <Text className="text-outline text-[11px]">{comment.likes}</Text>
           </Pressable>
           <View className="w-4" />
