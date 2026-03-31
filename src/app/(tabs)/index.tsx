@@ -17,9 +17,10 @@ export default function HomeScreen() {
   const router = useRouter();
   // 首页挂载时拉取产品数据
   const fetchProducts = useProductStore((s) => s.fetchProducts);
-  // 直接订阅 items 确保购物车数量响应式更新
-  const cartItems = useCartStore((s) => s.items);
-  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // 直接在 selector 内计算，避免每次渲染重复 reduce
+  const cartCount = useCartStore((s) =>
+    s.items.reduce((sum, item) => sum + item.quantity, 0)
+  );
 
   // 下拉刷新状态
   const [refreshing, setRefreshing] = useState(false);
