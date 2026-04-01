@@ -1,352 +1,686 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
+import { useUserStore } from '@/stores/userStore';
+import type { CommunityPostType } from '@/types/database';
 
-/** 前端 Story 类型（兼容现有组件） */
+const POST_SELECT = `
+  id,
+  author_id,
+  type,
+  location,
+  image_url,
+  caption,
+  tea_name,
+  brewing_data,
+  brewing_images,
+  quote,
+  title,
+  description,
+  like_count,
+  comment_count,
+  created_at,
+  updated_at,
+  author:profiles!posts_author_id_fkey (
+    id,
+    name,
+    avatar_url
+  )
+`;
+
+const STORY_SELECT = `
+  id,
+  author_id,
+  image_url,
+  caption,
+  expires_at,
+  created_at,
+  updated_at,
+  author:profiles!stories_author_id_fkey (
+    id,
+    name,
+    avatar_url
+  )
+`;
+
+const COMMENT_SELECT = `
+  id,
+  post_id,
+  author_id,
+  parent_id,
+  content,
+  like_count,
+  created_at,
+  updated_at,
+  author:profiles!post_comments_author_id_fkey (
+    id,
+    name,
+    avatar_url
+  )
+`;
+
+/** 前端 Story 类型 */
 export interface Story {
   id: string;
+  authorId: string;
   name: string;
   avatar: string;
+  image?: string;
+  caption?: string;
+  createdAt: string;
   isViewed: boolean;
 }
 
 /** 评论类型 */
 export interface Comment {
   id: string;
+  authorId: string;
   author: string;
   avatar: string;
   content: string;
   time: string;
+  createdAt: string;
   likes: number;
+  isLiked: boolean;
 }
 
-/** 前端 Post 类型（兼容现有组件） */
+/** 前端 Post 类型 */
 export interface Post {
   id: string;
-  type: 'photo' | 'brewing' | 'question';
+  authorId: string;
+  type: CommunityPostType;
   author: string;
   avatar: string;
   time: string;
+  createdAt: string;
   location?: string;
   image?: string;
   caption?: string;
-  likes?: number;
-  comments?: number;
+  likes: number;
+  comments: number;
   teaName?: string;
-  brewingData?: { temp: string; time: string; amount: string };
+  brewingData?: { temp?: string; time?: string; amount?: string };
   brewingImages?: string[];
   quote?: string;
   title?: string;
   description?: string;
   answerCount?: number;
-  /** 评论列表（详情页使用） */
   commentList?: Comment[];
+  isLiked: boolean;
+  isBookmarked: boolean;
 }
 
-/** 将数据库行映射为前端 Story 类型 */
-function mapStory(row: any): Story {
-  return {
-    id: row.id,
-    name: row.name,
-    avatar: row.avatar_url ?? '',
-    isViewed: row.is_viewed ?? false,
-  };
+export interface CreatePostInput {
+  type: CommunityPostType;
+  location?: string;
+  image?: string;
+  caption?: string;
+  teaName?: string;
+  brewingData?: { temp?: string; time?: string; amount?: string };
+  brewingImages?: string[];
+  quote?: string;
+  title?: string;
+  description?: string;
 }
-
-/** 将数据库行映射为前端 Post 类型 */
-function mapPost(row: any): Post {
-  // 计算相对时间
-  const created = new Date(row.created_at);
-  const now = new Date();
-  const diffH = Math.floor((now.getTime() - created.getTime()) / 3600000);
-  let time = '';
-  if (diffH < 1) time = '刚刚';
-  else if (diffH < 24) time = `${diffH}小时前`;
-  else if (diffH < 48) time = '昨天';
-  else time = `${Math.floor(diffH / 24)}天前`;
-
-  return {
-    id: row.id,
-    type: row.type,
-    author: row.author,
-    avatar: row.avatar_url ?? '',
-    time,
-    location: row.location ?? undefined,
-    image: row.image_url ?? undefined,
-    caption: row.caption ?? undefined,
-    likes: row.likes ?? 0,
-    comments: row.comments ?? 0,
-    teaName: row.tea_name ?? undefined,
-    brewingData: row.brewing_data ?? undefined,
-    brewingImages: row.brewing_images ?? undefined,
-    quote: row.quote ?? undefined,
-    title: row.title ?? undefined,
-    description: row.description ?? undefined,
-    answerCount: row.answer_count ?? undefined,
-  };
-}
-
-// ==================== 模拟数据 ====================
-
-/** Supabase 存储桶中已有的产品图片 */
-const IMG = {
-  dahongpao: 'https://nwozmsackhgffxulirjp.supabase.co/storage/v1/object/public/product-images/dahongpao.jpg',
-  longjing: 'https://nwozmsackhgffxulirjp.supabase.co/storage/v1/object/public/product-images/longjing.jpg',
-  puer: 'https://nwozmsackhgffxulirjp.supabase.co/storage/v1/object/public/product-images/puer.jpg',
-  yinzhen: 'https://nwozmsackhgffxulirjp.supabase.co/storage/v1/object/public/product-images/yinzhen.jpg',
-  jinjunmei: 'https://nwozmsackhgffxulirjp.supabase.co/storage/v1/object/public/product-images/jinjunmei.jpg',
-  molihua: 'https://nwozmsackhgffxulirjp.supabase.co/storage/v1/object/public/product-images/molihua.jpg',
-} as const;
-
-/** 基于首字母生成头像 URL（ui-avatars 服务） */
-const avatar = (name: string, bg: string) =>
-  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${bg}&color=fff&size=100&font-size=0.4`;
-
-const MOCK_STORIES: Story[] = [
-  { id: 'ms-1', name: '茶小白', avatar: avatar('茶小白', '8B5E3C'), isViewed: false },
-  { id: 'ms-2', name: '老陈说茶', avatar: avatar('老陈', '2D5016'), isViewed: false },
-  { id: 'ms-3', name: '山间茶人', avatar: avatar('山间', '4A6741'), isViewed: true },
-  { id: 'ms-4', name: '武夷岩茶坊', avatar: avatar('武夷', '6B4226'), isViewed: false },
-  { id: 'ms-5', name: '壶中天地', avatar: avatar('壶中', '5D4037'), isViewed: true },
-  { id: 'ms-6', name: '饮茶小记', avatar: avatar('饮茶', '33691E'), isViewed: false },
-];
-
-const MOCK_POSTS: Post[] = [
-  {
-    id: 'mp-1',
-    type: 'photo',
-    author: '山间茶人',
-    avatar: avatar('山间', '4A6741'),
-    time: '2小时前',
-    location: '武夷山',
-    image: IMG.dahongpao,
-    caption: '清晨的茶园，露珠还挂在嫩芽上。今年的春茶长势喜人，再过几天就可以开采了。期待第一杯明前茶的鲜爽',
-    likes: 128,
-    comments: 23,
-    commentList: [
-      { id: 'c1-1', author: '茶小白', avatar: avatar('茶小白', '8B5E3C'), content: '太美了！请问武夷山现在去采茶还来得及吗？', time: '1小时前', likes: 5 },
-      { id: 'c1-2', author: '老陈说茶', avatar: avatar('老陈', '2D5016'), content: '这嫩芽一看就是好品种，正岩的茶树就是不一样', time: '1小时前', likes: 12 },
-      { id: 'c1-3', author: '饮茶小记', avatar: avatar('饮茶', '33691E'), content: '期待你的新茶！去年的大红袍到现在还在回味', time: '45分钟前', likes: 3 },
-      { id: 'c1-4', author: '壶中天地', avatar: avatar('壶中', '5D4037'), content: '清晨的茶园最有灵气了，露珠配嫩芽，太有诗意', time: '30分钟前', likes: 8 },
-    ],
-  },
-  {
-    id: 'mp-2',
-    type: 'brewing',
-    author: '老陈说茶',
-    avatar: avatar('老陈', '2D5016'),
-    time: '5小时前',
-    teaName: '正岩肉桂',
-    brewingData: { temp: '100°C', time: '8秒', amount: '8g/110ml' },
-    brewingImages: [IMG.dahongpao, IMG.jinjunmei, IMG.puer],
-    quote: '第三泡开始，桂皮香与花果香层层递进，这就是肉桂的魅力',
-    likes: 89,
-    comments: 15,
-    commentList: [
-      { id: 'c2-1', author: '山间茶人', avatar: avatar('山间', '4A6741'), content: '8秒出汤确实是肉桂的最佳时间，再长一点就会涩', time: '4小时前', likes: 15 },
-      { id: 'c2-2', author: '武夷岩茶坊', avatar: avatar('武夷', '6B4226'), content: '这是我们坊里的牛栏坑肉桂吧？看茶汤颜色就知道了', time: '3小时前', likes: 22 },
-      { id: 'c2-3', author: '茶小白', avatar: avatar('茶小白', '8B5E3C'), content: '新手想问，肉桂和水仙味道差别大吗？', time: '2小时前', likes: 3 },
-    ],
-  },
-  {
-    id: 'mp-3',
-    type: 'photo',
-    author: '壶中天地',
-    avatar: avatar('壶中', '5D4037'),
-    time: '昨天',
-    image: IMG.puer,
-    caption: '入手了一把朱泥小品壶，容量130ml，专门用来泡凤凰单丛。朱泥壶发茶性好，口感更加细腻。有没有壶友分享一下养壶心得？',
-    likes: 256,
-    comments: 47,
-    commentList: [
-      { id: 'c3-1', author: '老陈说茶', avatar: avatar('老陈', '2D5016'), content: '朱泥壶养壶秘诀：每次用完热水冲洗，自然晾干，千万不要用布擦里面', time: '23小时前', likes: 35 },
-      { id: 'c3-2', author: '饮茶小记', avatar: avatar('饮茶', '33691E'), content: '130ml刚好泡单丛，我也有一把类似的，养了两年包浆特别漂亮', time: '20小时前', likes: 18 },
-      { id: 'c3-3', author: '山间茶人', avatar: avatar('山间', '4A6741'), content: '好壶！朱泥的导热性好，出汤要快，不然容易闷熟', time: '18小时前', likes: 9 },
-      { id: 'c3-4', author: '武夷岩茶坊', avatar: avatar('武夷', '6B4226'), content: '建议一把壶只泡一种茶，朱泥吸味能力很强', time: '15小时前', likes: 27 },
-      { id: 'c3-5', author: '茶小白', avatar: avatar('茶小白', '8B5E3C'), content: '请问这把壶大概什么价位？想入门紫砂', time: '12小时前', likes: 4 },
-    ],
-  },
-  {
-    id: 'mp-4',
-    type: 'question',
-    author: '茶小白',
-    avatar: avatar('茶小白', '8B5E3C'),
-    time: '昨天',
-    title: '新手如何分辨真假金骏眉？',
-    description: '最近想尝试金骏眉，但听说市面上很多都是假的。请教各位老茶友，从外形、香气、汤色上怎么分辨真假金骏眉？预算500左右能买到正宗的吗？',
-    answerCount: 12,
-    commentList: [
-      { id: 'c4-1', author: '老陈说茶', avatar: avatar('老陈', '2D5016'), content: '正宗金骏眉干茶黑中带金黄，不是全金色的！全金色的反而是低端货染色的。闻起来应该有蜜薯香和花果香，不应该有焦糊味', time: '22小时前', likes: 56 },
-      { id: 'c4-2', author: '武夷岩茶坊', avatar: avatar('武夷', '6B4226'), content: '500块想买正宗桐木关金骏眉很难，建议800以上。真正的金骏眉一斤需要几万个芽头，成本就摆在那里。500左右可以买到不错的正山小种', time: '20小时前', likes: 43 },
-      { id: 'c4-3', author: '山间茶人', avatar: avatar('山间', '4A6741'), content: '看汤色也很重要！真金骏眉泡出来是金黄透亮的，假的通常偏红偏暗。而且真金骏眉非常耐泡，十泡以上还有味道', time: '18小时前', likes: 31 },
-      { id: 'c4-4', author: '饮茶小记', avatar: avatar('饮茶', '33691E'), content: '补充一点：真金骏眉叶底是完整的单芽，大小均匀。如果叶底有叶片掺杂，那就是用其他茶冒充的', time: '15小时前', likes: 25 },
-    ],
-  },
-  {
-    id: 'mp-5',
-    type: 'brewing',
-    author: '饮茶小记',
-    avatar: avatar('饮茶', '33691E'),
-    time: '3天前',
-    teaName: '2019年老白茶',
-    brewingData: { temp: '100°C', time: '15秒', amount: '5g/150ml' },
-    brewingImages: [IMG.yinzhen, IMG.molihua],
-    quote: '五年陈的寿眉，煮着喝枣香四溢，暖胃又暖心',
-    likes: 67,
-    comments: 8,
-    commentList: [
-      { id: 'c5-1', author: '老陈说茶', avatar: avatar('老陈', '2D5016'), content: '五年的寿眉正好进入最佳品饮期，枣香和药香都出来了。煮着喝确实是最好的方式', time: '2天前', likes: 14 },
-      { id: 'c5-2', author: '壶中天地', avatar: avatar('壶中', '5D4037'), content: '冬天煮老白茶太幸福了！我一般先泡五六泡再煮，更有层次感', time: '2天前', likes: 8 },
-    ],
-  },
-  {
-    id: 'mp-6',
-    type: 'photo',
-    author: '武夷岩茶坊',
-    avatar: avatar('武夷', '6B4226'),
-    time: '4天前',
-    location: '福建南平',
-    image: IMG.jinjunmei,
-    caption: '炭焙岩茶进行中，传统龙眼木炭慢火烘焙，让茶叶的香气更加醇厚饱满。这批水仙预计下周可以品饮了',
-    likes: 312,
-    comments: 56,
-    commentList: [
-      { id: 'c6-1', author: '老陈说茶', avatar: avatar('老陈', '2D5016'), content: '龙眼木炭焙的就是好！碳香和茶香融为一体，机器焙的完全没法比', time: '3天前', likes: 45 },
-      { id: 'c6-2', author: '山间茶人', avatar: avatar('山间', '4A6741'), content: '传统工艺越来越难得了。焙茶师傅需要整夜守着火候，太辛苦了', time: '3天前', likes: 33 },
-      { id: 'c6-3', author: '饮茶小记', avatar: avatar('饮茶', '33691E'), content: '可以预定吗？去年的水仙特别好，今年也想试试', time: '3天前', likes: 12 },
-      { id: 'c6-4', author: '茶小白', avatar: avatar('茶小白', '8B5E3C'), content: '原来岩茶还需要炭焙啊，学到了！请问炭焙大概需要多长时间？', time: '2天前', likes: 6 },
-      { id: 'c6-5', author: '壶中天地', avatar: avatar('壶中', '5D4037'), content: '炭焙水仙配朱泥壶，绝配！等出炉了一定要尝尝', time: '2天前', likes: 19 },
-    ],
-  },
-];
-
-// ==================== Store ====================
 
 interface CommunityState {
   stories: Story[];
   posts: Post[];
+  activePost: Post | null;
   loading: boolean;
-  /** 当前用户点赞过的帖子 ID 集合 */
+  storiesLoading: boolean;
+  detailLoading: boolean;
+  submitting: boolean;
   likedPostIds: Set<string>;
-  /** 当前用户点赞过的评论 ID 集合 */
   likedCommentIds: Set<string>;
-
+  bookmarkedPostIds: Set<string>;
   fetchStories: () => Promise<void>;
   fetchPosts: () => Promise<void>;
-  /** 切换帖子点赞 */
-  togglePostLike: (postId: string) => void;
-  /** 添加评论 */
-  addComment: (postId: string, author: string, avatar: string, content: string) => void;
-  /** 切换评论点赞 */
-  toggleCommentLike: (postId: string, commentId: string) => void;
+  fetchPostDetail: (postId: string) => Promise<Post | null>;
+  createPost: (input: CreatePostInput) => Promise<Post>;
+  togglePostLike: (postId: string) => Promise<void>;
+  togglePostBookmark: (postId: string) => Promise<void>;
+  addComment: (postId: string, content: string) => Promise<Comment | null>;
+  toggleCommentLike: (postId: string, commentId: string) => Promise<void>;
+  markStoryViewed: (storyId: string) => Promise<void>;
+}
+
+function getRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+function buildFallbackName(authorId: string) {
+  return `茶友${authorId.slice(-4)}`;
+}
+
+function buildAvatar(name: string, avatarUrl?: string | null) {
+  if (avatarUrl) return avatarUrl;
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8B5E3C&color=fff&size=100&font-size=0.4`;
+}
+
+function formatRelativeTime(iso?: string | null) {
+  if (!iso) return '';
+  const createdAt = new Date(iso).getTime();
+  const diffMs = Date.now() - createdAt;
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+
+  if (diffMinutes < 1) return '刚刚';
+  if (diffMinutes < 60) return `${diffMinutes}分钟前`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `${diffHours}小时前`;
+  if (diffHours < 48) return '昨天';
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `${diffDays}天前`;
+
+  return new Date(iso).toLocaleDateString('zh-CN', {
+    month: 'numeric',
+    day: 'numeric',
+  });
+}
+
+function mapStory(row: any, viewedIds: Set<string>): Story {
+  const author = getRelation(row.author);
+  const name = author?.name?.trim() || buildFallbackName(row.author_id);
+
+  return {
+    id: row.id,
+    authorId: row.author_id,
+    name,
+    avatar: buildAvatar(name, author?.avatar_url),
+    image: row.image_url ?? undefined,
+    caption: row.caption ?? undefined,
+    createdAt: row.created_at,
+    isViewed: viewedIds.has(row.id),
+  };
+}
+
+function mapComment(row: any, likedCommentIds: Set<string>): Comment {
+  const author = getRelation(row.author);
+  const name = author?.name?.trim() || buildFallbackName(row.author_id);
+
+  return {
+    id: row.id,
+    authorId: row.author_id,
+    author: name,
+    avatar: buildAvatar(name, author?.avatar_url),
+    content: row.content,
+    time: formatRelativeTime(row.created_at),
+    createdAt: row.created_at,
+    likes: row.like_count ?? 0,
+    isLiked: likedCommentIds.has(row.id),
+  };
+}
+
+function mapPost(row: any, options?: { likedPostIds?: Set<string>; bookmarkedPostIds?: Set<string>; commentList?: Comment[] }): Post {
+  const author = getRelation(row.author);
+  const name = author?.name?.trim() || buildFallbackName(row.author_id);
+  const likedPostIds = options?.likedPostIds ?? new Set<string>();
+  const bookmarkedPostIds = options?.bookmarkedPostIds ?? new Set<string>();
+  const comments = row.comment_count ?? 0;
+
+  return {
+    id: row.id,
+    authorId: row.author_id,
+    type: row.type,
+    author: name,
+    avatar: buildAvatar(name, author?.avatar_url),
+    time: formatRelativeTime(row.created_at),
+    createdAt: row.created_at,
+    location: row.location ?? undefined,
+    image: row.image_url ?? undefined,
+    caption: row.caption ?? undefined,
+    likes: row.like_count ?? 0,
+    comments,
+    teaName: row.tea_name ?? undefined,
+    brewingData: row.brewing_data ?? undefined,
+    brewingImages: row.brewing_images?.length ? row.brewing_images : undefined,
+    quote: row.quote ?? undefined,
+    title: row.title ?? undefined,
+    description: row.description ?? undefined,
+    answerCount: row.type === 'question' ? comments : undefined,
+    commentList: options?.commentList,
+    isLiked: likedPostIds.has(row.id),
+    isBookmarked: bookmarkedPostIds.has(row.id),
+  };
+}
+
+function upsertPost(posts: Post[], nextPost: Post) {
+  const index = posts.findIndex((post) => post.id === nextPost.id);
+  if (index === -1) return [nextPost, ...posts];
+  const next = [...posts];
+  next[index] = nextPost;
+  return next;
+}
+
+function requireUserId() {
+  const userId = useUserStore.getState().session?.user?.id;
+  if (!userId) {
+    throw new Error('请先登录后再进行社区互动');
+  }
+  return userId;
+}
+
+async function loadPostInteractionSets(postIds: string[], userId?: string | null) {
+  if (!userId || postIds.length === 0) {
+    return {
+      likedPostIds: new Set<string>(),
+      bookmarkedPostIds: new Set<string>(),
+    };
+  }
+
+  const [likesResult, bookmarksResult] = await Promise.all([
+    supabase.from('post_likes').select('post_id').eq('user_id', userId).in('post_id', postIds),
+    supabase.from('post_bookmarks').select('post_id').eq('user_id', userId).in('post_id', postIds),
+  ]);
+
+  if (likesResult.error) throw likesResult.error;
+  if (bookmarksResult.error) throw bookmarksResult.error;
+
+  return {
+    likedPostIds: new Set((likesResult.data ?? []).map((item) => item.post_id)),
+    bookmarkedPostIds: new Set((bookmarksResult.data ?? []).map((item) => item.post_id)),
+  };
+}
+
+async function loadCommentLikedSet(commentIds: string[], userId?: string | null) {
+  if (!userId || commentIds.length === 0) {
+    return new Set<string>();
+  }
+
+  const { data, error } = await supabase
+    .from('comment_likes')
+    .select('comment_id')
+    .eq('user_id', userId)
+    .in('comment_id', commentIds);
+
+  if (error) throw error;
+  return new Set((data ?? []).map((item) => item.comment_id));
 }
 
 export const useCommunityStore = create<CommunityState>()((set, get) => ({
-  // 初始值直接使用模拟数据，确保页面立即有内容
-  stories: MOCK_STORIES,
-  posts: MOCK_POSTS,
+  stories: [],
+  posts: [],
+  activePost: null,
   loading: false,
+  storiesLoading: false,
+  detailLoading: false,
+  submitting: false,
   likedPostIds: new Set<string>(),
   likedCommentIds: new Set<string>(),
+  bookmarkedPostIds: new Set<string>(),
 
   fetchStories: async () => {
     try {
+      set({ storiesLoading: true });
+      const userId = useUserStore.getState().session?.user?.id;
       const { data, error } = await supabase
         .from('stories')
-        .select('*')
+        .select(STORY_SELECT)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      const stories = (data ?? []).map(mapStory);
-      // 仅当 Supabase 有含头像的有效故事时才替换模拟数据
-      if (stories.length > 0 && stories[0].avatar) {
-        set({ stories });
+
+      const storyIds = (data ?? []).map((story) => story.id);
+      let viewedIds = new Set<string>();
+
+      if (userId && storyIds.length > 0) {
+        const { data: viewRows, error: viewsError } = await supabase
+          .from('story_views')
+          .select('story_id')
+          .eq('user_id', userId)
+          .in('story_id', storyIds);
+
+        if (viewsError) throw viewsError;
+        viewedIds = new Set((viewRows ?? []).map((row) => row.story_id));
       }
-    } catch (err) {
-      console.warn('[communityStore] fetchStories 失败，保持模拟数据:', err);
+
+      set({
+        stories: (data ?? []).map((story) => mapStory(story, viewedIds)),
+        storiesLoading: false,
+      });
+    } catch (error) {
+      console.warn('[communityStore] fetchStories 失败:', error);
+      set({ stories: [], storiesLoading: false });
     }
   },
 
   fetchPosts: async () => {
     try {
       set({ loading: true });
+      const userId = useUserStore.getState().session?.user?.id;
       const { data, error } = await supabase
         .from('posts')
-        .select('*')
+        .select(POST_SELECT)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      const posts = (data ?? []).map(mapPost);
-      if (posts.length > 0 && posts[0].avatar) {
-        set({ posts, loading: false });
+
+      const postIds = (data ?? []).map((post) => post.id);
+      const { likedPostIds, bookmarkedPostIds } = await loadPostInteractionSets(postIds, userId);
+
+      set({
+        posts: (data ?? []).map((post) => mapPost(post, { likedPostIds, bookmarkedPostIds })),
+        likedPostIds,
+        bookmarkedPostIds,
+        loading: false,
+      });
+    } catch (error) {
+      console.warn('[communityStore] fetchPosts 失败:', error);
+      set({
+        posts: [],
+        likedPostIds: new Set<string>(),
+        bookmarkedPostIds: new Set<string>(),
+        loading: false,
+      });
+    }
+  },
+
+  fetchPostDetail: async (postId) => {
+    try {
+      set({ detailLoading: true });
+      const userId = useUserStore.getState().session?.user?.id;
+
+      const [postResult, commentResult] = await Promise.all([
+        supabase.from('posts').select(POST_SELECT).eq('id', postId).single(),
+        supabase
+          .from('post_comments')
+          .select(COMMENT_SELECT)
+          .eq('post_id', postId)
+          .order('created_at', { ascending: true }),
+      ]);
+
+      if (postResult.error) throw postResult.error;
+      if (commentResult.error) throw commentResult.error;
+
+      const postRow = postResult.data;
+      const commentRows = commentResult.data ?? [];
+      const commentIds = commentRows.map((comment) => comment.id);
+      const [postInteractions, likedCommentIds] = await Promise.all([
+        loadPostInteractionSets([postId], userId),
+        loadCommentLikedSet(commentIds, userId),
+      ]);
+
+      const commentList = commentRows.map((comment) => mapComment(comment, likedCommentIds));
+      const detailedPost = mapPost(postRow, {
+        likedPostIds: postInteractions.likedPostIds,
+        bookmarkedPostIds: postInteractions.bookmarkedPostIds,
+        commentList,
+      });
+
+      set((state) => {
+        const likedPostIds = new Set(state.likedPostIds);
+        const bookmarkedPostIds = new Set(state.bookmarkedPostIds);
+
+        if (postInteractions.likedPostIds.has(postId)) likedPostIds.add(postId);
+        else likedPostIds.delete(postId);
+
+        if (postInteractions.bookmarkedPostIds.has(postId)) bookmarkedPostIds.add(postId);
+        else bookmarkedPostIds.delete(postId);
+
+        return {
+          posts: upsertPost(state.posts, detailedPost),
+          activePost: detailedPost,
+          likedPostIds,
+          likedCommentIds,
+          bookmarkedPostIds,
+          detailLoading: false,
+        };
+      });
+
+
+      return detailedPost;
+    } catch (error) {
+      console.warn('[communityStore] fetchPostDetail 失败:', error);
+      set({ activePost: null, detailLoading: false });
+      return null;
+    }
+  },
+
+  createPost: async (input) => {
+    const userId = requireUserId();
+
+    try {
+      set({ submitting: true });
+      const { data, error } = await supabase
+        .from('posts')
+        .insert({
+          author_id: userId,
+          type: input.type,
+          location: input.location ?? null,
+          image_url: input.image ?? null,
+          caption: input.caption ?? null,
+          tea_name: input.teaName ?? null,
+          brewing_data: input.brewingData ?? null,
+          brewing_images: input.brewingImages ?? [],
+          quote: input.quote ?? null,
+          title: input.title ?? null,
+          description: input.description ?? null,
+        })
+        .select(POST_SELECT)
+        .single();
+
+      if (error) throw error;
+
+      const newPost = mapPost(data, {
+        likedPostIds: new Set<string>(),
+        bookmarkedPostIds: new Set<string>(),
+        commentList: [],
+      });
+
+      set((state) => ({
+        posts: [newPost, ...state.posts],
+        activePost: newPost,
+        submitting: false,
+      }));
+
+      return newPost;
+    } catch (error: any) {
+      set({ submitting: false });
+      console.warn('[communityStore] createPost 失败:', error);
+      throw new Error(error?.message ?? '发布失败，请稍后重试');
+    }
+  },
+
+  togglePostLike: async (postId) => {
+    const userId = requireUserId();
+    const isLiked = get().likedPostIds.has(postId);
+
+    try {
+      if (isLiked) {
+        const { error } = await supabase
+          .from('post_likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', userId);
+
+        if (error) throw error;
       } else {
-        set({ loading: false });
+        const { error } = await supabase
+          .from('post_likes')
+          .insert({ post_id: postId, user_id: userId });
+
+        if (error) throw error;
       }
-    } catch (err) {
-      console.warn('[communityStore] fetchPosts 失败，保持模拟数据:', err);
-      set({ loading: false });
+
+      set((state) => {
+        const likedPostIds = new Set(state.likedPostIds);
+        if (isLiked) likedPostIds.delete(postId);
+        else likedPostIds.add(postId);
+
+        const updatePostLikes = (post: Post) => ({
+          ...post,
+          likes: Math.max(0, post.likes + (isLiked ? -1 : 1)),
+          isLiked: !isLiked,
+        });
+
+        return {
+          likedPostIds,
+          posts: state.posts.map((post) => (post.id === postId ? updatePostLikes(post) : post)),
+          activePost: state.activePost?.id === postId ? updatePostLikes(state.activePost) : state.activePost,
+        };
+      });
+    } catch (error: any) {
+      console.warn('[communityStore] togglePostLike 失败:', error);
+      throw new Error(error?.message ?? '点赞失败，请稍后重试');
     }
   },
 
-  togglePostLike: (postId) => {
-    const { likedPostIds } = get();
-    const isLiked = likedPostIds.has(postId);
-    const next = new Set(likedPostIds);
-    if (isLiked) {
-      next.delete(postId);
-    } else {
-      next.add(postId);
+  togglePostBookmark: async (postId) => {
+    const userId = requireUserId();
+    const isBookmarked = get().bookmarkedPostIds.has(postId);
+
+    try {
+      if (isBookmarked) {
+        const { error } = await supabase
+          .from('post_bookmarks')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('post_bookmarks')
+          .insert({ post_id: postId, user_id: userId });
+
+        if (error) throw error;
+      }
+
+      set((state) => {
+        const bookmarkedPostIds = new Set(state.bookmarkedPostIds);
+        if (isBookmarked) bookmarkedPostIds.delete(postId);
+        else bookmarkedPostIds.add(postId);
+
+        const updatePostBookmark = (post: Post) => ({
+          ...post,
+          isBookmarked: !isBookmarked,
+        });
+
+        return {
+          bookmarkedPostIds,
+          posts: state.posts.map((post) => (post.id === postId ? updatePostBookmark(post) : post)),
+          activePost: state.activePost?.id === postId ? updatePostBookmark(state.activePost) : state.activePost,
+        };
+      });
+    } catch (error: any) {
+      console.warn('[communityStore] togglePostBookmark 失败:', error);
+      throw new Error(error?.message ?? '收藏失败，请稍后重试');
     }
-    set({
-      likedPostIds: next,
-      posts: get().posts.map((p) =>
-        p.id === postId ? { ...p, likes: (p.likes ?? 0) + (isLiked ? -1 : 1) } : p
-      ),
-    });
   },
 
-  addComment: (postId, author, avatar, content) => {
-    const newComment: Comment = {
-      id: `c-${Date.now()}`,
-      author,
-      avatar,
-      content,
-      time: '刚刚',
-      likes: 0,
-    };
-    set({
-      posts: get().posts.map((p) =>
-        p.id === postId
-          ? {
-              ...p,
-              comments: (p.comments ?? 0) + 1,
-              commentList: [...(p.commentList ?? []), newComment],
-            }
-          : p
-      ),
-    });
+  addComment: async (postId, content) => {
+    const userId = requireUserId();
+
+    try {
+      const { data, error } = await supabase
+        .from('post_comments')
+        .insert({
+          post_id: postId,
+          author_id: userId,
+          content,
+        })
+        .select(COMMENT_SELECT)
+        .single();
+
+      if (error) throw error;
+
+      const newComment = mapComment(data, get().likedCommentIds);
+
+      set((state) => {
+        const appendComment = (post: Post) => ({
+          ...post,
+          comments: post.comments + 1,
+          answerCount: post.type === 'question' ? (post.answerCount ?? post.comments) + 1 : post.answerCount,
+          commentList: [...(post.commentList ?? []), newComment],
+        });
+
+        return {
+          posts: state.posts.map((post) => (post.id === postId ? appendComment(post) : post)),
+          activePost: state.activePost?.id === postId ? appendComment(state.activePost) : state.activePost,
+        };
+      });
+
+      return newComment;
+    } catch (error: any) {
+      console.warn('[communityStore] addComment 失败:', error);
+      throw new Error(error?.message ?? '评论发布失败，请稍后重试');
+    }
   },
 
-  toggleCommentLike: (postId, commentId) => {
-    const { likedCommentIds } = get();
-    const isLiked = likedCommentIds.has(commentId);
-    const next = new Set(likedCommentIds);
-    if (isLiked) {
-      next.delete(commentId);
-    } else {
-      next.add(commentId);
+  toggleCommentLike: async (postId, commentId) => {
+    const userId = requireUserId();
+    const isLiked = get().likedCommentIds.has(commentId);
+
+    try {
+      if (isLiked) {
+        const { error } = await supabase
+          .from('comment_likes')
+          .delete()
+          .eq('comment_id', commentId)
+          .eq('user_id', userId);
+
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('comment_likes')
+          .insert({ comment_id: commentId, user_id: userId });
+
+        if (error) throw error;
+      }
+
+      set((state) => {
+        const likedCommentIds = new Set(state.likedCommentIds);
+        if (isLiked) likedCommentIds.delete(commentId);
+        else likedCommentIds.add(commentId);
+
+        const updateComment = (comment: Comment) =>
+          comment.id === commentId
+            ? {
+                ...comment,
+                likes: Math.max(0, comment.likes + (isLiked ? -1 : 1)),
+                isLiked: !isLiked,
+              }
+            : comment;
+
+        const updatePostComments = (post: Post) => ({
+          ...post,
+          commentList: post.commentList?.map(updateComment),
+        });
+
+        return {
+          likedCommentIds,
+          posts: state.posts.map((post) => (post.id === postId ? updatePostComments(post) : post)),
+          activePost: state.activePost?.id === postId ? updatePostComments(state.activePost) : state.activePost,
+        };
+      });
+    } catch (error: any) {
+      console.warn('[communityStore] toggleCommentLike 失败:', error);
+      throw new Error(error?.message ?? '评论点赞失败，请稍后重试');
     }
-    set({
-      likedCommentIds: next,
-      posts: get().posts.map((p) =>
-        p.id === postId
-          ? {
-              ...p,
-              commentList: p.commentList?.map((c) =>
-                c.id === commentId ? { ...c, likes: c.likes + (isLiked ? -1 : 1) } : c
-              ),
-            }
-          : p
-      ),
-    });
+  },
+
+  markStoryViewed: async (storyId) => {
+    const userId = useUserStore.getState().session?.user?.id;
+    if (!userId || get().stories.find((story) => story.id === storyId)?.isViewed) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('story_views')
+        .upsert({ story_id: storyId, user_id: userId }, { onConflict: 'story_id,user_id', ignoreDuplicates: true });
+
+      if (error) throw error;
+
+      set((state) => ({
+        stories: state.stories.map((story) =>
+          story.id === storyId ? { ...story, isViewed: true } : story
+        ),
+      }));
+    } catch (error) {
+      console.warn('[communityStore] markStoryViewed 失败:', error);
+    }
   },
 }));
