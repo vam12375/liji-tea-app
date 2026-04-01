@@ -5,8 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
+import { shareContent } from "@/lib/share";
 import { supabase } from "@/lib/supabase";
 import { useProductStore } from "@/stores/productStore";
+
 import { useCartStore } from "@/stores/cartStore";
 import { useUserStore } from "@/stores/userStore";
 import { showModal } from "@/stores/modalStore";
@@ -59,8 +61,28 @@ export default function ProductDetailScreen() {
     ]).start();
   }, [id, toggleFavorite]);
 
+  const handleShare = useCallback(async () => {
+    if (!product) return;
+
+    try {
+      await shareContent({
+        path: `/product/${encodeURIComponent(product.id)}`,
+        title: product.name,
+        lines: [
+          `【李记茶铺】${product.name}`,
+          product.tagline,
+          product.origin ? `产地：${product.origin}` : undefined,
+          `价格：¥${product.price}/${product.unit}`,
+        ],
+      });
+    } catch {
+      // 用户取消分享
+    }
+  }, [product]);
+
   /** 加入购物车 + 动画编排 */
   const handleAddToCart = useCallback(() => {
+
     if (!product || (product.stock ?? 0) === 0) return;
     addItem(product);
 
@@ -204,9 +226,10 @@ export default function ProductDetailScreen() {
             </Pressable>
             <View className="flex-row gap-3">
               <Pressable
-                onPress={() => showModal("提示", "分享功能即将上线")}
+                onPress={() => void handleShare()}
                 className="w-10 h-10 rounded-full bg-surface/20 items-center justify-center"
               >
+
                 <MaterialIcons name="share" size={22} color="#fff" />
               </Pressable>
               <Pressable

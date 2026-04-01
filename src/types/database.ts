@@ -7,6 +7,7 @@ export interface Profile {
   name: string | null;
   phone: string | null;
   avatar_url: string | null;
+  bio?: string | null;
   member_tier: string;
   points: number;
   created_at: string;
@@ -52,7 +53,6 @@ export interface Product {
 
 export interface Order {
   id: string;
-  /** 面向用户的展示订单号，格式 LJ{YYYYMMDDHHmmss}{4位序号}，由数据库触发器自动生成。 */
   order_no?: string | null;
   user_id: string;
   address_id: string | null;
@@ -80,7 +80,6 @@ export interface Order {
   gift_wrap: boolean;
   created_at: string;
   updated_at: string;
-  // 关联查询时可能包含
   order_items?: OrderItem[];
   address?: Address;
 }
@@ -91,7 +90,6 @@ export interface OrderItem {
   product_id: string;
   quantity: number;
   unit_price: number;
-  // 关联查询时可能包含
   product?: Product;
 }
 
@@ -101,16 +99,30 @@ export interface Favorite {
   created_at: string;
 }
 
+export type CommunityPostType = "photo" | "brewing" | "question";
+
+export interface ArticleContentBlock {
+  type: "paragraph" | "image" | "heading";
+  text?: string | null;
+  image?: string | null;
+  caption?: string | null;
+}
+
 export interface Article {
   id: string;
   title: string;
+  slug?: string | null;
   subtitle: string | null;
   category: string;
   image_url: string | null;
   read_time: string | null;
   date: string | null;
+  content: ArticleContentBlock[] | null;
   is_featured: boolean;
+  is_published: boolean;
+  published_at?: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface SeasonalPick {
@@ -118,5 +130,84 @@ export interface SeasonalPick {
   name: string;
   description: string | null;
   image_url: string | null;
+  is_active: boolean;
+  sort_order: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Story {
+  id: string;
+  author_id: string;
+  image_url: string | null;
+  caption: string | null;
+  expires_at: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Post {
+  id: string;
+  author_id: string;
+  type: CommunityPostType;
+  location: string | null;
+  image_url: string | null;
+  caption: string | null;
+  tea_name: string | null;
+  brewing_data: { temp?: string; time?: string; amount?: string } | null;
+  brewing_images: string[] | null;
+  quote: string | null;
+  title: string | null;
+  description: string | null;
+  like_count: number;
+  comment_count: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PostComment {
+  id: string;
+  post_id: string;
+  author_id: string;
+  parent_id: string | null;
+  content: string;
+  like_count: number;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface PostLike {
+  post_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface CommentLike {
+  comment_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface PostBookmark {
+  post_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface ArticleLike {
+  article_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface ArticleBookmark {
+  article_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface StoryView {
+  story_id: string;
+  user_id: string;
   created_at: string;
 }
