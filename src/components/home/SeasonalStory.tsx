@@ -7,7 +7,7 @@ export default function SeasonalStory() {
 
   return (
     <Pressable
-      onPress={() => router.push("/(tabs)/culture" as any)}
+      onPress={() => router.push("/(tabs)/community" as any)}
       className="w-full aspect-video rounded-xl overflow-hidden"
     >
       <Image
@@ -19,18 +19,17 @@ export default function SeasonalStory() {
         transition={300}
       />
 
-      {/* 遮罩 + 内容 */}
       <View className="absolute inset-0 bg-black/30 items-center justify-center p-6 gap-3">
-        <Text className="font-headline text-2xl text-surface-bright tracking-[6px]">
-          春茶物语
+        <Text className="font-headline text-2xl text-surface-bright tracking-[4px]">
+          春日热聊
         </Text>
         <View className="w-12 h-px bg-surface-bright/50" />
         <Text className="text-surface-bright/90 text-sm italic font-light text-center">
-          "将这一抹春色，收纳在方寸壶中。"
+          “看看茶友们最近在喝什么、聊什么、分享什么。”
         </Text>
-        <Pressable className="mt-3 border border-surface-bright/50 px-5 py-1.5 rounded-full active:bg-surface-bright/20">
-          <Text className="text-surface-bright text-xs">阅读全文</Text>
-        </Pressable>
+        <View className="mt-3 border border-surface-bright/50 px-5 py-1.5 rounded-full">
+          <Text className="text-surface-bright text-xs">进入社区</Text>
+        </View>
       </View>
     </Pressable>
   );

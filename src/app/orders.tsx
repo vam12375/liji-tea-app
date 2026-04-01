@@ -124,7 +124,7 @@ export default function OrdersScreen() {
           {/* 顶部：订单号 + 状态徽章 */}
           <View className="flex-row items-center justify-between">
             <Text className="text-on-surface text-sm font-medium">
-              订单号：{item.id.slice(0, 8)}
+              订单号：{item.order_no ?? item.id.slice(0, 8)}
             </Text>
             <View
               style={{ backgroundColor: badge.bg }}

@@ -54,24 +54,16 @@ export default function TabLayout() {
       <Tabs.Screen
         name="culture"
         options={{
-          title: "茶道",
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialIcons
-              name="menu-book"
-              size={24}
-              color={color}
-              style={{ opacity: focused ? 1 : 0.6 }}
-            />
-          ),
+          href: null,
         }}
       />
       <Tabs.Screen
         name="community"
         options={{
-          title: "茶友",
+          title: "社区",
           tabBarIcon: ({ color, focused }) => (
             <MaterialIcons
-              name="group"
+              name="forum"
               size={24}
               color={color}
               style={{ opacity: focused ? 1 : 0.6 }}

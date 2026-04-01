@@ -1,16 +1,17 @@
 import { View, Text, Pressable } from "react-native";
 
-const TABS = ["动态", "话题", "茶会"] as const;
+const DEFAULT_TABS = ["动态", "话题", "茶会"] as const;
 
 interface Props {
   selected: string;
   onSelect: (tab: string) => void;
+  tabs?: readonly string[];
 }
 
-export default function CommunityTabs({ selected, onSelect }: Props) {
+export default function CommunityTabs({ selected, onSelect, tabs = DEFAULT_TABS }: Props) {
   return (
-    <View className="flex-row gap-6 px-1">
-      {TABS.map((tab) => (
+    <View className="flex-row gap-6 px-1 flex-wrap">
+      {tabs.map((tab) => (
         <Pressable key={tab} onPress={() => onSelect(tab)} className="pb-2 relative">
           <Text className={`text-base ${selected === tab ? "text-on-surface font-bold" : "text-secondary/60"}`}>
             {tab}

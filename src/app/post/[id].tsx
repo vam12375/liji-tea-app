@@ -1,55 +1,125 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
-import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Share, Keyboard } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
+import { shareContent } from '@/lib/share';
 import { useCommunityStore, type Post, type Comment } from '@/stores/communityStore';
 import { useUserStore } from '@/stores/userStore';
 import { showModal } from '@/stores/modalStore';
 
+
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
-  const posts = useCommunityStore((s) => s.posts);
-  const likedPostIds = useCommunityStore((s) => s.likedPostIds);
-  const likedCommentIds = useCommunityStore((s) => s.likedCommentIds);
-  const togglePostLike = useCommunityStore((s) => s.togglePostLike);
-  const addComment = useCommunityStore((s) => s.addComment);
-  const toggleCommentLike = useCommunityStore((s) => s.toggleCommentLike);
-  const profile = useUserStore((s) => s.profile);
-  const post = posts.find((p) => p.id === id);
+  const posts = useCommunityStore((state) => state.posts);
+  const activePost = useCommunityStore((state) => state.activePost);
+  const likedPostIds = useCommunityStore((state) => state.likedPostIds);
+  const likedCommentIds = useCommunityStore((state) => state.likedCommentIds);
+  const bookmarkedPostIds = useCommunityStore((state) => state.bookmarkedPostIds);
+  const detailLoading = useCommunityStore((state) => state.detailLoading);
+  const fetchPostDetail = useCommunityStore((state) => state.fetchPostDetail);
+  const togglePostLike = useCommunityStore((state) => state.togglePostLike);
+  const togglePostBookmark = useCommunityStore((state) => state.togglePostBookmark);
+  const addComment = useCommunityStore((state) => state.addComment);
+  const toggleCommentLike = useCommunityStore((state) => state.toggleCommentLike);
+  const session = useUserStore((state) => state.session);
+  const post = activePost?.id === id ? activePost : posts.find((item) => item.id === id);
   const [commentText, setCommentText] = useState('');
-  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
 
-  /** 发送评论 */
-  const handleSendComment = () => {
+  useEffect(() => {
+    if (!id) return;
+    void fetchPostDetail(id);
+  }, [fetchPostDetail, id]);
+
+  const requireLogin = () => {
+    if (session?.user?.id) return true;
+    showModal('请先登录', '登录后才可以点赞、收藏或评论。', 'info');
+    router.push('/login' as any);
+    return false;
+  };
+
+  const handleSendComment = async () => {
     const text = commentText.trim();
     if (!text || !post) return;
-    addComment(
-      post.id,
-      profile?.name ?? '匿名茶友',
-      profile?.avatar_url ?? `https://ui-avatars.com/api/?name=${encodeURIComponent('茶友')}&background=8B5E3C&color=fff&size=100`,
-      text,
-    );
-    setCommentText('');
-    Keyboard.dismiss();
+    if (!requireLogin()) return;
+
+    try {
+      setCommentSubmitting(true);
+      await addComment(post.id, text);
+      setCommentText('');
+      Keyboard.dismiss();
+    } catch (error: any) {
+      showModal('评论失败', error?.message ?? '请稍后重试。', 'error');
+    } finally {
+      setCommentSubmitting(false);
+    }
   };
 
-  /** 分享帖子 */
+  const handleTogglePostLike = async () => {
+    if (!post || !requireLogin()) return;
+
+    try {
+      await togglePostLike(post.id);
+    } catch (error: any) {
+      showModal('操作失败', error?.message ?? '请稍后重试。', 'error');
+    }
+  };
+
+  const handleToggleBookmark = async () => {
+    if (!post || !requireLogin()) return;
+
+    try {
+      await togglePostBookmark(post.id);
+    } catch (error: any) {
+      showModal('收藏失败', error?.message ?? '请稍后重试。', 'error');
+    }
+  };
+
+  const handleToggleCommentLike = async (commentId: string) => {
+    if (!post || !requireLogin()) return;
+
+    try {
+      await toggleCommentLike(post.id, commentId);
+    } catch (error: any) {
+      showModal('操作失败', error?.message ?? '请稍后重试。', 'error');
+    }
+  };
+
   const handleShare = async () => {
     if (!post) return;
-    const text = post.caption ?? post.title ?? post.quote ?? '';
+
+    const text = post.caption ?? post.title ?? post.quote ?? post.description;
+
     try {
-      await Share.share({ message: `【李记茶铺社区】${post.author}：${text}` });
-    } catch { /* 用户取消 */ }
+      await shareContent({
+        path: `/post/${encodeURIComponent(post.id)}`,
+        title: post.title ?? `${post.author} 的分享`,
+        lines: [`【李记茶铺社区】${post.author}`, text],
+      });
+    } catch {
+      // 用户取消分享
+    }
   };
 
-  /** 三点菜单 */
+
+
   const handleMenu = () => {
-    showModal("操作", "感谢您的反馈，我们会认真处理", "info");
+    showModal('操作', '帖子管理功能会在下一版补齐。', 'info');
   };
+
+  if (!post && detailLoading) {
+    return (
+      <View className="flex-1 bg-background items-center justify-center gap-3">
+        <MaterialIcons name="hourglass-top" size={26} color={Colors.outline} />
+        <Text className="text-on-surface-variant text-base">正在加载帖子...</Text>
+      </View>
+    );
+  }
 
   if (!post) {
     return (
@@ -67,7 +137,6 @@ export default function PostDetailScreen() {
       className="flex-1 bg-background"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* 顶部导航栏 */}
       <View style={{ paddingTop: insets.top }} className="px-4 pb-3 bg-background border-b border-outline-variant/10">
         <View className="flex-row items-center h-12">
           <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center active:opacity-60">
@@ -87,30 +156,32 @@ export default function PostDetailScreen() {
       </View>
 
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
-        {/* 帖子内容 */}
         <View className="px-5 pt-5 pb-4">
           <PostContent post={post} />
         </View>
 
-        {/* 互动栏 */}
         <View className="px-5 pb-4 flex-row justify-between items-center border-b border-outline-variant/10">
           <View className="flex-row gap-5">
-            <Pressable onPress={() => post && togglePostLike(post.id)} className="flex-row items-center gap-1.5">
+            <Pressable onPress={handleTogglePostLike} className="flex-row items-center gap-1.5">
               <MaterialIcons
-                name={post && likedPostIds.has(post.id) ? "favorite" : "favorite-border"}
+                name={likedPostIds.has(post.id) ? 'favorite' : 'favorite-border'}
                 size={22}
-                color={post && likedPostIds.has(post.id) ? Colors.error : Colors.secondary}
+                color={likedPostIds.has(post.id) ? Colors.error : Colors.secondary}
               />
-              <Text className="text-secondary text-sm">{post?.likes ?? 0}</Text>
+              <Text className="text-secondary text-sm">{post.likes}</Text>
             </Pressable>
-            <Pressable className="flex-row items-center gap-1.5">
+            <View className="flex-row items-center gap-1.5">
               <MaterialIcons name="chat-bubble-outline" size={22} color={Colors.secondary} />
-              <Text className="text-secondary text-sm">{post?.commentList?.length ?? post?.comments ?? 0}</Text>
-            </Pressable>
+              <Text className="text-secondary text-sm">{post.commentList?.length ?? post.comments}</Text>
+            </View>
           </View>
           <View className="flex-row gap-4">
-            <Pressable hitSlop={8} onPress={() => setIsBookmarked((v) => !v)}>
-              <MaterialIcons name={isBookmarked ? "bookmark" : "bookmark-border"} size={22} color={isBookmarked ? Colors.primary : Colors.secondary} />
+            <Pressable hitSlop={8} onPress={handleToggleBookmark}>
+              <MaterialIcons
+                name={bookmarkedPostIds.has(post.id) ? 'bookmark' : 'bookmark-border'}
+                size={22}
+                color={bookmarkedPostIds.has(post.id) ? Colors.primary : Colors.secondary}
+              />
             </Pressable>
             <Pressable hitSlop={8} onPress={handleShare}>
               <MaterialIcons name="share" size={22} color={Colors.secondary} />
@@ -118,26 +189,30 @@ export default function PostDetailScreen() {
           </View>
         </View>
 
-        {/* 评论区 */}
         <View className="px-5 pt-4 pb-2">
           <Text className="text-on-surface font-bold text-base mb-4">
             评论 ({post.commentList?.length ?? 0})
           </Text>
-          {post.commentList?.map((comment) => (
-            <CommentItem
-              key={comment.id}
-              comment={comment}
-              isLiked={likedCommentIds.has(comment.id)}
-              onToggleLike={() => post && toggleCommentLike(post.id, comment.id)}
-            />
-          ))}
+          {post.commentList?.length ? (
+            post.commentList.map((comment) => (
+              <CommentItem
+                key={comment.id}
+                comment={comment}
+                isLiked={likedCommentIds.has(comment.id)}
+                onToggleLike={() => handleToggleCommentLike(comment.id)}
+              />
+            ))
+          ) : (
+            <View className="rounded-2xl bg-surface-container-low px-4 py-5 items-center gap-2">
+              <MaterialIcons name="forum" size={22} color={Colors.outline} />
+              <Text className="text-on-surface-variant text-sm">还没有评论，来抢沙发吧。</Text>
+            </View>
+          )}
         </View>
 
-        {/* 底部留白 */}
         <View style={{ height: 80 + insets.bottom }} />
       </ScrollView>
 
-      {/* 底部评论输入栏 */}
       <View
         style={{ paddingBottom: insets.bottom || 12 }}
         className="absolute bottom-0 left-0 right-0 bg-background border-t border-outline-variant/10 px-4 pt-3"
@@ -148,12 +223,13 @@ export default function PostDetailScreen() {
             onChangeText={setCommentText}
             placeholder="写下你的评论..."
             placeholderTextColor={Colors.outline}
+            editable={!commentSubmitting}
             className="flex-1 bg-surface-container-low rounded-full px-4 py-2.5 text-on-surface text-sm"
           />
           <Pressable
             onPress={handleSendComment}
-            className="w-10 h-10 bg-primary rounded-full items-center justify-center active:opacity-80"
-            disabled={!commentText.trim()}
+            className={`w-10 h-10 rounded-full items-center justify-center ${commentSubmitting ? 'bg-primary/50' : 'bg-primary'} active:opacity-80`}
+            disabled={!commentText.trim() || commentSubmitting}
           >
             <MaterialIcons name="send" size={18} color="#fff" />
           </Pressable>
@@ -163,21 +239,20 @@ export default function PostDetailScreen() {
   );
 }
 
-/** 根据帖子类型渲染内容 */
 function PostContent({ post }: { post: Post }) {
   if (post.type === 'photo') {
     return (
       <View className="gap-3">
-        {post.image && (
+        {post.image ? (
           <Image source={{ uri: post.image }} style={{ width: '100%', height: 300, borderRadius: 16 }} contentFit="cover" transition={200} />
-        )}
+        ) : null}
         <Text className="text-on-surface text-[15px] leading-7">{post.caption}</Text>
-        {post.location && (
+        {post.location ? (
           <View className="flex-row items-center gap-1 mt-1">
             <MaterialIcons name="place" size={14} color={Colors.outline} />
             <Text className="text-outline text-xs">{post.location}</Text>
           </View>
-        )}
+        ) : null}
       </View>
     );
   }
@@ -191,14 +266,14 @@ function PostContent({ post }: { post: Post }) {
           </View>
           <Text className="text-on-surface-variant text-sm">{post.teaName}</Text>
         </View>
-        {post.brewingImages && (
+        {post.brewingImages?.length ? (
           <View className="flex-row gap-2">
-            {post.brewingImages.map((img, i) => (
-              <Image key={i} source={{ uri: img }} style={{ flex: 1, height: 160, borderRadius: 12 }} contentFit="cover" transition={200} />
+            {post.brewingImages.map((image, index) => (
+              <Image key={`${image}-${index}`} source={{ uri: image }} style={{ flex: 1, height: 160, borderRadius: 12 }} contentFit="cover" transition={200} />
             ))}
           </View>
-        )}
-        {post.brewingData && (
+        ) : null}
+        {post.brewingData ? (
           <View className="bg-surface-container-low p-4 rounded-xl gap-3">
             <Text className="text-on-surface text-sm font-bold">冲泡参数</Text>
             <View className="flex-row gap-6">
@@ -216,15 +291,14 @@ function PostContent({ post }: { post: Post }) {
               </View>
             </View>
           </View>
-        )}
-        {post.quote && (
+        ) : null}
+        {post.quote ? (
           <Text className="text-secondary italic text-[15px] leading-7 px-1">"{post.quote}"</Text>
-        )}
+        ) : null}
       </View>
     );
   }
 
-  // question 类型
   return (
     <View className="gap-4">
       <View className="bg-tertiary-fixed self-start px-3 py-1 rounded-full">
@@ -236,7 +310,6 @@ function PostContent({ post }: { post: Post }) {
   );
 }
 
-/** 评论项 */
 function CommentItem({ comment, isLiked, onToggleLike }: { comment: Comment; isLiked: boolean; onToggleLike: () => void }) {
   return (
     <View className="flex-row gap-3 mb-5">
@@ -249,12 +322,8 @@ function CommentItem({ comment, isLiked, onToggleLike }: { comment: Comment; isL
         <Text className="text-on-surface/90 text-sm leading-6 mt-1">{comment.content}</Text>
         <View className="flex-row items-center gap-1 mt-2">
           <Pressable onPress={onToggleLike} className="flex-row items-center gap-0.5" hitSlop={8}>
-            <MaterialIcons name={isLiked ? "favorite" : "favorite-border"} size={14} color={isLiked ? Colors.error : Colors.outline} />
+            <MaterialIcons name={isLiked ? 'favorite' : 'favorite-border'} size={14} color={isLiked ? Colors.error : Colors.outline} />
             <Text className="text-outline text-[11px]">{comment.likes}</Text>
-          </Pressable>
-          <View className="w-4" />
-          <Pressable hitSlop={8}>
-            <Text className="text-outline text-[11px]">回复</Text>
           </Pressable>
         </View>
       </View>
