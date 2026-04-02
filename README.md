@@ -21,8 +21,12 @@
 ## 演示截图
 
 <div align="center">
-  <img src="./assets/images/pages-1.jpg" alt="李记茶页面演示图 1" width="45%" />
-  <img src="./assets/images/pages-2.jpg" alt="李记茶页面演示图 2" width="45%" />
+  <p>
+    <img src="./assets/images/pages-1.jpg" alt="李记茶页面演示图 1" width="78%" />
+  </p>
+  <p>
+    <img src="./assets/images/pages-2.jpg" alt="李记茶页面演示图 2" width="78%" />
+  </p>
 </div>
 
 ---
