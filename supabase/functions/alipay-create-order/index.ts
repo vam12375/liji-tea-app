@@ -1,22 +1,27 @@
-﻿declare const Deno: {
-  serve: (handler: (req: Request) => Response | Promise<Response>) => void;
-  env: {
-    get: (name: string) => string | undefined;
-  };
-};
-
-import {
+﻿import {
   buildAlipayOrderString,
   createOutTradeNo,
   formatAmount,
 } from "../_shared/alipay.ts";
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
-import { closeExpiredPendingOrder } from "../_shared/payment.ts";
+import {
+  buildOrderSubject,
+  calculateOrderAmount,
+  closeExpiredPendingOrder,
+} from "../_shared/payment.ts";
 import {
   createServiceClient,
   getRequiredEnv,
   getUserFromRequest,
 } from "../_shared/supabase.ts";
+
+// Edge Runtime 的 Deno 全局类型声明，便于当前文件安全读取环境变量并注册服务。
+declare const Deno: {
+  serve: (handler: (req: Request) => Response | Promise<Response>) => void;
+  env: {
+    get: (name: string) => string | undefined;
+  };
+};
 
 interface ProductRow {
   name: string | null;
@@ -28,12 +33,14 @@ interface OrderItemRow {
   product: ProductRow | null;
 }
 
+// 发起支付时只读取最小必要订单字段，避免把无关数据带入支付创建流程。
 interface OrderRow {
   id: string;
   user_id: string;
   status: string;
   created_at: string;
   total: number | string | null;
+  coupon_discount: number | string | null;
   delivery_type: string | null;
   gift_wrap: boolean | null;
   payment_status: string | null;
@@ -42,40 +49,7 @@ interface OrderRow {
   order_items: OrderItemRow[] | null;
 }
 
-/** 兼容数据库 numeric / text 返回值。 */
-function toNumber(value: number | string | null | undefined) {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-/** 服务端重算订单金额，客户端传入金额不作为可信依据。 */
-function calculateOrderAmount(order: OrderRow) {
-  const subtotal = (order.order_items ?? []).reduce((sum, item) => {
-    const unitPrice = toNumber(item.product?.price);
-    return sum + unitPrice * item.quantity;
-  }, 0);
-  const shippingCost = order.delivery_type === "express" ? 15 : 0;
-  const discount = subtotal >= 1000 ? 50 : 0;
-  const giftWrapPrice = order.gift_wrap ? 28 : 0;
-
-  return subtotal + shippingCost - discount + giftWrapPrice;
-}
-
-/** 生成给支付宝展示的订单标题。 */
-function buildOrderSubject(orderItems: OrderItemRow[]) {
-  const firstProductName = orderItems[0]?.product?.name?.trim();
-
-  if (!firstProductName) {
-    return "李记茶订单";
-  }
-
-  if (orderItems.length === 1) {
-    return `李记茶 · ${firstProductName}`;
-  }
-
-  return `李记茶 · ${firstProductName} 等${orderItems.length}件商品`;
-}
-
+// 支付宝下单入口：校验订单归属、重算金额、生成支付串并记录支付流水。
 Deno.serve(async (req: Request) => {
   const corsResponse = handleCors(req);
   if (corsResponse) {
@@ -108,7 +82,7 @@ Deno.serve(async (req: Request) => {
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .select(
-        "id, user_id, status, created_at, total, delivery_type, gift_wrap, payment_status, payment_channel, out_trade_no, order_items(quantity, product:products(name, price))",
+        "id, user_id, status, created_at, total, coupon_discount, delivery_type, gift_wrap, payment_status, payment_channel, out_trade_no, order_items(quantity, product:products(name, price))",
       )
       .eq("id", orderId)
       .single<OrderRow>();
@@ -126,6 +100,7 @@ Deno.serve(async (req: Request) => {
       return errorResponse("无权访问该订单。", 403, "forbidden");
     }
 
+    // 拉起支付前先检查订单是否已经超时，避免用户继续支付失效订单。
     if (order.status === "pending") {
       const expiredResult = await closeExpiredPendingOrder(order);
       if (expiredResult.error) {
@@ -163,6 +138,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // 支付金额始终以服务端重算结果为准，不直接信任 orders.total 的历史值。
     const amount = calculateOrderAmount(order);
     if (amount <= 0) {
       return errorResponse(

@@ -1,40 +1,70 @@
 import { View, Text } from "react-native";
 
+// 价格明细组件直接消费服务端返回的拆单金额字段，不自行定义额外计价规则。
 interface PriceBreakdownProps {
   subtotal: number;
   shipping: number;
   discount: number;
-  giftBox: boolean;
+  autoDiscount?: number;
+  couponDiscount?: number;
+  couponTitle?: string | null;
+  couponCode?: string | null;
+  giftWrapFee: number;
 }
 
+// 将活动优惠、优惠券抵扣、运费和礼盒费拆开展示，便于用户核对金额来源。
 export default function PriceBreakdown({
   subtotal,
   shipping,
   discount,
-  giftBox,
+  autoDiscount = 0,
+  couponDiscount = 0,
+  couponTitle,
+  couponCode,
+  giftWrapFee,
 }: PriceBreakdownProps) {
-  const giftBoxPrice = giftBox ? 28 : 0;
-  const total = subtotal + shipping - discount + giftBoxPrice;
+  // 合计金额沿用服务端同样的计算结构，只负责展示不改变业务规则。
+  const total = subtotal + shipping - discount + giftWrapFee;
+  const couponLabel = couponTitle?.trim()
+    ? `优惠券 · ${couponTitle.trim()}`
+    : couponCode?.trim()
+      ? `优惠券 · ${couponCode.trim()}`
+      : "优惠券";
 
   return (
     <View className="gap-3">
-      <Row label="商品小计" value={`¥${subtotal}`} />
-      <Row label="运费" value={shipping === 0 ? "免费" : `¥${shipping}`} />
-      {discount > 0 && (
-        <Row label="优惠" value={`-¥${discount}`} valueClass="text-primary font-bold" />
+      <Row label="商品小计" value={`¥${subtotal.toFixed(2)}`} />
+      <Row label="运费" value={shipping === 0 ? "免费" : `¥${shipping.toFixed(2)}`} />
+      {autoDiscount > 0 && (
+        <Row
+          label="活动优惠"
+          value={`-¥${autoDiscount.toFixed(2)}`}
+          valueClass="text-primary font-bold"
+        />
       )}
-      {giftBox && <Row label="礼盒包装" value={`+¥${giftBoxPrice}`} />}
+      {couponDiscount > 0 && (
+        <Row
+          label={couponLabel}
+          value={`-¥${couponDiscount.toFixed(2)}`}
+          valueClass="text-primary font-bold"
+        />
+      )}
+      {discount > 0 && autoDiscount <= 0 && couponDiscount <= 0 && (
+        <Row label="优惠" value={`-¥${discount.toFixed(2)}`} valueClass="text-primary font-bold" />
+      )}
+      {giftWrapFee > 0 && <Row label="礼盒包装" value={`+¥${giftWrapFee.toFixed(2)}`} />}
       <View className="h-px bg-outline-variant/20 my-1" />
       <View className="flex-row justify-between items-center">
         <Text className="text-on-surface font-medium">合计</Text>
         <Text className="font-headline text-primary text-2xl font-bold">
-          ¥{total}
+          ¥{total.toFixed(2)}
         </Text>
       </View>
     </View>
   );
 }
 
+// 统一渲染每一行价格项，保持对齐和文本样式一致。
 function Row({
   label,
   value,
