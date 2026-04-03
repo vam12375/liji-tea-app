@@ -30,7 +30,7 @@ export default function ShopProductCard({
       Animated.spring(heartScale, { toValue: 1.5, useNativeDriver: true, damping: 6 }),
       Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, damping: 8 }),
     ]).start();
-  }, [product.id, toggleFavorite]);
+  }, [heartScale, product.id, toggleFavorite]);
 
   return (
     <Pressable

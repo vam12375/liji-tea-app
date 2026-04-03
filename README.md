@@ -22,10 +22,10 @@
 
 <div align="center">
   <p>
-    <img src="./assets/images/pages-1.jpg" alt="李记茶页面演示图 1" width="78%" />
+    <img src="./assets/images/pages-1.jpg" alt="李记茶页面演示图 1" width="100%" />
   </p>
   <p>
-    <img src="./assets/images/pages-2.jpg" alt="李记茶页面演示图 2" width="78%" />
+    <img src="./assets/images/pages-2.jpg" alt="李记茶页面演示图 2" width="100%" />
   </p>
 </div>
 

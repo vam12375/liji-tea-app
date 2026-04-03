@@ -58,6 +58,11 @@ export interface Order {
   address_id: string | null;
   status: "pending" | "paid" | "shipping" | "delivered" | "cancelled";
   total: number;
+  coupon_id?: string | null;
+  user_coupon_id?: string | null;
+  coupon_code?: string | null;
+  coupon_title?: string | null;
+  coupon_discount?: number;
   delivery_type: string;
   payment_method: PaymentChannel | null;
   payment_channel?: PaymentChannel | null;

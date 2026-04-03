@@ -2,8 +2,9 @@ import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
-import { useUserStore } from "@/stores/userStore";
 import { showModal, showConfirm } from "@/stores/modalStore";
+import { useCouponStore } from "@/stores/couponStore";
+import { useUserStore } from "@/stores/userStore";
 
 // 菜单项类型定义（含可选的 badge、highlight 和 route 字段）
 interface MenuItem {
@@ -16,7 +17,7 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { icon: "location-on", label: "收货地址管理", route: "/addresses" },
-  { icon: "confirmation-number", label: "优惠券", badge: "3张可用", route: null },
+  { icon: "confirmation-number", label: "优惠券", route: "/coupons" },
   { icon: "receipt-long", label: "我的订单", route: "/orders" },
   { icon: "favorite", label: "我的收藏", route: "/favorites" },
   { icon: "comment", label: "我的评价", route: null },
@@ -28,6 +29,9 @@ const MENU_ITEMS: MenuItem[] = [
 export default function MenuList() {
   const router = useRouter();
   const signOut = useUserStore((s) => s.signOut);
+  const availableCouponCount = useCouponStore(
+    (s) => s.userCoupons.filter((item) => item.status === "available").length,
+  );
 
   /** 菜单项点击处理 */
   const handlePress = (item: MenuItem) => {
@@ -53,34 +57,41 @@ export default function MenuList() {
   return (
     <View className="px-4 gap-0">
       {/* 菜单列表 */}
-      {MENU_ITEMS.map((item) => (
-        <Pressable
-          key={item.label}
-          onPress={() => handlePress(item)}
-          className={`flex-row items-center py-4 border-b border-outline-variant/10 active:bg-surface-container/50 ${
-            item.highlight ? "bg-primary/5" : ""
-          }`}
-        >
-          <MaterialIcons
-            name={item.icon}
-            size={20}
-            color={item.highlight ? Colors.primary : Colors.onSurface}
-          />
-          <Text
-            className={`flex-1 ml-3 text-sm ${
-              item.highlight ? "text-primary" : "text-on-surface"
+      {MENU_ITEMS.map((item) => {
+        const badge =
+          item.label === "优惠券" && availableCouponCount > 0
+            ? `${availableCouponCount}张可用`
+            : item.badge;
+
+        return (
+          <Pressable
+            key={item.label}
+            onPress={() => handlePress(item)}
+            className={`flex-row items-center py-4 border-b border-outline-variant/10 active:bg-surface-container/50 ${
+              item.highlight ? "bg-primary/5" : ""
             }`}
           >
-            {item.label}
-          </Text>
-          {item.badge && (
-            <View className="bg-tertiary/10 px-2 py-0.5 rounded mr-2">
-              <Text className="text-tertiary text-[10px]">{item.badge}</Text>
-            </View>
-          )}
-          <MaterialIcons name="chevron-right" size={18} color={Colors.outline} />
-        </Pressable>
-      ))}
+            <MaterialIcons
+              name={item.icon}
+              size={20}
+              color={item.highlight ? Colors.primary : Colors.onSurface}
+            />
+            <Text
+              className={`flex-1 ml-3 text-sm ${
+                item.highlight ? "text-primary" : "text-on-surface"
+              }`}
+            >
+              {item.label}
+            </Text>
+            {badge && (
+              <View className="bg-tertiary/10 px-2 py-0.5 rounded mr-2">
+                <Text className="text-tertiary text-[10px]">{badge}</Text>
+              </View>
+            )}
+            <MaterialIcons name="chevron-right" size={18} color={Colors.outline} />
+          </Pressable>
+        );
+      })}
 
       {/* 退出登录按钮 */}
       <Pressable

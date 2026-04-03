@@ -25,7 +25,7 @@ export default function ProfileScreen() {
         <MaterialIcons name="account-circle" size={80} color={Colors.outlineVariant} />
         <Text className="text-on-surface-variant text-base">登录后查看个人信息</Text>
         <Pressable
-          onPress={() => router.push("/login" as any)}
+          onPress={() => router.push("/login")}
           className="bg-primary-container px-8 py-3 rounded-full"
         >
           <Text className="text-on-primary font-medium">登录 / 注册</Text>

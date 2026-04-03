@@ -28,7 +28,9 @@ export default function NewArrivals() {
         {newArrivals.map((product) => (
           <Pressable
             key={product.id}
-            onPress={() => router.push(`/product/${product.id}` as any)}
+            onPress={() =>
+              router.push({ pathname: "/product/[id]", params: { id: product.id } })
+            }
             className="flex-1 bg-surface-container-low rounded-xl overflow-hidden active:opacity-80"
           >
             {/* 正方形图片 */}

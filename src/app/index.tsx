@@ -28,11 +28,11 @@ export default function SplashScreenPage() {
 
     // 2.5秒后跳转到主页
     const timer = setTimeout(() => {
-      router.replace("/(tabs)" as any);
+      router.replace("/(tabs)");
     }, 2800);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [fadeIn, progressWidth, router]);
 
   return (
     <View

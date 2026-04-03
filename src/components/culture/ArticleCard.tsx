@@ -7,7 +7,7 @@ import type { Article } from "@/data/articles";
 
 export default function ArticleCard({ article, large = false }: { article: Article; large?: boolean }) {
   return (
-    <Pressable className={`${large ? "" : "flex-1"} active:opacity-80`} onPress={() => router.push(`/article/${article.id}` as any)}>
+    <Pressable className={`${large ? "" : "flex-1"} active:opacity-80`} onPress={() => router.push({ pathname: "/article/[id]", params: { id: article.id } })}>
       <View className={`${large ? "aspect-video" : "aspect-square"} rounded-xl overflow-hidden mb-2`}>
         <Image source={{ uri: article.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
       </View>

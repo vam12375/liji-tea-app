@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TextInput, Pressable, FlatList, Switch, Dimensions } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -20,17 +20,17 @@ export default function GiftScreen() {
   const [wechat, setWechat] = useState(false);
 
   useEffect(() => {
-    fetchGiftCards();
-    fetchGiftSets();
-  }, []);
+    void fetchGiftCards();
+    void fetchGiftSets();
+  }, [fetchGiftCards, fetchGiftSets]);
 
   // 选中第一个（数据加载后）
   useEffect(() => {
     if (giftCards.length > 0 && !selectedCard) setSelectedCard(giftCards[0].id);
-  }, [giftCards]);
+  }, [giftCards, selectedCard]);
   useEffect(() => {
     if (giftSets.length > 1 && !selectedSet) setSelectedSet(giftSets[1].id);
-  }, [giftSets]);
+  }, [giftSets, selectedSet]);
 
   const selectedPrice = giftSets.find((s) => s.id === selectedSet)?.price ?? 0;
 

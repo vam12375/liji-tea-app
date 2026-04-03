@@ -48,18 +48,28 @@ export const AliLoginErrorCodes = {
 // 获取 Native Module 实例
 // ============================================================
 
-const NativeModule = NativeModules.AliOneClickModule as AliOneClickNativeModule | undefined;
+const NativeModule = NativeModules.AliOneClickModule as Partial<AliOneClickNativeModule> | undefined;
 
-function isModuleAvailable(): NativeModule is AliOneClickNativeModule {
+function isModuleAvailable(
+  module: Partial<AliOneClickNativeModule> | undefined
+): module is AliOneClickNativeModule {
   return (
-    !!NativeModule &&
-    typeof NativeModule.initWithToken === 'function' &&
-    typeof NativeModule.login === 'function' &&
-    typeof NativeModule.quit === 'function'
+    !!module &&
+    typeof module.initWithToken === 'function' &&
+    typeof module.login === 'function' &&
+    typeof module.quit === 'function'
   );
 }
 
-if (!isModuleAvailable()) {
+function requireNativeModule(): AliOneClickNativeModule {
+  if (!isModuleAvailable(NativeModule)) {
+    throw Object.assign(new Error('原生模块未加载'), { code: AliLoginErrorCodes.NOT_INIT });
+  }
+
+  return NativeModule;
+}
+
+if (!isModuleAvailable(NativeModule)) {
   console.warn(
     '[AliOneClickModule] 原生模块未找到。请确保：\n' +
     `  平台: ${Platform.OS}\n` +
@@ -100,10 +110,8 @@ const AliOneClickModule = {
    * @returns Promise<boolean> 初始化成功返回 true
    */
   initWithToken: async (authToken: string): Promise<boolean> => {
-    if (!isModuleAvailable()) {
-      throw Object.assign(new Error('原生模块未加载'), { code: AliLoginErrorCodes.NOT_INIT });
-    }
-    return await NativeModule.initWithToken(authToken);
+    const nativeModule = requireNativeModule();
+    return await nativeModule.initWithToken(authToken);
   },
 
   /**
@@ -116,10 +124,8 @@ const AliOneClickModule = {
    * @throws error.code === 'E_NOT_INIT' 未初始化
    */
   login: async (templateId: string): Promise<FusionLoginResult> => {
-    if (!isModuleAvailable()) {
-      throw Object.assign(new Error('原生模块未加载'), { code: AliLoginErrorCodes.NOT_INIT });
-    }
-    return await NativeModule.login(templateId);
+    const nativeModule = requireNativeModule();
+    return await nativeModule.login(templateId);
   },
 
   /**
@@ -128,7 +134,7 @@ const AliOneClickModule = {
    * 建议在组件卸载或登录完成后调用
    */
   quit: async (): Promise<void> => {
-    if (!isModuleAvailable()) return;
+    if (!isModuleAvailable(NativeModule)) return;
     try {
       await NativeModule.quit();
     } catch (error) {

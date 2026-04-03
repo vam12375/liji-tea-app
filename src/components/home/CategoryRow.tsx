@@ -27,9 +27,7 @@ export default function CategoryRow() {
 
   /** 点击分类 → 跳转商城页并带上分类筛选参数 */
   const handleCategoryPress = (label: string) => {
-    router.push(
-      ("/(tabs)/shop?category=" + encodeURIComponent(label)) as any
-    );
+    router.push({ pathname: "/(tabs)/shop", params: { category: label } });
   };
 
   return (

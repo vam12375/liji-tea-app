@@ -28,7 +28,7 @@ export default function HeroBanner() {
         </Text>
         <View className="pt-3">
           <Pressable
-            onPress={() => router.push("/(tabs)/shop" as any)}
+            onPress={() => router.push("/(tabs)/shop")}
             className="bg-primary-container self-start px-6 py-2.5 rounded-full active:bg-primary"
           >
             <Text className="text-surface-bright text-sm font-medium">

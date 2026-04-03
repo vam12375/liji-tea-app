@@ -634,7 +634,7 @@ export default function TrackingScreen() {
             </Text>
           </View>
           <Pressable
-            onPress={() => router.replace("/orders" as any)}
+            onPress={() => router.replace("/orders")}
             className="bg-primary-container rounded-full px-5 py-3 active:bg-primary"
           >
             <Text className="text-on-primary font-medium">返回订单列表</Text>
@@ -682,6 +682,22 @@ export default function TrackingScreen() {
             <TrackingInfoRow label="订单号" value={getDisplayOrderCode(currentOrder.id, currentOrder.order_no)} />
             <TrackingInfoRow label="下单时间" value={formatDateTime(currentOrder.created_at)} />
             <TrackingInfoRow label="配送方式" value={getDeliveryLabel(currentOrder.delivery_type)} />
+            {typeof currentOrder.coupon_discount === "number" && currentOrder.coupon_discount > 0 ? (
+              <>
+                <TrackingInfoRow
+                  label="优惠券"
+                  value={
+                    currentOrder.coupon_title
+                      ? `${currentOrder.coupon_title}${currentOrder.coupon_code ? `（${currentOrder.coupon_code}）` : ""}`
+                      : currentOrder.coupon_code ?? "已使用优惠券"
+                  }
+                />
+                <TrackingInfoRow
+                  label="优惠抵扣"
+                  value={`-¥${currentOrder.coupon_discount.toFixed(2)}`}
+                />
+              </>
+            ) : null}
           </View>
 
           {currentOrder.status === "pending" ? (
@@ -699,9 +715,14 @@ export default function TrackingScreen() {
 
               <Pressable
                 onPress={() =>
-                  router.push(
-                    `/payment?orderId=${currentOrder.id}&total=${currentOrder.total}&paymentMethod=${currentOrder.payment_method ?? "alipay"}` as any
-                  )
+                  router.push({
+                    pathname: "/payment",
+                    params: {
+                      orderId: currentOrder.id,
+                      total: String(currentOrder.total),
+                      paymentMethod: currentOrder.payment_method ?? "alipay",
+                    },
+                  })
                 }
                 disabled={!canRepay}
                 className={`rounded-full py-3 items-center justify-center ${canRepay ? "bg-primary-container active:bg-primary" : "bg-surface"}`}
@@ -885,6 +906,14 @@ export default function TrackingScreen() {
             <View className="px-3 py-1 rounded-full bg-background">
               <Text className="text-on-surface text-xs">{getDeliveryLabel(currentOrder.delivery_type)}</Text>
             </View>
+
+            {typeof currentOrder.coupon_discount === "number" && currentOrder.coupon_discount > 0 ? (
+              <View className="px-3 py-1 rounded-full bg-background">
+                <Text className="text-primary text-xs">
+                  优惠券已抵扣 ¥{currentOrder.coupon_discount.toFixed(2)}
+                </Text>
+              </View>
+            ) : null}
 
             {currentOrder.gift_wrap && (
               <View className="px-3 py-1 rounded-full bg-background">

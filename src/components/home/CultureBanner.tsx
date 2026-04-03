@@ -8,7 +8,7 @@ export default function CultureBanner() {
 
   return (
     <Pressable
-      onPress={() => router.push("/(tabs)/community" as any)}
+      onPress={() => router.push("/(tabs)/community")}
       className="w-full h-32 rounded-xl overflow-hidden active:opacity-90"
     >
       <View className="absolute inset-0 bg-[#2C2C2C]">

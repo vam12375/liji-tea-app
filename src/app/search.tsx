@@ -107,7 +107,9 @@ export default function SearchScreen() {
         renderItem={({ item }) => (
           <Pressable
             className="flex-1 active:opacity-80"
-            onPress={() => router.push(`/product/${item.id}` as any)}
+            onPress={() =>
+              router.push({ pathname: "/product/[id]", params: { id: item.id } })
+            }
           >
             <View className="aspect-[4/5] rounded-xl overflow-hidden mb-2">
               <Image source={{ uri: item.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />

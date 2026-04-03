@@ -1,3 +1,8 @@
+import {
+  markLockedCouponUsed,
+  releaseLockedCoupon,
+  type AppliedCouponSummary,
+} from "./coupon.ts";
 import { createServiceClient } from "./supabase.ts";
 
 interface OrderItemProductRow {
@@ -22,6 +27,11 @@ export interface PaymentOrderRow {
   status: string;
   created_at: string;
   total: number | string | null;
+  coupon_id: string | null;
+  user_coupon_id: string | null;
+  coupon_code: string | null;
+  coupon_title: string | null;
+  coupon_discount: number | string | null;
   delivery_type: string | null;
   gift_wrap: boolean | null;
   payment_method: string | null;
@@ -59,33 +69,100 @@ export interface TrackingEventInput {
   sortOrder: number;
 }
 
+// 待付款订单的统一过期时长，客户端与服务端都以这个规则进行兜底处理。
 const PENDING_ORDER_EXPIRE_MS = 10 * 60 * 1000;
+// 订单计价规则常量统一放在服务端，避免客户端自行改价。
+const SHIPPING_EXPRESS = 15;
+const DISCOUNT_THRESHOLD = 1000;
+const DISCOUNT_AMOUNT = 50;
+const GIFT_WRAP_PRICE = 28;
 
+export interface OrderPricingLineItem {
+  quantity: number;
+  unit_price: number;
+}
+
+export interface OrderPricingBreakdown {
+  subtotal: number;
+  shipping: number;
+  discount: number;
+  autoDiscount: number;
+  couponDiscount: number;
+  giftWrapFee: number;
+  total: number;
+  appliedCoupon: AppliedCouponSummary | null;
+}
+
+export interface CalculateOrderPricingOptions {
+  couponDiscount?: number | null;
+  appliedCoupon?: AppliedCouponSummary | null;
+}
+
+// 兼容 numeric / text / null 等数据库返回值，统一转成 number 参与计算。
 function toNumber(value: number | string | null | undefined) {
   const parsed = Number(value ?? 0);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function formatAmountNumber(value: number | string | null | undefined) {
+function roundCurrency(value: number) {
   return Number(toNumber(value).toFixed(2));
 }
 
-export function calculateOrderAmount(
-  order: Pick<PaymentOrderRow, "delivery_type" | "gift_wrap" | "order_items">,
-) {
-  const subtotal = (order.order_items ?? []).reduce((sum, item) => {
-    const unitPrice = toNumber(item.product?.price);
-    return sum + unitPrice * item.quantity;
-  }, 0);
-  const shippingCost = order.delivery_type === "express" ? 15 : 0;
-  const discount = subtotal >= 1000 ? 50 : 0;
-  const giftWrapPrice = order.gift_wrap ? 28 : 0;
-
-  return Number(
-    (subtotal + shippingCost - discount + giftWrapPrice).toFixed(2),
-  );
+// 将金额统一规范到两位小数，避免订单总价与支付金额出现精度差异。
+export function formatAmountNumber(value: number | string | null | undefined) {
+  return roundCurrency(toNumber(value));
 }
 
+// 服务端统一计算订单金额，自动优惠、优惠券和礼盒费都在这里汇总。
+export function calculateOrderPricing(
+  items: OrderPricingLineItem[],
+  deliveryType?: string | null,
+  giftWrap?: boolean | null,
+  options?: CalculateOrderPricingOptions,
+): OrderPricingBreakdown {
+  const subtotal = roundCurrency(
+    items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0),
+  );
+  const shipping = deliveryType === "express" ? SHIPPING_EXPRESS : 0;
+  const autoDiscount = subtotal >= DISCOUNT_THRESHOLD ? DISCOUNT_AMOUNT : 0;
+  const couponDiscount = roundCurrency(options?.couponDiscount ?? 0);
+  const discount = roundCurrency(autoDiscount + couponDiscount);
+  const giftWrapFee = giftWrap ? GIFT_WRAP_PRICE : 0;
+  const total = roundCurrency(subtotal + shipping - discount + giftWrapFee);
+
+  return {
+    subtotal,
+    shipping,
+    discount,
+    autoDiscount,
+    couponDiscount,
+    giftWrapFee,
+    total,
+    appliedCoupon: options?.appliedCoupon ?? null,
+  };
+}
+
+// 基于订单明细重新反推应付金额，支付前会用它校验数据库中的订单金额。
+export function calculateOrderAmount(
+  order: Pick<
+    PaymentOrderRow,
+    "delivery_type" | "gift_wrap" | "coupon_discount" | "order_items"
+  >,
+) {
+  return calculateOrderPricing(
+    (order.order_items ?? []).map((item) => ({
+      quantity: item.quantity,
+      unit_price: toNumber(item.product?.price),
+    })),
+    order.delivery_type,
+    order.gift_wrap,
+    {
+      couponDiscount: toNumber(order.coupon_discount),
+    },
+  ).total;
+}
+
+// 生成支付渠道展示的订单标题，优先展示首件商品名称。
 export function buildOrderSubject(orderItems: OrderItemRow[]) {
   const firstProductName = orderItems[0]?.product?.name?.trim();
 
@@ -100,6 +177,7 @@ export function buildOrderSubject(orderItems: OrderItemRow[]) {
   return `李记茶 · ${firstProductName} 等${orderItems.length}件商品`;
 }
 
+// 生成内部物流单号，保证演示环境下也有稳定的追踪编号。
 function createTrackingNo(orderId: string) {
   const normalized = orderId.replace(/[^0-9A-Za-z]/g, "").toUpperCase();
   const suffix = normalized.slice(-10).padStart(10, "0");
@@ -117,6 +195,7 @@ function getLogisticsCompany(deliveryType?: string | null) {
   }
 }
 
+// 支付成功后批量生成订单轨迹事件，便于订单详情和物流页直接展示。
 function createTrackingEvents(order: PaymentOrderRow, paidAt: string) {
   const trackingNo = order.logistics_tracking_no || createTrackingNo(order.id);
   const company =
@@ -183,6 +262,7 @@ function createTrackingEvents(order: PaymentOrderRow, paidAt: string) {
   };
 }
 
+// 判断订单是否已超过待支付时效，供支付创建和订单列表兜底使用。
 export function isPendingOrderExpired(order: PendingOrderSnapshot) {
   if (order.status !== "pending") {
     return false;
@@ -196,6 +276,7 @@ export function isPendingOrderExpired(order: PendingOrderSnapshot) {
   return Date.now() - createdAt >= PENDING_ORDER_EXPIRE_MS;
 }
 
+// 关闭超时待付款订单，同时关闭支付流水并释放已锁定优惠券。
 export async function closeExpiredPendingOrder(order: PendingOrderSnapshot) {
   if (!isPendingOrderExpired(order)) {
     return { expired: false, error: null };
@@ -235,19 +316,28 @@ export async function closeExpiredPendingOrder(order: PendingOrderSnapshot) {
     .eq("order_id", order.id)
     .in("status", ["created", "paying"]);
 
+  const { error: releaseCouponError } = await releaseLockedCoupon({
+    orderId: order.id,
+  });
+
   if (transactionError) {
     return { expired: true, error: transactionError };
+  }
+
+  if (releaseCouponError) {
+    return { expired: true, error: releaseCouponError };
   }
 
   return { expired: true, error: null };
 }
 
+// 拉取支付侧所需的订单完整快照，供回调验签与订单状态查询复用。
 export async function fetchPaymentOrderById(orderId: string) {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id, user_id, status, created_at, total, delivery_type, gift_wrap, payment_method, payment_channel, payment_status, out_trade_no, paid_amount, paid_at, trade_no, payment_error_code, payment_error_message, logistics_company, logistics_tracking_no, logistics_status, logistics_receiver_name, logistics_receiver_phone, logistics_address, shipped_at, delivered_at, address:addresses(name, phone, address), order_items(quantity, product:products(name, price))",
+      "id, user_id, status, created_at, total, coupon_id, user_coupon_id, coupon_code, coupon_title, coupon_discount, delivery_type, gift_wrap, payment_method, payment_channel, payment_status, out_trade_no, paid_amount, paid_at, trade_no, payment_error_code, payment_error_message, logistics_company, logistics_tracking_no, logistics_status, logistics_receiver_name, logistics_receiver_phone, logistics_address, shipped_at, delivered_at, address:addresses(name, phone, address), order_items(quantity, product:products(name, price))",
     )
     .eq("id", orderId)
     .single<PaymentOrderRow>();
@@ -255,6 +345,7 @@ export async function fetchPaymentOrderById(orderId: string) {
   return { data, error };
 }
 
+// 支付成功后的统一收口：更新订单、流水、优惠券状态以及物流轨迹。
 export async function markOrderPaid(params: {
   order: PaymentOrderRow;
   channel: string;
@@ -336,6 +427,17 @@ export async function markOrderPaid(params: {
 
   if (transactionError) {
     return { error: transactionError };
+  }
+
+  const { error: couponUseError } = await markLockedCouponUsed({
+    userCouponId: params.order.user_coupon_id,
+    couponId: params.order.coupon_id,
+    orderId: params.order.id,
+    usedAt: now,
+  });
+
+  if (couponUseError) {
+    return { error: couponUseError };
   }
 
   const { error: deleteEventsError } = await supabase

@@ -1,12 +1,5 @@
 import { useCallback } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  Modal,
-  Animated,
-  useAnimatedValue,
-} from "react-native";
+import { View, Text, Pressable, Modal } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import {
@@ -156,7 +149,6 @@ export default function TeaModal() {
                 // 第一个按钮为主要操作（实心），其余为文字按钮
                 const isPrimary = action.style === "primary";
                 const isDestructive = action.style === "destructive";
-                const isCancel = action.style === "cancel";
 
                 if (isPrimary || isDestructive) {
                   return (
