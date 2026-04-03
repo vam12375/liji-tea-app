@@ -197,10 +197,10 @@ export default function CartScreen() {
               <Pressable
                 onPress={() => {
                   if (!session) {
-                    router.push('/login' as any);
+                    router.push('/login');
                     return;
                   }
-                  router.push("/checkout" as any);
+                  router.push("/checkout");
                 }}
                 className="bg-primary-container px-8 py-3 rounded-full active:bg-primary"
               >

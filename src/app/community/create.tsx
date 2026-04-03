@@ -21,7 +21,7 @@ import { useUserStore } from '@/stores/userStore';
 
 type SelectedImage = Pick<ImagePicker.ImagePickerAsset, 'uri' | 'base64' | 'mimeType' | 'fileName'>;
 
-const POST_TYPES: Array<{ key: Post['type']; label: string; hint: string }> = [
+const POST_TYPES: { key: Post['type']; label: string; hint: string }[] = [
   { key: 'photo', label: '晒图动态', hint: '分享茶席、茶山、茶具或日常喝茶瞬间' },
   { key: 'brewing', label: '冲泡记录', hint: '记录茶名、参数和一句自己的品饮感受' },
   { key: 'question', label: '发起提问', hint: '把选茶、器具、冲泡问题抛给茶友' },
@@ -73,7 +73,7 @@ export default function CreateCommunityPostScreen() {
     if (session?.user?.id) return session.user.id;
 
     showModal('请先登录', '发布社区内容前，请先登录账号。', 'info');
-    router.push('/login' as any);
+    router.push('/login');
     return null;
   };
 
@@ -200,7 +200,7 @@ export default function CreateCommunityPostScreen() {
 
       const newPost = await createPost(payload);
       showModal('发布成功', '你的内容已经同步到社区。', 'success');
-      router.replace(`/post/${newPost.id}` as any);
+      router.replace({ pathname: "/post/[id]", params: { id: newPost.id } });
     } catch (error: any) {
       showModal('发布失败', error?.message ?? '请稍后重试。', 'error');
     } finally {

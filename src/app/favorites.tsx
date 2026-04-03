@@ -60,7 +60,9 @@ export default function FavoritesScreen() {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => router.push(`/product/${item.id}` as any)}
+              onPress={() =>
+                router.push({ pathname: "/product/[id]", params: { id: item.id } })
+              }
               className="flex-1 bg-surface-container-low rounded-xl overflow-hidden active:opacity-80"
             >
               {/* 产品图片 - 4:5 比例 */}

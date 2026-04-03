@@ -50,7 +50,11 @@ export default function CommunityScreen() {
   );
 
   const openCreate = (type?: Post['type']) => {
-    router.push(type ? (`/community/create?type=${type}` as any) : ('/community/create' as any));
+    router.push(
+      type
+        ? { pathname: "/community/create", params: { type } }
+        : "/community/create",
+    );
   };
 
   return (

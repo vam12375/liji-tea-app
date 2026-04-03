@@ -26,8 +26,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    void fetchProducts();
+  }, [fetchProducts]);
 
   /** 下拉刷新处理 — 重新拉取产品列表 */
   const handleRefresh = async () => {
@@ -63,7 +63,7 @@ export default function HomeScreen() {
       {/* 购物车悬浮按钮 — 仅在有商品时显示 */}
       {cartCount > 0 && (
         <Pressable
-          onPress={() => router.push("/cart" as any)}
+          onPress={() => router.push("/cart")}
           className="absolute w-14 h-14 rounded-full bg-primary items-center justify-center active:opacity-80"
           style={{
             bottom: 90,

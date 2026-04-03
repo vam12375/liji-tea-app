@@ -22,7 +22,7 @@ export default function FeaturedProducts() {
       {/* 标题行 */}
       <View className="flex-row justify-between items-end">
         <Text className="font-headline text-xl text-on-surface">本季推荐</Text>
-        <Pressable onPress={() => router.push("/(tabs)/shop" as any)}>
+        <Pressable onPress={() => router.push("/(tabs)/shop")}>
           <Text className="text-tertiary text-sm font-medium">
             查看全部 &gt;
           </Text>
@@ -39,7 +39,9 @@ export default function FeaturedProducts() {
           <ProductCard
             key={product.id}
             product={product}
-            onPress={() => router.push(`/product/${product.id}` as any)}
+            onPress={() =>
+              router.push({ pathname: "/product/[id]", params: { id: product.id } })
+            }
           />
         ))}
       </ScrollView>

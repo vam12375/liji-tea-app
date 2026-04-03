@@ -24,7 +24,7 @@ export default function TopAppBar() {
 
         {/* 右侧 - 功能图标 */}
         <View className="flex-row items-center gap-4">
-          <Pressable hitSlop={8} onPress={() => router.push("/search" as any)}>
+          <Pressable hitSlop={8} onPress={() => router.push("/search")}>
             <MaterialIcons name="search" size={24} color={Colors.primary} />
           </Pressable>
           {/* 通知入口 — 功能即将上线 */}

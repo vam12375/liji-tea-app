@@ -8,7 +8,8 @@ import type { Post } from '@/data/community';
 
 
 export default function PostCard({ post }: { post: Post }) {
-  const onPress = () => router.push(`/post/${post.id}` as any);
+  const onPress = () =>
+    router.push({ pathname: "/post/[id]", params: { id: post.id } });
   const handleShare = async () => {
     const text = post.caption ?? post.title ?? post.quote ?? post.description;
 
@@ -146,7 +147,11 @@ function BrewingPost({
           </View>
         ) : null}
         {post.quote ? (
-          <Text className="text-secondary italic text-sm">"{post.quote}"</Text>
+          <Text className="text-secondary italic text-sm">
+            {"“"}
+            {post.quote}
+            {"”"}
+          </Text>
         ) : null}
       </View>
       <View className="flex-row justify-between items-center">

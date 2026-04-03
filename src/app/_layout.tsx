@@ -10,9 +10,10 @@ import { NotoSerifSC_700Bold } from "@expo-google-fonts/noto-serif-sc/700Bold";
 import { Manrope_400Regular } from "@expo-google-fonts/manrope/400Regular";
 import { Manrope_500Medium } from "@expo-google-fonts/manrope/500Medium";
 import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
-import { supabase } from "@/lib/supabase";
-import { useUserStore } from "@/stores/userStore";
 import TeaModal from "@/components/ui/TeaModal";
+import { supabase } from "@/lib/supabase";
+import { useCouponStore } from "@/stores/couponStore";
+import { useUserStore } from "@/stores/userStore";
 
 // 防止启动屏在字体加载前消失
 SplashScreen.preventAutoHideAsync();
@@ -32,17 +33,27 @@ export default function RootLayout() {
   const fetchProfile = useUserStore((s) => s.fetchProfile);
   const fetchAddresses = useUserStore((s) => s.fetchAddresses);
   const fetchFavorites = useUserStore((s) => s.fetchFavorites);
+  const fetchPublicCoupons = useCouponStore((s) => s.fetchPublicCoupons);
+  const fetchUserCoupons = useCouponStore((s) => s.fetchUserCoupons);
+  const resetCoupons = useCouponStore((s) => s.reset);
 
   useEffect(() => {
     // 加载现有 session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setInitialized();
+
       if (session) {
-        fetchProfile();
-        fetchAddresses();
-        fetchFavorites();
+        void fetchProfile();
+        void fetchAddresses();
+        void fetchFavorites();
+        void fetchPublicCoupons();
+        void fetchUserCoupons();
+        return;
       }
+
+      resetCoupons();
+      void fetchPublicCoupons();
     });
 
     // 监听 auth 状态变化
@@ -50,15 +61,31 @@ export default function RootLayout() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+
       if (session) {
-        fetchProfile();
-        fetchAddresses();
-        fetchFavorites();
+        void fetchProfile();
+        void fetchAddresses();
+        void fetchFavorites();
+        void fetchPublicCoupons();
+        void fetchUserCoupons();
+        return;
       }
+
+      resetCoupons();
+      void fetchPublicCoupons();
     });
 
     return () => subscription.unsubscribe();
-  }, [setSession, setInitialized, fetchProfile, fetchAddresses, fetchFavorites]);
+  }, [
+    setSession,
+    setInitialized,
+    fetchProfile,
+    fetchAddresses,
+    fetchFavorites,
+    fetchPublicCoupons,
+    fetchUserCoupons,
+    resetCoupons,
+  ]);
 
   useEffect(() => {
     if (fontsLoaded) {

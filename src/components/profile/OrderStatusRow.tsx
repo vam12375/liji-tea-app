@@ -40,9 +40,9 @@ export default function OrderStatusRow() {
   // 首次渲染时，若订单列表为空则拉取一次
   useEffect(() => {
     if (orders.length === 0) {
-      fetchOrders();
+      void fetchOrders();
     }
-  }, []);
+  }, [fetchOrders, orders.length]);
 
   /** 统计某状态下的订单数量 */
   const countByStatus = (status: string) =>

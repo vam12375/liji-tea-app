@@ -35,7 +35,7 @@ export default function ArticleDetailScreen() {
   const requireLogin = () => {
     if (session?.user?.id) return true;
     showModal('请先登录', '登录后才可以点赞或收藏文章。', 'info');
-    router.push('/login' as any);
+    router.push('/login');
     return false;
   };
 
@@ -173,7 +173,7 @@ export default function ArticleDetailScreen() {
               <Text className="text-primary text-xs font-medium">分享</Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push('/(tabs)/community' as any)}
+              onPress={() => router.push('/(tabs)/community')}
               className="flex-row items-center gap-1.5 bg-primary px-4 py-2 rounded-full active:opacity-80"
             >
               <MaterialIcons name="forum" size={16} color="#fff" />

@@ -234,7 +234,9 @@ export default function ShopScreen() {
         renderItem={({ item }) => (
           <ShopProductCard
             product={item}
-            onPress={() => router.push(`/product/${item.id}` as any)}
+            onPress={() =>
+              router.push({ pathname: "/product/[id]", params: { id: item.id } })
+            }
           />
         )}
       />

@@ -9,8 +9,8 @@ export default function SeasonalPicks() {
   const { seasonalPicks, fetchSeasonalPicks } = useArticleStore();
 
   useEffect(() => {
-    fetchSeasonalPicks();
-  }, []);
+    void fetchSeasonalPicks();
+  }, [fetchSeasonalPicks]);
 
   return (
     <View className="gap-4">

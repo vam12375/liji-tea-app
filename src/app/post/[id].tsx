@@ -39,7 +39,7 @@ export default function PostDetailScreen() {
   const requireLogin = () => {
     if (session?.user?.id) return true;
     showModal('请先登录', '登录后才可以点赞、收藏或评论。', 'info');
-    router.push('/login' as any);
+    router.push('/login');
     return false;
   };
 
@@ -293,7 +293,11 @@ function PostContent({ post }: { post: Post }) {
           </View>
         ) : null}
         {post.quote ? (
-          <Text className="text-secondary italic text-[15px] leading-7 px-1">"{post.quote}"</Text>
+          <Text className="text-secondary italic text-[15px] leading-7 px-1">
+            {"“"}
+            {post.quote}
+            {"”"}
+          </Text>
         ) : null}
       </View>
     );

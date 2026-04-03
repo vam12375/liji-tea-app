@@ -1,7 +1,11 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
 import type { Session } from '@supabase/supabase-js';
-import type { Profile, Address as DBAddress } from '@/types/database';
+import type {
+  Profile,
+  Address as DBAddress,
+  Favorite as DBFavorite,
+} from '@/types/database';
 import { useCartStore } from '@/stores/cartStore';
 
 /** 地址类型（兼容旧代码） */
@@ -20,6 +24,41 @@ function mapAddress(a: DBAddress): Address {
   return { ...a, isDefault: a.is_default };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isNullableString(value: unknown): value is string | null {
+  return typeof value === 'string' || value === null;
+}
+
+function isProfileRow(value: unknown): value is Profile {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    isNullableString(value.name) &&
+    isNullableString(value.phone) &&
+    isNullableString(value.avatar_url) &&
+    typeof value.member_tier === 'string' &&
+    typeof value.points === 'number' &&
+    typeof value.created_at === 'string' &&
+    typeof value.updated_at === 'string'
+  );
+}
+
+function isAddressRow(value: unknown): value is DBAddress {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.user_id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.phone === 'string' &&
+    typeof value.address === 'string' &&
+    typeof value.is_default === 'boolean' &&
+    typeof value.created_at === 'string'
+  );
+}
+
 /**
  * 从 session/profile 派生兼容旧代码的字段。
  * 每次 session 或 profile 变化时调用，将结果 spread 到 set() 中。
@@ -33,6 +72,26 @@ function deriveUserFields(session: Session | null, profile: Profile | null) {
     memberTier: profile?.member_tier ?? '新叶会员',
     points: profile?.points ?? 0,
   };
+}
+
+function buildSignedOutState() {
+  return {
+    session: null,
+    profile: null,
+    addresses: [],
+    favorites: [],
+    ...deriveUserFields(null, null),
+  };
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
+type FavoriteRow = Pick<DBFavorite, 'product_id'>;
+
+function isFavoriteRow(value: unknown): value is FavoriteRow {
+  return isRecord(value) && typeof value.product_id === 'string';
 }
 
 interface UserState {
@@ -95,11 +154,23 @@ export const useUserStore = create<UserState>()((set, get) => ({
   memberTier: '新叶会员',
   points: 0,
 
-  setSession: (session) =>
+  setSession: (session) => {
+    const previousSession = get().session;
+
+    if (!session) {
+      if (previousSession) {
+        useCartStore.getState().clearCart();
+      }
+
+      set(buildSignedOutState());
+      return;
+    }
+
     set((state) => ({
       session,
       ...deriveUserFields(session, state.profile),
-    })),
+    }));
+  },
 
   setInitialized: () => set({ initialized: true }),
 
@@ -116,9 +187,9 @@ export const useUserStore = create<UserState>()((set, get) => ({
         return '该邮箱已注册，请直接登录';
       }
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('[userStore] signUp 失败:', err);
-      return err?.message ?? '注册失败';
+      return getErrorMessage(err, '注册失败');
     }
   },
 
@@ -126,9 +197,9 @@ export const useUserStore = create<UserState>()((set, get) => ({
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return error?.message ?? null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('[userStore] signIn 失败:', err);
-      return err?.message ?? '登录失败';
+      return getErrorMessage(err, '登录失败');
     }
   },
 
@@ -140,13 +211,7 @@ export const useUserStore = create<UserState>()((set, get) => ({
     }
     // 清空用户数据和购物车
     useCartStore.getState().clearCart();
-    set({
-      session: null,
-      profile: null,
-      addresses: [],
-      favorites: [],
-      ...deriveUserFields(null, null),
-    });
+    set(buildSignedOutState());
   },
 
   fetchProfile: async () => {
@@ -161,12 +226,15 @@ export const useUserStore = create<UserState>()((set, get) => ({
         .single();
 
       if (error) throw error;
-      if (data) {
-        set((state) => ({
-          profile: data,
-          ...deriveUserFields(state.session, data),
-        }));
+      if (!isProfileRow(data)) {
+        console.warn('[userStore] fetchProfile 返回了不符合预期的数据:', data);
+        return;
       }
+
+      set((state) => ({
+        profile: data,
+        ...deriveUserFields(state.session, data),
+      }));
     } catch (err) {
       console.warn('[userStore] fetchProfile 失败:', err);
     }
@@ -185,9 +253,9 @@ export const useUserStore = create<UserState>()((set, get) => ({
       if (error) return error.message;
       await get().fetchProfile();
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('[userStore] updateProfile 失败:', err);
-      return err?.message ?? '更新失败';
+      return getErrorMessage(err, '更新失败');
     }
   },
 
@@ -203,7 +271,12 @@ export const useUserStore = create<UserState>()((set, get) => ({
         .order('created_at');
 
       if (error) throw error;
-      if (data) set({ addresses: data.map(mapAddress) });
+      if (!Array.isArray(data)) {
+        console.warn('[userStore] fetchAddresses 返回了不符合预期的数据:', data);
+        return;
+      }
+
+      set({ addresses: data.filter(isAddressRow).map(mapAddress) });
     } catch (err) {
       console.warn('[userStore] fetchAddresses 失败:', err);
     }
@@ -229,9 +302,9 @@ export const useUserStore = create<UserState>()((set, get) => ({
       if (error) return error.message;
       await get().fetchAddresses();
       return null;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('[userStore] addAddress 失败:', err);
-      return err?.message ?? '添加地址失败';
+      return getErrorMessage(err, '添加地址失败');
     }
   },
 
@@ -306,9 +379,9 @@ export const useUserStore = create<UserState>()((set, get) => ({
       // 更新 profiles 表
       const err = await get().updateProfile({ avatar_url: avatarUrl });
       return err;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('[userStore] uploadAvatar 失败:', err);
-      return err?.message ?? '上传头像失败';
+      return getErrorMessage(err, '上传头像失败');
     }
   },
 
@@ -323,7 +396,12 @@ export const useUserStore = create<UserState>()((set, get) => ({
         .eq('user_id', userId);
 
       if (error) throw error;
-      if (data) set({ favorites: data.map((f) => f.product_id) });
+      if (!Array.isArray(data)) {
+        console.warn('[userStore] fetchFavorites 返回了不符合预期的数据:', data);
+        return;
+      }
+
+      set({ favorites: data.filter(isFavoriteRow).map((f) => f.product_id) });
     } catch (err) {
       console.warn('[userStore] fetchFavorites 失败:', err);
     }

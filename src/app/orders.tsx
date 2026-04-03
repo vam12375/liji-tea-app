@@ -118,7 +118,9 @@ export default function OrdersScreen() {
 
       return (
         <Pressable
-          onPress={() => router.push(`/tracking?orderId=${item.id}` as any)}
+          onPress={() =>
+            router.push({ pathname: "/tracking", params: { orderId: item.id } })
+          }
           className="bg-surface-container-low rounded-2xl mx-4 p-4 gap-3 active:opacity-80"
         >
           {/* 顶部：订单号 + 状态徽章 */}
@@ -165,13 +167,38 @@ export default function OrdersScreen() {
             </Text>
           </View>
 
+          {typeof item.coupon_discount === "number" && item.coupon_discount > 0 ? (
+            <View className="rounded-xl bg-background px-3 py-3 gap-1">
+              <View className="flex-row items-center justify-between gap-3">
+                <View className="flex-1 gap-1">
+                  <Text className="text-on-surface text-sm font-medium">
+                    {item.coupon_title ? `已使用优惠券：${item.coupon_title}` : "已使用优惠券"}
+                  </Text>
+                  <Text className="text-outline text-xs leading-5">
+                    {item.coupon_code
+                      ? `券码：${item.coupon_code}`
+                      : "订单已享受优惠券抵扣"}
+                  </Text>
+                </View>
+                <Text className="text-primary text-sm font-bold">
+                  -¥{item.coupon_discount.toFixed(2)}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
           {item.status === "pending" ? (
             <View className="flex-row justify-end">
               <Pressable
                 onPress={() =>
-                  router.push(
-                    `/payment?orderId=${item.id}&total=${item.total}&paymentMethod=${item.payment_method ?? "alipay"}` as any,
-                  )
+                  router.push({
+                    pathname: "/payment",
+                    params: {
+                      orderId: item.id,
+                      total: String(item.total),
+                      paymentMethod: item.payment_method ?? "alipay",
+                    },
+                  })
                 }
                 disabled={!isPayable}
                 className={`rounded-full px-5 py-2.5 ${isPayable ? "bg-primary-container active:bg-primary" : "bg-surface"}`}

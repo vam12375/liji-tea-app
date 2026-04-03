@@ -47,6 +47,18 @@ function mapProduct(row: DBProduct): Product {
   };
 }
 
+function upsertProduct(products: Product[], nextProduct: Product) {
+  const index = products.findIndex((product) => product.id === nextProduct.id);
+
+  if (index === -1) {
+    return [nextProduct, ...products];
+  }
+
+  const nextProducts = [...products];
+  nextProducts[index] = nextProduct;
+  return nextProducts;
+}
+
 interface ProductState {
   products: Product[];
   loading: boolean;
@@ -93,7 +105,13 @@ export const useProductStore = create<ProductState>()((set, get) => ({
         .single();
 
       if (error) throw error;
-      return data ? mapProduct(data) : null;
+      if (!data) return null;
+
+      const product = mapProduct(data);
+      set((state) => ({
+        products: upsertProduct(state.products, product),
+      }));
+      return product;
     } catch (err) {
       console.warn('[productStore] fetchProductById 失败:', err);
       return null;
@@ -119,10 +137,10 @@ export const useProductStore = create<ProductState>()((set, get) => ({
   },
 
   updateProduct: (updated) => {
+    const nextProduct = mapProduct(updated);
+
     set((state) => ({
-      products: state.products.map((p) =>
-        p.id === updated.id ? mapProduct(updated) : p
-      ),
+      products: upsertProduct(state.products, nextProduct),
     }));
   },
 }));

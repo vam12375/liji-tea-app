@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { View, Text, ScrollView, Pressable, Switch } from "react-native";
 import { useRouter, Stack } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image as ExpoImage } from "expo-image";
@@ -19,7 +18,6 @@ interface SettingItem {
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const signOut = useUserStore((s) => s.signOut);
 
   // 消息通知开关本地状态

@@ -4,7 +4,7 @@ import { Share } from 'react-native';
 interface ShareContentOptions {
   path: string;
   title: string;
-  lines: Array<string | null | undefined>;
+  lines: (string | null | undefined)[];
 }
 
 export async function shareContent({ path, title, lines }: ShareContentOptions) {

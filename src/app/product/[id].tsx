@@ -5,16 +5,17 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
+import { routes } from "@/lib/routes";
 import { shareContent } from "@/lib/share";
 import { supabase } from "@/lib/supabase";
 import { useProductStore } from "@/stores/productStore";
 
 import { useCartStore } from "@/stores/cartStore";
 import { useUserStore } from "@/stores/userStore";
-import { showModal } from "@/stores/modalStore";
 import TastingProfile from "@/components/product/TastingProfile";
 import BrewingGuideCard from "@/components/product/BrewingGuideCard";
 import ProcessTimeline from "@/components/product/ProcessTimeline";
+import type { Product as DBProduct } from "@/types/database";
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,7 +31,10 @@ export default function ProductDetailScreen() {
   const isFav = id ? favorites.includes(id) : false;
 
   const products = useProductStore((s) => s.products);
+  const fetchProductById = useProductStore((s) => s.fetchProductById);
   const product = products.find((p) => p.id === id);
+  const [bootstrapping, setBootstrapping] = useState(() => !product);
+  const [notFound, setNotFound] = useState(false);
 
   // ====== 加购动画状态 ======
   const [showToast, setShowToast] = useState(false);
@@ -59,7 +63,7 @@ export default function ProductDetailScreen() {
       Animated.spring(heartScale, { toValue: 1.5, useNativeDriver: true, damping: 6 }),
       Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, damping: 8 }),
     ]).start();
-  }, [id, toggleFavorite]);
+  }, [heartScale, id, toggleFavorite]);
 
   const handleShare = useCallback(async () => {
     if (!product) return;
@@ -170,9 +174,56 @@ export default function ProductDetailScreen() {
         Animated.timing(toastTranslateY, { toValue: -10, duration: 250, useNativeDriver: true }),
       ]).start(() => setShowToast(false));
     }, 1800);
-  }, [product, addItem]);
+  }, [
+    addItem,
+    badgeScale,
+    cartShake,
+    checkScale,
+    dotOpacity,
+    dotScale,
+    dotTranslateX,
+    dotTranslateY,
+    product,
+    toastOpacity,
+    toastScale,
+    toastTranslateY,
+  ]);
 
   // 实时订阅库存变化
+  useEffect(() => {
+    let active = true;
+
+    if (!id) {
+      setBootstrapping(false);
+      setNotFound(true);
+      return () => {
+        active = false;
+      };
+    }
+
+    if (product) {
+      setBootstrapping(false);
+      setNotFound(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    setBootstrapping(true);
+    void fetchProductById(id).then((result) => {
+      if (!active) {
+        return;
+      }
+
+      setNotFound(!result);
+      setBootstrapping(false);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchProductById, id, product]);
+
   useEffect(() => {
     if (!id) return;
 
@@ -182,7 +233,7 @@ export default function ProductDetailScreen() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'products', filter: `id=eq.${id}` },
         (payload) => {
-          useProductStore.getState().updateProduct(payload.new as any);
+          useProductStore.getState().updateProduct(payload.new as DBProduct);
         }
       )
       .subscribe();
@@ -191,6 +242,23 @@ export default function ProductDetailScreen() {
       supabase.removeChannel(channel);
     };
   }, [id]);
+
+  if (bootstrapping) {
+    return (
+      <View className="flex-1 items-center justify-center gap-3 bg-background">
+        <MaterialIcons name="hourglass-top" size={26} color={Colors.outline} />
+        <Text className="text-outline">正在加载商品信息...</Text>
+      </View>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <Text className="text-outline">商品未找到</Text>
+      </View>
+    );
+  }
 
   if (!product) {
     return (
@@ -258,7 +326,9 @@ export default function ProductDetailScreen() {
             <Text className="text-outline text-sm">{product.origin}</Text>
             {product.tagline && (
               <Text className="text-on-surface-variant text-sm italic mt-1">
-                "{product.tagline}"
+                {"“"}
+                {product.tagline}
+                {"”"}
               </Text>
             )}
             <Text className="text-primary text-2xl font-bold mt-3">
@@ -375,7 +445,7 @@ export default function ProductDetailScreen() {
         {/* 购物车图标（带抖动动画） */}
         <Animated.View style={{ transform: [{ translateX: cartShake }] }}>
           <Pressable
-            onPress={() => router.push("/cart" as any)}
+            onPress={() => router.push(routes.cart)}
             className="w-12 h-12 rounded-full border border-outline-variant items-center justify-center relative"
           >
             <MaterialIcons name="shopping-cart" size={22} color={Colors.primary} />
@@ -404,7 +474,7 @@ export default function ProductDetailScreen() {
         <Pressable
           onPress={() => {
             if ((product.stock ?? 0) === 0) return;
-            router.push(`/checkout?productId=${id}` as any);
+            router.push(routes.checkout(id));
           }}
           className={`flex-1 bg-primary-container h-12 rounded-full items-center justify-center active:bg-primary ${(product.stock ?? 0) === 0 ? "opacity-50" : ""}`}
         >

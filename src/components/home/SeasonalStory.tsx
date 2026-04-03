@@ -7,7 +7,7 @@ export default function SeasonalStory() {
 
   return (
     <Pressable
-      onPress={() => router.push("/(tabs)/community" as any)}
+      onPress={() => router.push("/(tabs)/community")}
       className="w-full aspect-video rounded-xl overflow-hidden"
     >
       <Image
