@@ -122,6 +122,9 @@ export interface CreatePostInput {
   description?: string;
 }
 
+/** 每页加载的帖子数量 */
+const POST_PAGE_SIZE = 20;
+
 interface CommunityState {
   stories: Story[];
   posts: Post[];
@@ -133,14 +136,21 @@ interface CommunityState {
   likedPostIds: Set<string>;
   likedCommentIds: Set<string>;
   bookmarkedPostIds: Set<string>;
+  /** 是否还有更多帖子可加载 */
+  hasMorePosts: boolean;
+  /** 当前帖子分页页码 */
+  postsPage: number;
   fetchStories: () => Promise<void>;
-  fetchPosts: () => Promise<void>;
+  fetchPosts: (loadMore?: boolean) => Promise<void>;
+  /** 加载更多帖子（翻页） */
+  loadMorePosts: () => Promise<void>;
   fetchPostDetail: (postId: string) => Promise<Post | null>;
   createPost: (input: CreatePostInput) => Promise<Post>;
   togglePostLike: (postId: string) => Promise<void>;
   togglePostBookmark: (postId: string) => Promise<void>;
   addComment: (postId: string, content: string) => Promise<Comment | null>;
   toggleCommentLike: (postId: string, commentId: string) => Promise<void>;
+  deletePost: (postId: string) => Promise<void>;
   markStoryViewed: (storyId: string) => Promise<void>;
 }
 
@@ -310,6 +320,8 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
   likedPostIds: new Set<string>(),
   likedCommentIds: new Set<string>(),
   bookmarkedPostIds: new Set<string>(),
+  hasMorePosts: true,
+  postsPage: 0,
 
   fetchStories: async () => {
     try {
@@ -318,7 +330,8 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
       const { data, error } = await supabase
         .from('stories')
         .select(STORY_SELECT)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(30);
 
       if (error) throw error;
 
@@ -346,35 +359,68 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
     }
   },
 
-  fetchPosts: async () => {
+  fetchPosts: async (loadMore = false) => {
     try {
       set({ loading: true });
       const userId = useUserStore.getState().session?.user?.id;
+      const currentPage = loadMore ? get().postsPage : 0;
+      const from = currentPage * POST_PAGE_SIZE;
+      const to = from + POST_PAGE_SIZE - 1;
+
       const { data, error } = await supabase
         .from('posts')
         .select(POST_SELECT)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
 
       const postIds = (data ?? []).map((post) => post.id);
       const { likedPostIds, bookmarkedPostIds } = await loadPostInteractionSets(postIds, userId);
+      const newPosts = (data ?? []).map((post) => mapPost(post, { likedPostIds, bookmarkedPostIds }));
+      const hasMorePosts = newPosts.length >= POST_PAGE_SIZE;
 
-      set({
-        posts: (data ?? []).map((post) => mapPost(post, { likedPostIds, bookmarkedPostIds })),
-        likedPostIds,
-        bookmarkedPostIds,
-        loading: false,
-      });
+      if (loadMore) {
+        // 追加模式：合并到现有列表，合并互动状态
+        set((state) => {
+          const mergedLikedPostIds = new Set([...state.likedPostIds, ...likedPostIds]);
+          const mergedBookmarkedPostIds = new Set([...state.bookmarkedPostIds, ...bookmarkedPostIds]);
+          return {
+            posts: [...state.posts, ...newPosts],
+            likedPostIds: mergedLikedPostIds,
+            bookmarkedPostIds: mergedBookmarkedPostIds,
+            hasMorePosts,
+            postsPage: currentPage + 1,
+            loading: false,
+          };
+        });
+      } else {
+        // 重置模式：替换列表
+        set({
+          posts: newPosts,
+          likedPostIds,
+          bookmarkedPostIds,
+          hasMorePosts,
+          postsPage: 1,
+          loading: false,
+        });
+      }
     } catch (error) {
       console.warn('[communityStore] fetchPosts 失败:', error);
       set({
-        posts: [],
-        likedPostIds: new Set<string>(),
-        bookmarkedPostIds: new Set<string>(),
+        posts: loadMore ? get().posts : [],
+        likedPostIds: loadMore ? get().likedPostIds : new Set<string>(),
+        bookmarkedPostIds: loadMore ? get().bookmarkedPostIds : new Set<string>(),
         loading: false,
       });
     }
+  },
+
+  // 加载更多帖子
+  loadMorePosts: async () => {
+    const { loading, hasMorePosts } = get();
+    if (loading || !hasMorePosts) return;
+    await get().fetchPosts(true);
   },
 
   fetchPostDetail: async (postId) => {
@@ -659,6 +705,24 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
       console.warn('[communityStore] toggleCommentLike 失败:', error);
       throw new Error(error?.message ?? '评论点赞失败，请稍后重试');
     }
+  },
+
+  /** 删除帖子（仅作者本人可操作） */
+  deletePost: async (postId) => {
+    const userId = requireUserId();
+
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+      .eq('author_id', userId);
+
+    if (error) throw new Error(error.message ?? '删除失败');
+
+    set((state) => ({
+      posts: state.posts.filter((p) => p.id !== postId),
+      activePost: state.activePost?.id === postId ? null : state.activePost,
+    }));
   },
 
   markStoryViewed: async (storyId) => {

@@ -138,7 +138,8 @@ export const useCouponStore = create<CouponState>()((set, get) => ({
         .select(
           "id, title, description, code, discount_type, discount_value, min_spend, max_discount, starts_at, ends_at, is_active",
         )
-        .order("ends_at", { ascending: true });
+        .order("ends_at", { ascending: true })
+        .limit(50);
 
       if (error) {
         throw error;
@@ -170,7 +171,8 @@ export const useCouponStore = create<CouponState>()((set, get) => ({
           "id, coupon_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, discount_type, discount_value, min_spend, max_discount, starts_at, ends_at, is_active)",
         )
         .eq("user_id", userId)
-        .order("claimed_at", { ascending: false });
+        .order("claimed_at", { ascending: false })
+        .limit(50);
 
       if (error) {
         throw error;

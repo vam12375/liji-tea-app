@@ -59,12 +59,21 @@ function upsertProduct(products: Product[], nextProduct: Product) {
   return nextProducts;
 }
 
+/** 每页加载的产品数量 */
+const PAGE_SIZE = 20;
+
 interface ProductState {
   products: Product[];
   loading: boolean;
   error: string | null;
+  /** 是否还有更多产品可加载 */
+  hasMore: boolean;
+  /** 当前分页页码 */
+  page: number;
 
-  fetchProducts: () => Promise<void>;
+  fetchProducts: (loadMore?: boolean) => Promise<void>;
+  /** 加载更多产品（翻页） */
+  loadMoreProducts: () => Promise<void>;
   fetchProductById: (id: string) => Promise<Product | null>;
   searchProducts: (query: string) => Promise<Product[]>;
   /** 实时回调：更新单个产品（库存等） */
@@ -75,22 +84,50 @@ export const useProductStore = create<ProductState>()((set, get) => ({
   products: [],
   loading: false,
   error: null,
+  hasMore: true,
+  page: 0,
 
-  fetchProducts: async () => {
+  fetchProducts: async (loadMore = false) => {
     try {
+      const currentPage = loadMore ? get().page : 0;
+      const from = currentPage * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
       set({ loading: true, error: null });
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('is_active', true)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: true })
+        .range(from, to);
 
       if (error) throw error;
-      set({ products: (data ?? []).map(mapProduct), loading: false });
+
+      const newProducts = (data ?? []).map(mapProduct);
+      const hasMore = newProducts.length >= PAGE_SIZE;
+
+      if (loadMore) {
+        // 追加模式：合并到现有列表
+        set((state) => ({
+          products: [...state.products, ...newProducts],
+          loading: false,
+          hasMore,
+          page: currentPage + 1,
+        }));
+      } else {
+        // 重置模式：替换列表
+        set({ products: newProducts, loading: false, hasMore, page: 1 });
+      }
     } catch (err: any) {
       console.warn('[productStore] fetchProducts 失败:', err);
       set({ loading: false, error: err?.message ?? '加载失败' });
     }
+  },
+
+  loadMoreProducts: async () => {
+    const { loading, hasMore } = get();
+    if (loading || !hasMore) return;
+    await get().fetchProducts(true);
   },
 
   fetchProductById: async (id) => {
@@ -126,7 +163,8 @@ export const useProductStore = create<ProductState>()((set, get) => ({
         .from('products')
         .select('*')
         .eq('is_active', true)
-        .or(`name.ilike.%${safe}%,origin.ilike.%${safe}%`);
+        .or(`name.ilike.%${safe}%,origin.ilike.%${safe}%`)
+        .limit(50);
 
       if (error) throw error;
       return (data ?? []).map(mapProduct);
