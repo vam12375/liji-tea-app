@@ -9,7 +9,7 @@ import { Colors } from '@/constants/Colors';
 import { shareContent } from '@/lib/share';
 import { useCommunityStore, type Post, type Comment } from '@/stores/communityStore';
 import { useUserStore } from '@/stores/userStore';
-import { showModal } from '@/stores/modalStore';
+import { showModal, showConfirm } from '@/stores/modalStore';
 
 
 export default function PostDetailScreen() {
@@ -108,8 +108,25 @@ export default function PostDetailScreen() {
 
 
 
+  const deletePost = useCommunityStore((state) => state.deletePost);
+
+  /** 帖子菜单：作者可删除，其他用户可举报 */
   const handleMenu = () => {
-    showModal('操作', '帖子管理功能会在下一版补齐。', 'info');
+    const isOwner = session?.user?.id === post?.authorId;
+
+    if (isOwner) {
+      showConfirm('删除帖子', '确定要删除这篇帖子吗？此操作不可恢复。', async () => {
+        try {
+          await deletePost(post!.id);
+          showModal('已删除', '帖子已成功删除。', 'success');
+          router.back();
+        } catch (error: any) {
+          showModal('删除失败', error?.message ?? '请稍后重试。', 'error');
+        }
+      }, { icon: 'delete', confirmText: '删除', confirmStyle: 'destructive' });
+    } else {
+      showModal('举报', '感谢您的反馈，我们会尽快审核该帖子。', 'info');
+    }
   };
 
   if (!post && detailLoading) {

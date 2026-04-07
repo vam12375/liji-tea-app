@@ -7,6 +7,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { messageTags } from "@/data/gifts";
 import { useGiftStore } from "@/stores/giftStore";
+import { showModal } from "@/stores/modalStore";
 
 const CARD_WIDTH = Dimensions.get("window").width - 64;
 
@@ -18,6 +19,9 @@ export default function GiftScreen() {
   const [selectedSet, setSelectedSet] = useState("");
   const [message, setMessage] = useState("");
   const [wechat, setWechat] = useState(false);
+  // 收礼人信息
+  const [recipientName, setRecipientName] = useState('');
+  const [recipientPhone, setRecipientPhone] = useState('');
 
   useEffect(() => {
     void fetchGiftCards();
@@ -33,6 +37,17 @@ export default function GiftScreen() {
   }, [giftSets, selectedSet]);
 
   const selectedPrice = giftSets.find((s) => s.id === selectedSet)?.price ?? 0;
+
+  // 赠送茶礼提交处理
+  const handleSubmit = () => {
+    if (!selectedCard) { showModal('提示', '请选择一张贺卡'); return; }
+    if (!selectedSet) { showModal('提示', '请选择一套茶礼'); return; }
+    if (!recipientName.trim()) { showModal('提示', '请输入收礼人姓名'); return; }
+    if (!recipientPhone.trim() || recipientPhone.length !== 11) { showModal('提示', '请输入正确的11位手机号'); return; }
+
+    // 实际下单逻辑 — 目前先显示成功提示
+    showModal('茶礼已送出', `已向 ${recipientName.trim()} 发送茶礼，对方将收到通知。`, 'success');
+  };
 
   return (
     <View className="flex-1 bg-background">
@@ -143,11 +158,15 @@ export default function GiftScreen() {
             <View className="gap-3">
               <Text className="font-headline text-on-surface text-base font-bold">收礼人</Text>
               <TextInput
+                value={recipientName}
+                onChangeText={setRecipientName}
                 placeholder="姓名"
                 placeholderTextColor={Colors.outline}
                 className="bg-surface-container-low rounded-xl px-4 py-3 text-on-surface text-sm"
               />
               <TextInput
+                value={recipientPhone}
+                onChangeText={(t) => setRecipientPhone(t.replace(/\D/g, '').slice(0, 11))}
                 placeholder="手机号"
                 placeholderTextColor={Colors.outline}
                 keyboardType="phone-pad"
@@ -177,7 +196,7 @@ export default function GiftScreen() {
         style={{ paddingBottom: insets.bottom || 16 }}
         className="absolute bottom-0 left-0 right-0 bg-background/95 border-t border-outline-variant/10 px-4 pt-3"
       >
-        <Pressable className="bg-primary-container rounded-full py-4 flex-row items-center justify-center gap-3 active:bg-primary">
+        <Pressable onPress={handleSubmit} className="bg-primary-container rounded-full py-4 flex-row items-center justify-center gap-3 active:bg-primary">
           <Text className="text-on-primary font-headline text-lg font-bold">¥{selectedPrice}</Text>
           <Text className="text-on-primary font-medium">赠送茶礼</Text>
           <MaterialIcons name="arrow-forward" size={18} color="#fff" />

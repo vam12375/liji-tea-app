@@ -148,7 +148,7 @@ export default function CartScreen() {
             <OrderSummary
               subtotal={subtotal()}
               shipping={0}
-              discount={subtotal() >= 1000 ? 50 : 0}
+              discount={0}
             />
           </ScrollView>
 
@@ -191,7 +191,7 @@ export default function CartScreen() {
               <View>
                 <Text className="text-outline text-xs">合计</Text>
                 <Text className="text-primary text-xl font-bold">
-                  ¥{subtotal() - (subtotal() >= 1000 ? 50 : 0)}
+                  ¥{subtotal()}
                 </Text>
               </View>
               <Pressable

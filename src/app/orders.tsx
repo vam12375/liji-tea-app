@@ -8,9 +8,11 @@ import {
   ActivityIndicator,
   FlatList,
   Pressable,
+  RefreshControl,
   Text,
   View,
 } from "react-native";
+import { showConfirm, showModal } from "@/stores/modalStore";
 
 /** 标签页定义 */
 const TABS = [
@@ -75,8 +77,16 @@ export default function OrdersScreen() {
     initialTab ? (STATUS_TO_TAB[initialTab] ?? "全部") : "全部",
   );
 
-  const { orders, loading, fetchOrders } = useOrderStore();
+  const { orders, loading, fetchOrders, loadMoreOrders, hasMoreOrders, cancelOrder } = useOrderStore();
   const [now, setNow] = useState(() => Date.now());
+  const [refreshing, setRefreshing] = useState(false);
+
+  // 下拉刷新
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchOrders();
+    setRefreshing(false);
+  }, [fetchOrders]);
 
   // 挂载时拉取订单
   useEffect(() => {
@@ -188,7 +198,20 @@ export default function OrdersScreen() {
           ) : null}
 
           {item.status === "pending" ? (
-            <View className="flex-row justify-end">
+            <View className="flex-row justify-end gap-3">
+              {/* 取消订单 */}
+              <Pressable
+                onPress={() => {
+                  showConfirm("取消订单", "确定要取消该订单吗？库存将被释放。", async () => {
+                    const err = await cancelOrder(item.id);
+                    if (err) showModal("取消失败", err, "error");
+                  }, { icon: "delete", confirmText: "确认取消", confirmStyle: "destructive" });
+                }}
+                className="rounded-full px-5 py-2.5 border border-outline-variant active:opacity-70"
+              >
+                <Text className="text-outline font-medium">取消订单</Text>
+              </Pressable>
+              {/* 立即付款 */}
               <Pressable
                 onPress={() =>
                   router.push({
@@ -288,6 +311,20 @@ export default function OrdersScreen() {
           renderItem={renderOrder}
           contentContainerClassName="py-4 gap-3"
           showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[Colors.primary]} tintColor={Colors.primary} />}
+          onEndReached={() => void loadMoreOrders()}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loading && orders.length > 0 ? (
+              <View className="py-4 items-center">
+                <ActivityIndicator size="small" color={Colors.primary} />
+              </View>
+            ) : !hasMoreOrders && filteredOrders.length > 0 ? (
+              <View className="py-4 items-center">
+                <Text className="text-outline text-xs">没有更多订单了</Text>
+              </View>
+            ) : null
+          }
         />
       )}
     </View>

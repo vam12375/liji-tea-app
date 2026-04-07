@@ -5,6 +5,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
 import { useUserStore } from '@/stores/userStore';
 import { showModal } from '@/stores/modalStore';
+import { supabase } from '@/lib/supabase';
 // 阿里云一键登录 Hook
 import { useOneClickLogin } from '@/hooks/useOneClickLogin';
 
@@ -19,6 +20,7 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   /**
    * 一键登录处理函数
@@ -37,6 +39,25 @@ export default function LoginScreen() {
       showModal('登录失败', result.error, 'error');
     }
     // 用户取消不显示任何提示
+  };
+
+  /**
+   * 忘记密码：发送重置邮件
+   */
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      showModal('提示', '请先输入邮箱地址');
+      return;
+    }
+    setResetLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail);
+    setResetLoading(false);
+    if (error) {
+      showModal('发送失败', error.message, 'error');
+    } else {
+      showModal('邮件已发送', '请查收邮箱中的密码重置链接。', 'success');
+    }
   };
 
   const handleSubmit = async () => {
@@ -175,6 +196,15 @@ export default function LoginScreen() {
               {loading ? '请稍候...' : isSignUp ? '注册' : '登录'}
             </Text>
           </Pressable>
+
+          {/* 忘记密码 */}
+          {!isSignUp && (
+            <Pressable onPress={handleForgotPassword} disabled={resetLoading} className="items-center py-1">
+              <Text className="text-outline text-xs">
+                {resetLoading ? '发送中...' : '忘记密码？'}
+              </Text>
+            </Pressable>
+          )}
 
           {/* 切换登录/注册 */}
           <Pressable onPress={() => setIsSignUp(!isSignUp)} className="items-center py-2">

@@ -35,7 +35,7 @@ import type { PaymentChannel } from "@/types/payment";
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { productId } = useLocalSearchParams<{ productId?: string }>();
+  const { productId, quantity: qtyParam } = useLocalSearchParams<{ productId?: string; quantity?: string }>();
   const { items: cartItems } = useCartStore();
   const session = useUserStore((state) => state.session);
   const getDefaultAddress = useUserStore((state) => state.getDefaultAddress);
@@ -48,17 +48,18 @@ export default function CheckoutScreen() {
   const clearSelectedCoupon = useCouponStore((state) => state.clearSelectedCoupon);
   const enabledChannels = getEnabledPaymentChannels();
 
-  // productId 存在时表示直接购买，否则沿用购物车里的待结算商品。
+  // productId 存在时表示直接购买（支持传入数量），否则沿用购物车里的待结算商品。
   const orderItems = useMemo(() => {
     if (productId) {
       const product = products.find((item) => item.id === productId);
       if (product) {
-        return [{ product, quantity: 1 }];
+        const qty = parseInt(qtyParam ?? "1", 10) || 1;
+        return [{ product, quantity: qty }];
       }
     }
 
     return cartItems;
-  }, [cartItems, productId, products]);
+  }, [cartItems, productId, products, qtyParam]);
 
   // 结算相关接口只需要商品 id 和数量，这里把页面数据收敛成请求体结构。
   const requestItems = useMemo(
@@ -270,7 +271,9 @@ export default function CheckoutScreen() {
         showsVerticalScrollIndicator={false}
       >
         {address ? (
-          <AddressCard address={address} />
+          <Pressable onPress={() => router.push(routes.addresses)} className="active:opacity-80">
+            <AddressCard address={address} />
+          </Pressable>
         ) : (
           <Pressable
             onPress={() => router.push(routes.addresses)}

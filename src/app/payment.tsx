@@ -4,6 +4,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import {
+  InfoRow,
+  isPaymentChannel,
+  PAYMENT_MAP,
+  type PaymentPhase,
+  parseAmount,
+  PROCESSING_PHASE_TEXT,
+} from "@/components/payment";
 import { Colors } from "@/constants/Colors";
 import { createAlipayOrder, waitForPaymentConfirmation } from "@/lib/alipay";
 import {
@@ -17,62 +25,6 @@ import { useCartStore } from "@/stores/cartStore";
 import { showModal } from "@/stores/modalStore";
 import { useOrderStore } from "@/stores/orderStore";
 import type { AlipayNativePayResult, PaymentChannel } from "@/types/payment";
-
-// 页面展示层使用的支付方式元数据，和实际支付渠道枚举一一对应。
-const PAYMENT_MAP = {
-  wechat: {
-    label: "微信支付",
-    icon: "account-balance-wallet" as const,
-    color: "#07C160",
-  },
-  alipay: {
-    label: "支付宝",
-    icon: "payments" as const,
-    color: "#1677FF",
-  },
-  card: {
-    label: "银行卡",
-    icon: "credit-card" as const,
-    color: "#715B3E",
-  },
-} satisfies Record<
-  PaymentChannel,
-  {
-    label: string;
-    icon: keyof typeof MaterialIcons.glyphMap;
-    color: string;
-  }
->;
-
-// 支付页按阶段驱动 UI：确认、创建支付单、唤起 SDK、等待服务端确认、成功、失败。
-type PaymentPhase =
-  | "confirm"
-  | "creating_order"
-  | "invoking_sdk"
-  | "waiting_confirm"
-  | "success"
-  | "failed";
-
-// 处理中各阶段的提示文案，避免在渲染层分散写死字符串。
-const PROCESSING_PHASE_TEXT: Record<
-  Exclude<PaymentPhase, "confirm" | "success" | "failed">,
-  string
-> = {
-  creating_order: "正在向服务端创建支付单...",
-  invoking_sdk: "正在唤起支付客户端...",
-  waiting_confirm: "支付已发起，正在等待服务端确认...",
-};
-
-// 路由参数里的金额是字符串，这里统一转成可安全展示的 number。
-function parseAmount(value?: string) {
-  const parsed = Number.parseFloat(value ?? "0");
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-// 校验路由传入的支付方式，避免非法值进入后续支付流程。
-function isPaymentChannel(value: string | undefined): value is PaymentChannel {
-  return value === "alipay" || value === "wechat" || value === "card";
-}
 
 // 支付页负责串起客户端拉起支付与服务端确认状态的完整链路。
 export default function PaymentScreen() {
@@ -527,18 +479,6 @@ export default function PaymentScreen() {
           </View>
         </View>
       )}
-    </View>
-  );
-}
-
-// 统一渲染支付信息行，保持各阶段订单摘要的布局一致。
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View className="flex-row justify-between items-center gap-4">
-      <Text className="text-outline text-sm">{label}</Text>
-      <Text className="text-on-surface text-sm font-medium flex-1 text-right">
-        {value}
-      </Text>
     </View>
   );
 }
