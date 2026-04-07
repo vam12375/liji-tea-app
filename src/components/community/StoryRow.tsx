@@ -25,7 +25,10 @@ export default function StoryRow() {
       </Pressable>
 
       {stories.map((story) => (
-        <Pressable key={story.id} className="items-center gap-1" onPress={() => void markStoryViewed(story.id)}>
+        <Pressable key={story.id} className="items-center gap-1" onPress={() => {
+          void markStoryViewed(story.id);
+          router.push({ pathname: '/story-viewer', params: { storyId: story.id } });
+        }}>
           <View className={`p-[2px] rounded-full border-2 ${story.isViewed ? 'border-outline-variant/30' : 'border-tertiary-fixed'}`}>
             <Image source={{ uri: story.avatar }} style={{ width: 48, height: 48, borderRadius: 9999 }} contentFit="cover" />
           </View>

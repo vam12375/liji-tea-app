@@ -1,7 +1,8 @@
 import { View, Text, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
+import { routes } from "@/lib/routes";
 import { showModal, showConfirm } from "@/stores/modalStore";
 import { useCouponStore } from "@/stores/couponStore";
 import { useUserStore } from "@/stores/userStore";
@@ -12,18 +13,19 @@ interface MenuItem {
   label: string;
   badge?: string;
   highlight?: boolean;
-  route?: string | null;
+  route?: Href | null;
 }
 
 const MENU_ITEMS: MenuItem[] = [
-  { icon: "location-on", label: "收货地址管理", route: "/addresses" },
-  { icon: "confirmation-number", label: "优惠券", route: "/coupons" },
-  { icon: "receipt-long", label: "我的订单", route: "/orders" },
-  { icon: "favorite", label: "我的收藏", route: "/favorites" },
-  { icon: "comment", label: "我的评价", route: null },
-  { icon: "history-edu", label: "冲泡记录", route: null },
+  { icon: "location-on", label: "收货地址管理", route: routes.addresses },
+  { icon: "confirmation-number", label: "优惠券", route: routes.coupons },
+  { icon: "receipt-long", label: "我的订单", route: routes.orders },
+  { icon: "favorite", label: "我的收藏", route: routes.favorites },
+  { icon: "article", label: "我的帖子", route: routes.myPosts },
+  { icon: "comment", label: "我的评价", route: "/my-reviews" as Href },
+  { icon: "history-edu", label: "冲泡记录", route: "/brewing-log" as Href },
   { icon: "person-add", label: "邀请好友", highlight: true, route: null },
-  { icon: "settings", label: "设置", route: "/settings" },
+  { icon: "settings", label: "设置", route: routes.settings },
 ];
 
 export default function MenuList() {
@@ -36,7 +38,7 @@ export default function MenuList() {
   /** 菜单项点击处理 */
   const handlePress = (item: MenuItem) => {
     if (item.route) {
-      router.push(item.route as any);
+      router.push(item.route);
     } else {
       showModal("提示", "该功能即将上线");
     }

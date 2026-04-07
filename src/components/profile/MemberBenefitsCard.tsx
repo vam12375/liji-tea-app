@@ -53,10 +53,10 @@ export default function MemberBenefitsCard() {
       </View>
 
       {/* 了解更多 */}
-      <Pressable className="flex-row items-center gap-1 self-end">
+      <View className="flex-row items-center gap-1 self-end">
         <Text className="text-tertiary text-xs">了解更多</Text>
         <MaterialIcons name="arrow-right-alt" size={14} color={Colors.tertiary} />
-      </Pressable>
+      </View>
     </View>
   );
 }

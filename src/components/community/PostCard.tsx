@@ -4,12 +4,20 @@ import { router } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
 import { shareContent } from '@/lib/share';
+import { useCommunityStore } from '@/stores/communityStore';
+import { useUserStore } from '@/stores/userStore';
+import { showModal } from '@/stores/modalStore';
 import type { Post } from '@/data/community';
 
 
 export default function PostCard({ post }: { post: Post }) {
+  const togglePostLike = useCommunityStore((s) => s.togglePostLike);
+  const togglePostBookmark = useCommunityStore((s) => s.togglePostBookmark);
+  const session = useUserStore((s) => s.session);
+
   const onPress = () =>
     router.push({ pathname: "/post/[id]", params: { id: post.id } });
+
   const handleShare = async () => {
     const text = post.caption ?? post.title ?? post.quote ?? post.description;
 
@@ -24,12 +32,32 @@ export default function PostCard({ post }: { post: Post }) {
     }
   };
 
+  /** 点赞处理 */
+  const handleLike = async (e: any) => {
+    e.stopPropagation();
+    if (!session?.user?.id) {
+      showModal('请先登录', '登录后才可以点赞。', 'info');
+      return;
+    }
+    try { await togglePostLike(post.id); } catch {}
+  };
+
+  /** 收藏处理 */
+  const handleBookmark = async (e: any) => {
+    e.stopPropagation();
+    if (!session?.user?.id) {
+      showModal('请先登录', '登录后才可以收藏。', 'info');
+      return;
+    }
+    try { await togglePostBookmark(post.id); } catch {}
+  };
+
   if (post.type === 'photo') {
-    return <PhotoPost post={post} onPress={onPress} onShare={handleShare} />;
+    return <PhotoPost post={post} onPress={onPress} onShare={handleShare} onLike={handleLike} onBookmark={handleBookmark} />;
   }
 
   if (post.type === 'brewing') {
-    return <BrewingPost post={post} onPress={onPress} onShare={handleShare} />;
+    return <BrewingPost post={post} onPress={onPress} onShare={handleShare} onLike={handleLike} onBookmark={handleBookmark} />;
   }
 
   return <QuestionPost post={post} onPress={onPress} onShare={handleShare} />;
@@ -59,10 +87,14 @@ function PhotoPost({
   post,
   onPress,
   onShare,
+  onLike,
+  onBookmark,
 }: {
   post: Post;
   onPress: () => void;
   onShare: () => void;
+  onLike: (e: any) => void;
+  onBookmark: (e: any) => void;
 }) {
   return (
     <Pressable className="gap-3 active:opacity-90" onPress={onPress}>
@@ -74,17 +106,21 @@ function PhotoPost({
       <Text className="text-on-surface text-[15px] leading-relaxed">{post.caption}</Text>
       <View className="flex-row justify-between items-center">
         <View className="flex-row gap-5">
-          <View className="flex-row items-center gap-1">
+          {/* 点赞按钮 */}
+          <Pressable hitSlop={8} onPress={onLike} className="flex-row items-center gap-1">
             <MaterialIcons name={post.isLiked ? 'favorite' : 'favorite-border'} size={20} color={post.isLiked ? Colors.error : Colors.secondary} />
             <Text className="text-secondary text-sm">{post.likes}</Text>
-          </View>
+          </Pressable>
           <View className="flex-row items-center gap-1">
             <MaterialIcons name="chat-bubble-outline" size={20} color={Colors.secondary} />
             <Text className="text-secondary text-sm">{post.comments}</Text>
           </View>
         </View>
         <View className="flex-row gap-4">
-          <MaterialIcons name={post.isBookmarked ? 'bookmark' : 'bookmark-border'} size={20} color={post.isBookmarked ? Colors.primary : Colors.secondary} />
+          {/* 收藏按钮 */}
+          <Pressable hitSlop={8} onPress={onBookmark}>
+            <MaterialIcons name={post.isBookmarked ? 'bookmark' : 'bookmark-border'} size={20} color={post.isBookmarked ? Colors.primary : Colors.secondary} />
+          </Pressable>
           <Pressable
             hitSlop={8}
             onPress={(event) => {
@@ -105,10 +141,14 @@ function BrewingPost({
   post,
   onPress,
   onShare,
+  onLike,
+  onBookmark,
 }: {
   post: Post;
   onPress: () => void;
   onShare: () => void;
+  onLike: (e: any) => void;
+  onBookmark: (e: any) => void;
 }) {
   return (
     <Pressable onPress={onPress} className="bg-surface-container-low rounded-2xl border-l-4 border-primary-container p-5 gap-3 active:opacity-90">
@@ -148,25 +188,29 @@ function BrewingPost({
         ) : null}
         {post.quote ? (
           <Text className="text-secondary italic text-sm">
-            {"“"}
+            {"\u201C"}
             {post.quote}
-            {"”"}
+            {"\u201D"}
           </Text>
         ) : null}
       </View>
       <View className="flex-row justify-between items-center">
         <View className="flex-row gap-5">
-          <View className="flex-row items-center gap-1">
+          {/* 点赞按钮 */}
+          <Pressable hitSlop={8} onPress={onLike} className="flex-row items-center gap-1">
             <MaterialIcons name={post.isLiked ? 'favorite' : 'favorite-border'} size={20} color={post.isLiked ? Colors.error : Colors.secondary} />
             <Text className="text-secondary text-sm">{post.likes}</Text>
-          </View>
+          </Pressable>
           <View className="flex-row items-center gap-1">
             <MaterialIcons name="chat-bubble-outline" size={20} color={Colors.secondary} />
             <Text className="text-secondary text-sm">{post.comments}</Text>
           </View>
         </View>
         <View className="flex-row items-center gap-4">
-          <MaterialIcons name={post.isBookmarked ? 'bookmark' : 'bookmark-border'} size={20} color={post.isBookmarked ? Colors.primary : Colors.secondary} />
+          {/* 收藏按钮 */}
+          <Pressable hitSlop={8} onPress={onBookmark}>
+            <MaterialIcons name={post.isBookmarked ? 'bookmark' : 'bookmark-border'} size={20} color={post.isBookmarked ? Colors.primary : Colors.secondary} />
+          </Pressable>
           <Pressable
             hitSlop={8}
             onPress={(event) => {
