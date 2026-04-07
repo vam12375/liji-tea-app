@@ -9,9 +9,9 @@ export const routes = {
   tabs: "/(tabs)" as const,
   cart: "/cart" as const,
   login: "/login" as const,
-  checkout: (productId?: string): Href =>
+  checkout: (productId?: string, quantity?: number): Href =>
     productId
-      ? { pathname: "/checkout", params: { productId } }
+      ? { pathname: "/checkout", params: { productId, quantity: String(quantity ?? 1) } }
       : "/checkout",
   addresses: "/addresses" as const,
   orders: "/orders" as const,
@@ -55,5 +55,10 @@ export const routes = {
     params: { id },
   }),
   favorites: "/favorites" as const,
+  myPosts: "/my-posts" as const,
+  coupons: "/coupons" as Href,
   settings: "/settings" as const,
+  notifications: "/notifications" as const,
+  myReviews: "/my-reviews" as const,
+  brewingLog: "/brewing-log" as const,
 } as const;

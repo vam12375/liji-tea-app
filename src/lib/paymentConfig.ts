@@ -59,3 +59,21 @@ export function getEnabledPaymentChannels() {
     (channel) => paymentChannelConfig[channel].enabled,
   );
 }
+
+// 开发模式下检查支付环境变量是否已显式配置
+if (__DEV__) {
+  const envKeys = [
+    "EXPO_PUBLIC_PAYMENT_ALIPAY_ENABLED",
+    "EXPO_PUBLIC_PAYMENT_WECHAT_ENABLED",
+    "EXPO_PUBLIC_PAYMENT_CARD_ENABLED",
+    "EXPO_PUBLIC_PAYMENT_ENV",
+  ] as const;
+
+  const missing = envKeys.filter((k) => process.env[k] === undefined);
+  if (missing.length > 0) {
+    console.warn(
+      `[paymentConfig] 以下支付环境变量未设置，将使用默认值：\n` +
+        missing.map((k) => `  - ${k}`).join("\n"),
+    );
+  }
+}

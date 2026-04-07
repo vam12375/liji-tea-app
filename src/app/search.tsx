@@ -1,9 +1,10 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { View, Text, TextInput, Pressable, FlatList, ActivityIndicator } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "@/constants/Colors";
 import { hotSearches } from "@/data/search";
 import { useProductStore, type Product } from "@/stores/productStore";
@@ -14,10 +15,25 @@ export default function SearchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
-  const [history, setHistory] = useState(["龙井", "白毫银针", "冲泡方法", "送礼推荐"]);
+  const [history, setHistory] = useState<string[]>([]);
   const [results, setResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+
+  // 从本地存储加载搜索历史
+  useEffect(() => {
+    AsyncStorage.getItem('search-history').then((raw) => {
+      if (raw) {
+        try { setHistory(JSON.parse(raw)); } catch {}
+      }
+    });
+  }, []);
+
+  // 保存搜索历史到本地存储
+  const saveHistory = useCallback((next: string[]) => {
+    setHistory(next);
+    AsyncStorage.setItem('search-history', JSON.stringify(next)).catch(() => {});
+  }, []);
 
   // 从 store 获取产品作为"猜你喜欢"
   const products = useProductStore((s) => s.products);
@@ -37,11 +53,8 @@ export default function SearchScreen() {
     setSearching(false);
 
     // 添加到历史（去重，最多 8 个）
-    setHistory((prev) => {
-      const next = [text.trim(), ...prev.filter((h) => h !== text.trim())];
-      return next.slice(0, 8);
-    });
-  }, [searchProducts]);
+    saveHistory([text.trim(), ...history.filter((h) => h !== text.trim())].slice(0, 8));
+  }, [searchProducts, saveHistory, history]);
 
   // 展示数据：搜索结果 或 猜你喜欢
   const displayData = hasSearched ? results : products.slice(0, 4);
@@ -87,7 +100,7 @@ export default function SearchScreen() {
           <View className="gap-8">
             {!hasSearched && (
               <>
-                <SearchHistoryChips items={history} onClear={() => setHistory([])} onSelect={handleSearch} />
+                <SearchHistoryChips items={history} onClear={() => saveHistory([])} onSelect={handleSearch} />
                 <HotSearches items={hotSearches} onSelect={handleSearch} />
               </>
             )}

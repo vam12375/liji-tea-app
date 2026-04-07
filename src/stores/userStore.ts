@@ -7,6 +7,7 @@ import type {
   Favorite as DBFavorite,
 } from '@/types/database';
 import { useCartStore } from '@/stores/cartStore';
+import { useCouponStore } from '@/stores/couponStore';
 
 /** 地址类型（兼容旧代码） */
 export interface Address {
@@ -127,6 +128,7 @@ interface UserState {
   fetchAddresses: () => Promise<void>;
   addAddress: (address: Omit<DBAddress, 'id' | 'user_id' | 'created_at'>) => Promise<string | null>;
   removeAddress: (id: string) => Promise<void>;
+  updateAddress: (id: string, updates: Partial<Pick<DBAddress, 'name' | 'phone' | 'address' | 'is_default'>>) => Promise<string | null>;
   setDefaultAddress: (id: string) => Promise<void>;
   getDefaultAddress: () => Address | undefined;
 
@@ -209,8 +211,9 @@ export const useUserStore = create<UserState>()((set, get) => ({
     } catch (err) {
       console.warn('[userStore] signOut 失败:', err);
     }
-    // 清空用户数据和购物车
+    // 清空用户数据、购物车和优惠券
     useCartStore.getState().clearCart();
+    useCouponStore.getState().reset();
     set(buildSignedOutState());
   },
 
@@ -314,6 +317,34 @@ export const useUserStore = create<UserState>()((set, get) => ({
       await get().fetchAddresses();
     } catch (err) {
       console.warn('[userStore] removeAddress 失败:', err);
+    }
+  },
+
+  // 编辑地址：支持部分字段更新，设为默认时先清除其他默认
+  updateAddress: async (id, updates) => {
+    try {
+      const userId = get().session?.user?.id;
+      if (!userId) return '未登录';
+
+      // 如果设为默认，先清除其他默认地址
+      if (updates.is_default) {
+        await supabase
+          .from('addresses')
+          .update({ is_default: false })
+          .eq('user_id', userId);
+      }
+
+      const { error } = await supabase
+        .from('addresses')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) return error.message;
+      await get().fetchAddresses();
+      return null;
+    } catch (err: unknown) {
+      console.warn('[userStore] updateAddress 失败:', err);
+      return err instanceof Error ? err.message : '更新地址失败';
     }
   },
 

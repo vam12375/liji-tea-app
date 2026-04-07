@@ -3,6 +3,7 @@ import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
+import { routes, type OrdersInitialTab } from "@/lib/routes";
 import { useOrderStore } from "@/stores/orderStore";
 
 /** 状态条目定义 — 每项对应一个订单状态 */
@@ -11,25 +12,21 @@ const STATUS_ITEMS = [
     icon: "payments" as const,
     label: "待付款",
     status: "pending" as const,
-    route: "/orders?initialTab=pending",
   },
   {
     icon: "inventory-2" as const,
     label: "待发货",
     status: "paid" as const,
-    route: "/orders?initialTab=paid",
   },
   {
     icon: "local-shipping" as const,
     label: "待收货",
     status: "shipping" as const,
-    route: "/orders?initialTab=shipping",
   },
   {
     icon: "rate-review" as const,
     label: "待评价",
     status: "delivered" as const,
-    route: "/orders?initialTab=delivered",
   },
 ];
 
@@ -55,7 +52,7 @@ export default function OrderStatusRow() {
         return (
           <Pressable
             key={item.label}
-            onPress={() => router.push(item.route as any)}
+            onPress={() => router.push(routes.ordersTab(item.status as OrdersInitialTab))}
             className="flex-1 items-center gap-2 active:opacity-60"
           >
             <View className="relative">
@@ -76,7 +73,7 @@ export default function OrderStatusRow() {
 
       {/* 全部订单 */}
       <Pressable
-        onPress={() => router.push("/orders" as any)}
+        onPress={() => router.push(routes.orders)}
         className="flex-1 items-center gap-2 border-l border-outline-variant/20 active:opacity-60"
       >
         <MaterialIcons name="assignment" size={24} color={Colors.onSurface} />

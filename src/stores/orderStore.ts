@@ -1,7 +1,4 @@
-import {
-  cancelPendingOrderAndRestoreStock,
-  createOrder as createOrderRequest,
-} from "@/lib/order";
+import { createOrder as createOrderRequest } from "@/lib/order";
 import { supabase } from "@/lib/supabase";
 import { useUserStore } from "@/stores/userStore";
 import type {
@@ -25,22 +22,6 @@ type OrderRow = Omit<Order, "coupon_discount" | "order_items" | "address"> & {
   order_items?: OrderItemRow[] | null;
   address?: Address | null;
 };
-
-type OrderPaymentPatch = Partial<
-  Pick<
-    Order,
-    | "updated_at"
-    | "payment_status"
-    | "payment_channel"
-    | "out_trade_no"
-    | "trade_no"
-    | "paid_amount"
-    | "paid_at"
-    | "payment_error_code"
-    | "payment_error_message"
-    | "status"
-  >
->;
 
 // 下面一组类型守卫负责把 Supabase 返回的 unknown 数据收窄成前端可安全消费的结构。
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -295,73 +276,52 @@ function isPendingOrderExpired(order: Pick<Order, "status" | "created_at">) {
   return Date.now() - createdAt >= PENDING_ORDER_EXPIRE_MS;
 }
 
-// 调用服务端 RPC 关闭超时订单，并返回可直接合并进 store 的状态补丁。
-async function closeExpiredPendingOrder(orderId: string) {
-  const userId = useUserStore.getState().session?.user?.id;
-
-  if (!userId) {
-    return {
-      error: new Error("未登录，无法同步超时订单。"),
-      update: null,
-    };
-  }
-
-  const result = await cancelPendingOrderAndRestoreStock(orderId, userId);
-
+// 客户端不再直接写订单关闭状态，只在本地把已超时订单映射成关闭展示。
+async function closeExpiredPendingOrder(_orderId?: string) {
   return {
     error: null,
-    update: result.released
-      ? ({
-          status: "cancelled",
-          payment_status: "closed",
-          payment_error_code: "order_expired",
-          payment_error_message: "待付款订单已超过 10 分钟，系统已自动取消。",
-          updated_at: new Date().toISOString(),
-        } satisfies Partial<Order>)
-      : null,
+    update: {
+      status: "cancelled",
+      payment_status: "closed",
+      payment_error_code: "order_expired",
+      payment_error_message: "待付款订单已超过 10 分钟，系统已自动取消。",
+      updated_at: new Date().toISOString(),
+    } satisfies Partial<Order>,
   };
 }
 
-// 支付状态更新时只开放必要字段，避免调用方任意覆盖整个订单对象。
-export interface PaymentStatusUpdate {
-  paymentStatus?: OrderPaymentStatus;
-  paymentChannel?: PaymentChannel;
-  outTradeNo?: string | null;
-  tradeNo?: string | null;
-  paidAmount?: number | null;
-  paidAt?: string | null;
-  paymentErrorCode?: string | null;
-  paymentErrorMessage?: string | null;
-  status?: Order["status"];
-}
+/** 每页加载的订单数量 */
+const ORDER_PAGE_SIZE = 20;
 
 interface OrderState {
   orders: Order[];
   currentOrder: Order | null;
   loading: boolean;
   currentOrderLoading: boolean;
+  /** 是否还有更多订单可加载 */
+  hasMoreOrders: boolean;
+  /** 当前订单分页页码 */
+  ordersPage: number;
   createOrder: (
     params: CreateOrderParams,
   ) => Promise<{ order: CreateOrderResponse | null; error: string | null }>;
-  fetchOrders: () => Promise<void>;
+  fetchOrders: (loadMore?: boolean) => Promise<void>;
+  /** 加载更多订单（翻页） */
+  loadMoreOrders: () => Promise<void>;
   fetchOrderById: (id: string) => Promise<void>;
-  updateOrderStatus: (
-    orderId: string,
-    status: Order["status"],
-  ) => Promise<{ error: string | null }>;
-  updatePaymentStatus: (
-    orderId: string,
-    update: PaymentStatusUpdate,
-  ) => Promise<{ error: string | null }>;
   updateOrder: (updated: Partial<Order> & { id: string }) => void;
+  cancelOrder: (orderId: string) => Promise<string | null>;
+  confirmReceive: (orderId: string) => Promise<string | null>;
 }
 
 // 订单 store 统一管理下单、拉单、支付状态同步以及当前订单详情。
-export const useOrderStore = create<OrderState>()((set) => ({
+export const useOrderStore = create<OrderState>()((set, get) => ({
   orders: [],
   currentOrder: null,
   loading: false,
   currentOrderLoading: false,
+  hasMoreOrders: true,
+  ordersPage: 0,
 
   // 创建订单时仅做登录态和错误兜底，核心验价与锁库存都放在服务端完成。
   createOrder: async (params) => {
@@ -383,19 +343,24 @@ export const useOrderStore = create<OrderState>()((set) => ({
   },
 
   // 拉取订单列表后，会顺手清理本地看到的超时待支付订单状态。
-  fetchOrders: async () => {
+  fetchOrders: async (loadMore = false) => {
     try {
       const userId = useUserStore.getState().session?.user?.id;
       if (!userId) {
         return;
       }
 
+      const currentPage = loadMore ? get().ordersPage : 0;
+      const from = currentPage * ORDER_PAGE_SIZE;
+      const to = from + ORDER_PAGE_SIZE - 1;
+
       set({ loading: true });
       const { data, error } = await supabase
         .from("orders")
         .select("*, order_items(*, product:products(*))")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .range(from, to);
 
       if (error) {
         throw error;
@@ -425,11 +390,31 @@ export const useOrderStore = create<OrderState>()((set) => ({
         }),
       );
 
-      set({ orders: normalizedOrders, loading: false });
+      const hasMoreOrders = normalizedOrders.length >= ORDER_PAGE_SIZE;
+
+      if (loadMore) {
+        // 追加模式：合并到现有列表
+        set((state) => ({
+          orders: [...state.orders, ...normalizedOrders],
+          loading: false,
+          hasMoreOrders,
+          ordersPage: currentPage + 1,
+        }));
+      } else {
+        // 重置模式：替换列表
+        set({ orders: normalizedOrders, loading: false, hasMoreOrders, ordersPage: 1 });
+      }
     } catch (error: unknown) {
       console.warn("[orderStore] fetchOrders 失败:", error);
       set({ loading: false });
     }
+  },
+
+  // 加载更多订单
+  loadMoreOrders: async () => {
+    const { loading, hasMoreOrders } = get();
+    if (loading || !hasMoreOrders) return;
+    await get().fetchOrders(true);
   },
 
   // 订单详情页单独拉单，并复用同一套超时订单关闭逻辑。
@@ -474,99 +459,6 @@ export const useOrderStore = create<OrderState>()((set) => ({
     }
   },
 
-  updateOrderStatus: async (orderId, status) => {
-    try {
-      const { error } = await supabase
-        .from("orders")
-        .update({ status })
-        .eq("id", orderId);
-
-      if (error) {
-        return { error: error.message };
-      }
-
-      set((state) => ({
-        orders: state.orders.map((order) =>
-          order.id === orderId ? { ...order, status } : order,
-        ),
-        currentOrder:
-          state.currentOrder?.id === orderId
-            ? { ...state.currentOrder, status }
-            : state.currentOrder,
-      }));
-
-      return { error: null };
-    } catch (error: unknown) {
-      console.warn("[orderStore] updateOrderStatus 失败:", error);
-      return {
-        error: error instanceof Error ? error.message : "更新状态失败",
-      };
-    }
-  },
-
-  // 支付回调或轮询结果只增量更新必要字段，再同步回列表和详情缓存。
-  updatePaymentStatus: async (orderId, update) => {
-    try {
-      const dbUpdate: OrderPaymentPatch = {
-        updated_at: new Date().toISOString(),
-      };
-
-      if (update.paymentStatus !== undefined) {
-        dbUpdate.payment_status = update.paymentStatus;
-      }
-      if (update.paymentChannel !== undefined) {
-        dbUpdate.payment_channel = update.paymentChannel;
-      }
-      if (update.outTradeNo !== undefined) {
-        dbUpdate.out_trade_no = update.outTradeNo;
-      }
-      if (update.tradeNo !== undefined) {
-        dbUpdate.trade_no = update.tradeNo;
-      }
-      if (update.paidAmount !== undefined) {
-        dbUpdate.paid_amount = update.paidAmount;
-      }
-      if (update.paidAt !== undefined) {
-        dbUpdate.paid_at = update.paidAt;
-      }
-      if (update.paymentErrorCode !== undefined) {
-        dbUpdate.payment_error_code = update.paymentErrorCode;
-      }
-      if (update.paymentErrorMessage !== undefined) {
-        dbUpdate.payment_error_message = update.paymentErrorMessage;
-      }
-      if (update.status !== undefined) {
-        dbUpdate.status = update.status;
-      }
-
-      const { error } = await supabase
-        .from("orders")
-        .update(dbUpdate)
-        .eq("id", orderId);
-
-      if (error) {
-        return { error: error.message };
-      }
-
-      set((state) => ({
-        orders: state.orders.map((order) =>
-          order.id === orderId ? { ...order, ...dbUpdate } : order,
-        ),
-        currentOrder:
-          state.currentOrder?.id === orderId
-            ? { ...state.currentOrder, ...dbUpdate }
-            : state.currentOrder,
-      }));
-
-      return { error: null };
-    } catch (error: unknown) {
-      console.warn("[orderStore] updatePaymentStatus 失败:", error);
-      return {
-        error: error instanceof Error ? error.message : "更新支付状态失败",
-      };
-    }
-  },
-
   // 允许页面在拿到局部新数据时同步覆盖当前缓存，避免重复发起整单查询。
   updateOrder: (updated) => {
     set((state) => ({
@@ -578,5 +470,70 @@ export const useOrderStore = create<OrderState>()((set) => ({
           ? { ...state.currentOrder, ...updated }
           : state.currentOrder,
     }));
+  },
+
+  // 取消待支付订单并释放库存
+  cancelOrder: async (orderId) => {
+    try {
+      const userId = useUserStore.getState().session?.user?.id;
+      if (!userId) return '未登录';
+
+      const { cancelPendingOrderAndRestoreStock } = await import('@/lib/order');
+      await cancelPendingOrderAndRestoreStock(orderId, userId);
+
+      set((state) => ({
+        orders: state.orders.map((order) =>
+          order.id === orderId
+            ? { ...order, status: 'cancelled' as const, payment_status: 'closed' as const, updated_at: new Date().toISOString() }
+            : order
+        ),
+        currentOrder:
+          state.currentOrder?.id === orderId
+            ? { ...state.currentOrder, status: 'cancelled' as const, payment_status: 'closed' as const, updated_at: new Date().toISOString() }
+            : state.currentOrder,
+      }));
+
+      return null;
+    } catch (error: unknown) {
+      console.warn('[orderStore] cancelOrder 失败:', error);
+      return error instanceof Error ? error.message : '取消订单失败';
+    }
+  },
+
+  // 确认收货：将订单状态更新为 delivered
+  confirmReceive: async (orderId) => {
+    try {
+      const userId = useUserStore.getState().session?.user?.id;
+      if (!userId) return '未登录';
+
+      const { error } = await supabase
+        .from('orders')
+        .update({
+          status: 'delivered',
+          delivered_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', orderId)
+        .eq('user_id', userId);
+
+      if (error) return error.message;
+
+      set((state) => ({
+        orders: state.orders.map((order) =>
+          order.id === orderId
+            ? { ...order, status: 'delivered' as const, delivered_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+            : order
+        ),
+        currentOrder:
+          state.currentOrder?.id === orderId
+            ? { ...state.currentOrder, status: 'delivered' as const, delivered_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+            : state.currentOrder,
+      }));
+
+      return null;
+    } catch (error: unknown) {
+      console.warn('[orderStore] confirmReceive 失败:', error);
+      return error instanceof Error ? error.message : '确认收货失败';
+    }
   },
 }));

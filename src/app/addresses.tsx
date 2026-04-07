@@ -24,15 +24,19 @@ type AddressFormValues = {
 type AddressFormProps = {
   onSave: (values: AddressFormValues) => Promise<void>;
   onCancel: () => void;
+  initialValues?: AddressFormValues;
+  title?: string;
 };
 
 const AddressForm = memo(function AddressForm({
   onSave,
   onCancel,
+  initialValues,
+  title,
 }: AddressFormProps) {
-  const [formName, setFormName] = useState("");
-  const [formPhone, setFormPhone] = useState("");
-  const [formAddress, setFormAddress] = useState("");
+  const [formName, setFormName] = useState(initialValues?.name ?? "");
+  const [formPhone, setFormPhone] = useState(initialValues?.phone ?? "");
+  const [formAddress, setFormAddress] = useState(initialValues?.address ?? "");
 
   const handlePhoneChange = (text: string) => {
     setFormPhone(text.replace(/\D/g, "").slice(0, 11));
@@ -71,7 +75,7 @@ const AddressForm = memo(function AddressForm({
 
   return (
     <View className="bg-surface-container-low rounded-xl px-4 py-4 mb-4">
-      <Text className="text-on-surface text-sm font-medium mb-3">新增地址</Text>
+      <Text className="text-on-surface text-sm font-medium mb-3">{title ?? "新增地址"}</Text>
 
       <TextInput
         value={formName}
@@ -125,9 +129,11 @@ export default function AddressesScreen() {
     addAddress,
     removeAddress,
     setDefaultAddress,
+    updateAddress,
   } = useUserStore();
 
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAddresses();
@@ -135,6 +141,7 @@ export default function AddressesScreen() {
 
   const handleCancelForm = useCallback(() => {
     setShowForm(false);
+    setEditingId(null);
   }, []);
 
   const handleSaveAddress = useCallback(async ({
@@ -156,6 +163,21 @@ export default function AddressesScreen() {
 
     setShowForm(false);
   }, [addAddress, addresses.length]);
+
+  /** 编辑地址保存 */
+  const handleEditAddress = useCallback(async ({
+    name,
+    phone,
+    address,
+  }: AddressFormValues) => {
+    if (!editingId) return;
+    const err = await updateAddress(editingId, { name, phone, address });
+    if (err) {
+      showModal("保存失败", err, "error");
+      return;
+    }
+    setEditingId(null);
+  }, [editingId, updateAddress]);
 
   /** 确认删除地址 */
   const handleRemove = (id: string) => {
@@ -196,6 +218,15 @@ export default function AddressesScreen() {
           </Pressable>
         )}
         <Pressable
+          onPress={() => {
+            setEditingId(item.id);
+            setShowForm(false);
+          }}
+          className="active:opacity-70"
+        >
+          <Text className="text-primary text-xs">编辑</Text>
+        </Pressable>
+        <Pressable
           onPress={() => handleRemove(item.id)}
           className="active:opacity-70"
         >
@@ -206,14 +237,29 @@ export default function AddressesScreen() {
   );
 
   const listHeaderComponent = useMemo(() => {
-    if (!showForm) {
-      return null;
+    // 编辑模式
+    if (editingId) {
+      const editAddress = addresses.find((a) => a.id === editingId);
+      if (!editAddress) return null;
+      return (
+        <AddressForm
+          onSave={handleEditAddress}
+          onCancel={handleCancelForm}
+          initialValues={{ name: editAddress.name, phone: editAddress.phone, address: editAddress.address }}
+          title="编辑地址"
+        />
+      );
     }
 
-    return (
-      <AddressForm onSave={handleSaveAddress} onCancel={handleCancelForm} />
-    );
-  }, [handleCancelForm, handleSaveAddress, showForm]);
+    // 新增模式
+    if (showForm) {
+      return (
+        <AddressForm onSave={handleSaveAddress} onCancel={handleCancelForm} />
+      );
+    }
+
+    return null;
+  }, [addresses, editingId, handleCancelForm, handleEditAddress, handleSaveAddress, showForm]);
 
   /** 空状态提示 */
   const renderEmpty = () => (
@@ -268,7 +314,7 @@ export default function AddressesScreen() {
       </KeyboardAvoidingView>
 
       {/* 底部固定按钮 — 新增地址 */}
-      {!showForm && (
+      {!showForm && !editingId && (
         <View
           style={{ paddingBottom: insets.bottom || 16 }}
           className="absolute bottom-0 left-0 right-0 bg-background/95 border-t border-outline-variant/10 px-4 pt-3"

@@ -1,7 +1,7 @@
 import "../../global.css";
 import { useEffect } from "react";
 import { View } from "react-native";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
@@ -60,6 +60,7 @@ export default function RootLayout() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      const hadSession = !!useUserStore.getState().session;
       setSession(session);
 
       if (session) {
@@ -73,6 +74,11 @@ export default function RootLayout() {
 
       resetCoupons();
       void fetchPublicCoupons();
+
+      // 被动登出（token 过期等）时跳转登录页
+      if (hadSession) {
+        router.replace("/login");
+      }
     });
 
     return () => subscription.unsubscribe();

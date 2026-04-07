@@ -5,6 +5,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import type { Product } from "@/data/products";
 import { useUserStore } from "@/stores/userStore";
+import { useCartStore } from "@/stores/cartStore";
 
 interface ShopProductCardProps {
   product: Product;
@@ -19,9 +20,12 @@ export default function ShopProductCard({
   // 直接订阅 favorites 数组确保收藏状态实时响应
   const favorites = useUserStore((s) => s.favorites);
   const isFav = favorites.includes(product.id);
+  const addItem = useCartStore((s) => s.addItem);
 
   // 收藏心跳动画
   const heartScale = useRef(new Animated.Value(1)).current;
+  // 快速加购动画
+  const cartBounce = useRef(new Animated.Value(1)).current;
 
   const handleToggleFavorite = useCallback(() => {
     toggleFavorite(product.id);
@@ -31,6 +35,15 @@ export default function ShopProductCard({
       Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, damping: 8 }),
     ]).start();
   }, [heartScale, product.id, toggleFavorite]);
+
+  /** 快速加入购物车 + 弹跳反馈 */
+  const handleQuickAdd = useCallback(() => {
+    addItem(product);
+    Animated.sequence([
+      Animated.spring(cartBounce, { toValue: 1.4, useNativeDriver: true, damping: 6 }),
+      Animated.spring(cartBounce, { toValue: 1, useNativeDriver: true, damping: 8 }),
+    ]).start();
+  }, [addItem, cartBounce, product]);
 
   return (
     <Pressable
@@ -60,15 +73,28 @@ export default function ShopProductCard({
               /{product.unit}
             </Text>
           </Text>
-          <Pressable hitSlop={8} onPress={handleToggleFavorite}>
-            <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-              <MaterialIcons
-                name={isFav ? "favorite" : "favorite-border"}
-                size={18}
-                color={isFav ? Colors.error : Colors.outline}
-              />
-            </Animated.View>
-          </Pressable>
+          <View className="flex-row items-center gap-2">
+            {/* 快速加购按钮 */}
+            <Pressable hitSlop={8} onPress={handleQuickAdd}>
+              <Animated.View style={{ transform: [{ scale: cartBounce }] }}>
+                <MaterialIcons
+                  name="add-shopping-cart"
+                  size={16}
+                  color={Colors.primary}
+                />
+              </Animated.View>
+            </Pressable>
+            {/* 收藏按钮 */}
+            <Pressable hitSlop={8} onPress={handleToggleFavorite}>
+              <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+                <MaterialIcons
+                  name={isFav ? "favorite" : "favorite-border"}
+                  size={18}
+                  color={isFav ? Colors.error : Colors.outline}
+                />
+              </Animated.View>
+            </Pressable>
+          </View>
         </View>
       </View>
     </Pressable>

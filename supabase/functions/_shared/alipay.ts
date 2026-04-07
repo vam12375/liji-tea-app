@@ -17,6 +17,26 @@ interface BuildAlipayOrderStringOptions {
   timestamp?: Date;
 }
 
+interface AlipayOpenApiOptions {
+  gatewayUrl: string;
+  appId: string;
+  privateKeyPem: string;
+  method: string;
+  bizContent: Record<string, unknown>;
+  sellerId?: string;
+  timestamp?: Date;
+}
+
+export interface AlipayTradeCloseResult {
+  success: boolean;
+  code: string | null;
+  subCode: string | null;
+  message: string;
+  rawResponse: Record<string, unknown>;
+}
+
+export const ALIPAY_TIMEOUT_EXPRESS = "10m";
+
 /** 去掉 PEM 包裹头尾和空白，转换为可导入的纯 base64 内容。 */
 function normalizePem(pem: string) {
   return pem
@@ -281,7 +301,7 @@ export async function buildAlipayOrderString(
       product_code: "QUICK_MSECURITY_PAY",
       total_amount: options.totalAmount,
       subject: options.subject,
-      timeout_express: options.timeoutExpress ?? "15m",
+      timeout_express: options.timeoutExpress ?? ALIPAY_TIMEOUT_EXPRESS,
       body: options.body,
     }),
     seller_id: options.sellerId,
@@ -293,6 +313,88 @@ export async function buildAlipayOrderString(
     ...params,
     sign,
   });
+}
+
+async function callAlipayOpenApi(options: AlipayOpenApiOptions) {
+  const params: Record<string, string | undefined> = {
+    app_id: options.appId,
+    method: options.method,
+    format: "JSON",
+    charset: "utf-8",
+    sign_type: "RSA2",
+    timestamp: formatTimestamp(options.timestamp ?? new Date()),
+    version: "1.0",
+    biz_content: JSON.stringify(options.bizContent),
+    seller_id: options.sellerId,
+  };
+
+  const sign = await signAlipayParams(params, options.privateKeyPem);
+  const body = createEncodedQuery({
+    ...params,
+    sign,
+  });
+
+  const response = await fetch(options.gatewayUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+    },
+    body,
+  });
+
+  const responseText = await response.text();
+  let parsed: Record<string, unknown> = {};
+
+  try {
+    parsed = responseText ? (JSON.parse(responseText) as Record<string, unknown>) : {};
+  } catch {
+    throw new Error(`支付宝网关响应解析失败：${responseText || "empty response"}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(`调用支付宝网关失败：HTTP ${response.status}`);
+  }
+
+  return parsed;
+}
+
+export async function closeAlipayTrade(options: {
+  gatewayUrl: string;
+  appId: string;
+  privateKeyPem: string;
+  outTradeNo: string;
+  sellerId?: string;
+  timestamp?: Date;
+}): Promise<AlipayTradeCloseResult> {
+  const rawResponse = await callAlipayOpenApi({
+    gatewayUrl: options.gatewayUrl,
+    appId: options.appId,
+    privateKeyPem: options.privateKeyPem,
+    method: "alipay.trade.close",
+    bizContent: {
+      out_trade_no: options.outTradeNo,
+    },
+    sellerId: options.sellerId,
+    timestamp: options.timestamp,
+  });
+
+  const payload = rawResponse["alipay_trade_close_response"] as
+    | Record<string, unknown>
+    | undefined;
+  const code = typeof payload?.code === "string" ? payload.code : null;
+  const subCode = typeof payload?.sub_code === "string" ? payload.sub_code : null;
+  const message =
+    (typeof payload?.sub_msg === "string" && payload.sub_msg) ||
+    (typeof payload?.msg === "string" && payload.msg) ||
+    "调用支付宝关单接口失败。";
+
+  return {
+    success: code === "10000",
+    code,
+    subCode,
+    message,
+    rawResponse,
+  };
 }
 
 /** 验证支付宝异步通知签名，忽略 sign 和 sign_type 字段本身。 */

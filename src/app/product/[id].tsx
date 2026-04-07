@@ -36,6 +36,9 @@ export default function ProductDetailScreen() {
   const [bootstrapping, setBootstrapping] = useState(() => !product);
   const [notFound, setNotFound] = useState(false);
 
+  // ====== 数量选择器状态 ======
+  const [quantity, setQuantity] = useState(1);
+
   // ====== 加购动画状态 ======
   const [showToast, setShowToast] = useState(false);
   const [showDot, setShowDot] = useState(false);
@@ -88,7 +91,7 @@ export default function ProductDetailScreen() {
   const handleAddToCart = useCallback(() => {
 
     if (!product || (product.stock ?? 0) === 0) return;
-    addItem(product);
+    addItem(product, quantity);
 
     // 1. 显示打钩 Toast
     setShowToast(true);
@@ -184,6 +187,7 @@ export default function ProductDetailScreen() {
     dotTranslateX,
     dotTranslateY,
     product,
+    quantity,
     toastOpacity,
     toastScale,
     toastTranslateY,
@@ -224,6 +228,11 @@ export default function ProductDetailScreen() {
     };
   }, [fetchProductById, id, product]);
 
+  // 商品切换时重置数量
+  useEffect(() => {
+    setQuantity(1);
+  }, [id]);
+
   useEffect(() => {
     if (!id) return;
 
@@ -262,8 +271,9 @@ export default function ProductDetailScreen() {
 
   if (!product) {
     return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <Text className="text-outline">产品未找到</Text>
+      <View className="flex-1 items-center justify-center gap-3 bg-background">
+        <MaterialIcons name="hourglass-top" size={26} color={Colors.outline} />
+        <Text className="text-outline">正在加载商品信息...</Text>
       </View>
     );
   }
@@ -287,7 +297,7 @@ export default function ProductDetailScreen() {
             className="absolute top-0 left-0 right-0 flex-row justify-between items-center px-4"
           >
             <Pressable
-              onPress={() => router.back()}
+              onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
               className="w-10 h-10 rounded-full bg-surface/20 items-center justify-center"
             >
               <MaterialIcons name="arrow-back" size={22} color="#fff" />
@@ -349,6 +359,35 @@ export default function ProductDetailScreen() {
               </Text>
             </View>
           </View>
+
+          {/* 数量选择器 */}
+          {(product.stock ?? 0) > 0 && (
+            <View className="flex-row items-center justify-between bg-surface-container-low rounded-xl px-4 py-3">
+              <Text className="text-on-surface text-sm font-medium">购买数量</Text>
+              <View className="flex-row items-center gap-3">
+                {/* 减少按钮 */}
+                <Pressable
+                  onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+                  disabled={quantity <= 1}
+                  className={`w-8 h-8 rounded-lg bg-surface-container-high items-center justify-center ${quantity <= 1 ? "opacity-40" : "active:opacity-70"}`}
+                >
+                  <MaterialIcons name="remove" size={18} color={Colors.onSurface} />
+                </Pressable>
+                {/* 当前数量 */}
+                <Text className="text-on-surface text-base font-bold min-w-[28px] text-center">
+                  {quantity}
+                </Text>
+                {/* 增加按钮 */}
+                <Pressable
+                  onPress={() => setQuantity((q) => Math.min(product.stock ?? 99, q + 1))}
+                  disabled={quantity >= (product.stock ?? 99)}
+                  className={`w-8 h-8 rounded-lg bg-surface-container-high items-center justify-center ${quantity >= (product.stock ?? 99) ? "opacity-40" : "active:opacity-70"}`}
+                >
+                  <MaterialIcons name="add" size={18} color={Colors.onSurface} />
+                </Pressable>
+              </View>
+            </View>
+          )}
 
           {/* 风味赏析 */}
           {product.tastingProfile && (
@@ -474,7 +513,7 @@ export default function ProductDetailScreen() {
         <Pressable
           onPress={() => {
             if ((product.stock ?? 0) === 0) return;
-            router.push(routes.checkout(id));
+            router.push(routes.checkout(id, quantity));
           }}
           className={`flex-1 bg-primary-container h-12 rounded-full items-center justify-center active:bg-primary ${(product.stock ?? 0) === 0 ? "opacity-50" : ""}`}
         >

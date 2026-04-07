@@ -48,7 +48,7 @@ export default function ShopScreen() {
   // 下拉刷新状态
   const [refreshing, setRefreshing] = useState(false);
 
-  const { products: allProducts, loading, fetchProducts } = useProductStore();
+  const { products: allProducts, loading, fetchProducts, loadMoreProducts, hasMore } = useProductStore();
   // 直接订阅 items 确保购物车数量响应式更新
   const cartItems = useCartStore((s) => s.items);
   const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -157,6 +157,8 @@ export default function ShopScreen() {
         columnWrapperClassName="gap-3 px-4"
         contentContainerClassName="gap-4 pb-8"
         showsVerticalScrollIndicator={false}
+        onEndReached={() => void loadMoreProducts()}
+        onEndReachedThreshold={0.5}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -239,6 +241,17 @@ export default function ShopScreen() {
             }
           />
         )}
+        ListFooterComponent={
+          loading && allProducts.length > 0 ? (
+            <View className="py-4 items-center">
+              <ActivityIndicator size="small" color={Colors.primary} />
+            </View>
+          ) : !hasMore && filteredProducts.length > 0 ? (
+            <View className="py-4 items-center">
+              <Text className="text-outline text-xs">已加载全部茶品</Text>
+            </View>
+          ) : null
+        }
       />
 
       {/* 排序下拉菜单的透明遮罩 — 点击关闭 */}

@@ -4,6 +4,7 @@
 -- 2. 避免并发下单导致的超卖
 -- 3. 为待支付订单超时/取消提供统一的库存恢复入口
 
+-- 订单创建事务函数：负责在同一事务内完成参数校验、库存锁定、订单写入与库存扣减。
 create or replace function public.create_order_with_reserved_stock(
   p_user_id uuid,
   p_address_id uuid,
@@ -49,6 +50,7 @@ declare
   v_item_count integer;
   v_product_count integer;
 begin
+  -- 基础参数校验：尽早拒绝无效请求，避免进入库存锁或写入阶段。
   if p_user_id is null then
     raise exception '缺少用户信息。';
   end if;
@@ -80,6 +82,7 @@ begin
     raise exception '订单商品数据无效。';
   end if;
 
+  -- 地址归属校验：防止用户使用他人的收货地址创建订单。
   select user_id
   into v_address_user_id
   from public.addresses
@@ -93,6 +96,7 @@ begin
     raise exception '无权使用该收货地址。';
   end if;
 
+  -- 先归并同商品多次传入的数量，后续所有库存与金额计算都基于归并后的结果。
   with normalized_items as (
     select
       trim(item ->> 'productId') as product_id,
@@ -104,6 +108,7 @@ begin
   into v_item_count
   from normalized_items;
 
+  -- 对商品行加锁并确认所有商品都存在，避免并发下单时读取到不一致状态。
   with normalized_items as (
     select
       trim(item ->> 'productId') as product_id,
@@ -132,6 +137,7 @@ begin
     raise exception '部分商品不存在或已下架。';
   end if;
 
+  -- 在持有商品行锁的前提下校验可售状态与库存是否充足，防止超卖。
   if exists (
     with normalized_items as (
       select
@@ -162,6 +168,7 @@ begin
     raise exception '部分商品库存不足或不可售。';
   end if;
 
+  -- 基于锁定后的商品价格与数量重新计算订单小计，确保金额来自服务端可信数据。
   with normalized_items as (
     select
       trim(item ->> 'productId') as product_id,
@@ -183,6 +190,7 @@ begin
   into v_subtotal
   from locked_products;
 
+  -- 统一在数据库内计算运费、自动满减、优惠券抵扣和礼盒费，避免客户端篡改金额。
   v_shipping := case when p_delivery_type = 'express' then 15 else 0 end;
   v_auto_discount := case when coalesce(v_subtotal, 0) >= 1000 then 50 else 0 end;
   v_coupon_discount := round(greatest(coalesce(p_coupon_discount, 0), 0), 2);
@@ -197,6 +205,7 @@ begin
     raise exception '订单金额异常，无法创建订单。';
   end if;
 
+  -- 写入订单主表，订单初始状态固定为待支付。
   insert into public.orders (
     user_id,
     address_id,
@@ -238,6 +247,7 @@ begin
   returning id, orders.order_no
   into v_order_id, v_order_no;
 
+  -- 写入订单明细，单价使用加锁后的商品价格快照。
   with normalized_items as (
     select
       trim(item ->> 'productId') as product_id,
@@ -268,6 +278,7 @@ begin
     locked_products.price::numeric
   from locked_products;
 
+  -- 最后正式扣减库存；由于前面已持有行锁，这一步可以避免并发超卖。
   with normalized_items as (
     select
       trim(item ->> 'productId') as product_id,
@@ -282,6 +293,7 @@ begin
   where products.id = normalized_items.product_id
     and products.stock is not null;
 
+  -- 返回订单金额拆分结果，供服务端函数继续生成支付单与响应前端。
   return query
   select
     v_order_id,
@@ -299,9 +311,11 @@ $$;
 comment on function public.create_order_with_reserved_stock(uuid, uuid, text, text, text, boolean, uuid, uuid, text, text, numeric, jsonb) is
 '通过单个数据库事务完成订单创建、库存占用与金额落库，避免并发超卖。';
 
+-- 权限收敛：订单创建与库存占用只能由服务端角色调用，前端不直接执行数据库函数。
 revoke all on function public.create_order_with_reserved_stock(uuid, uuid, text, text, text, boolean, uuid, uuid, text, text, numeric, jsonb) from public;
 grant execute on function public.create_order_with_reserved_stock(uuid, uuid, text, text, text, boolean, uuid, uuid, text, text, numeric, jsonb) to service_role;
 
+-- 待支付订单关闭函数：负责在同一事务内恢复库存、关闭订单、回写支付流水并释放锁券。
 create or replace function public.cancel_pending_order_and_restore_stock(
   p_order_id uuid,
   p_user_id uuid default null,
@@ -322,6 +336,7 @@ declare
   v_now timestamptz := timezone('utc', now());
   v_order record;
 begin
+  -- 先锁定订单行，确保不会与支付成功落库或其他关闭动作并发冲突。
   select
     id,
     user_id,
@@ -336,10 +351,12 @@ begin
     raise exception '订单不存在。';
   end if;
 
+  -- 若调用方显式传入用户 ID，则额外校验订单归属，防止误操作他人订单。
   if p_user_id is not null and v_order.user_id <> p_user_id then
     raise exception '无权操作该订单。';
   end if;
 
+  -- 非待支付订单不重复释放库存，直接返回当前状态，保证函数幂等。
   if v_order.status <> 'pending' then
     return query
     select
@@ -349,6 +366,7 @@ begin
     return;
   end if;
 
+  -- 汇总订单中预占的商品数量并锁定商品行，再把库存加回去。
   with reserved_items as (
     select
       product_id,
@@ -373,6 +391,7 @@ begin
   where products.id = locked_products.id
     and products.stock is not null;
 
+  -- 回写订单关闭状态与失败原因，统一服务端超时关闭与显式取消的表现。
   update public.orders
   set
     status = 'cancelled',
@@ -382,6 +401,7 @@ begin
     updated_at = v_now
   where id = p_order_id;
 
+  -- 同步关闭仍处于 created/paying 的支付流水，并记录取消原因到 notify_payload。
   update public.payment_transactions
   set
     status = p_payment_status,
@@ -394,6 +414,7 @@ begin
   where order_id = p_order_id
     and status in ('created', 'paying');
 
+  -- 释放被当前订单锁定但尚未使用的用户券，恢复为可用状态。
   update public.user_coupons
   set
     status = 'available',
@@ -404,6 +425,7 @@ begin
   where order_id = p_order_id
     and status = 'locked';
 
+  -- 返回关闭结果，供上层服务端函数感知是否真的执行了库存释放。
   return query
   select true, 'cancelled'::text, p_payment_status;
 end;
@@ -412,5 +434,6 @@ $$;
 comment on function public.cancel_pending_order_and_restore_stock(uuid, uuid, text, text, text) is
 '关闭待支付订单并释放已占用库存，供服务端过期处理和客户端兜底同步共用。';
 
+-- 先保留 authenticated 授权给历史客户端兜底使用，后续可由独立权限收敛迁移继续回收。
 revoke all on function public.cancel_pending_order_and_restore_stock(uuid, uuid, text, text, text) from public;
 grant execute on function public.cancel_pending_order_and_restore_stock(uuid, uuid, text, text, text) to authenticated, service_role;

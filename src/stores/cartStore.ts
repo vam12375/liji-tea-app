@@ -12,7 +12,8 @@ export interface CartItem {
 /** 购物车状态接口 */
 interface CartState {
   items: CartItem[];
-  addItem: (product: Product) => void;
+  /** 添加商品，可指定数量（默认 1） */
+  addItem: (product: Product, quantity?: number) => void;
   removeItem: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -27,8 +28,8 @@ export const useCartStore = create<CartState>()(
     (set, get) => ({
       items: [],
 
-      // 添加商品（已存在则数量+1）
-      addItem: (product) =>
+      // 添加商品（已存在则数量增加，支持指定数量）
+      addItem: (product, quantity = 1) =>
         set((state) => {
           const existing = state.items.find(
             (item) => item.product.id === product.id
@@ -37,12 +38,12 @@ export const useCartStore = create<CartState>()(
             return {
               items: state.items.map((item) =>
                 item.product.id === product.id
-                  ? { ...item, quantity: item.quantity + 1 }
+                  ? { ...item, quantity: item.quantity + quantity }
                   : item
               ),
             };
           }
-          return { items: [...state.items, { product, quantity: 1 }] };
+          return { items: [...state.items, { product, quantity }] };
         }),
 
       // 移除商品

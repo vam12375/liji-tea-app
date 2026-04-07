@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/Colors";
-import { showModal } from "@/stores/modalStore";
 
 export default function TopAppBar() {
   const insets = useSafeAreaInsets();
@@ -27,10 +26,10 @@ export default function TopAppBar() {
           <Pressable hitSlop={8} onPress={() => router.push("/search")}>
             <MaterialIcons name="search" size={24} color={Colors.primary} />
           </Pressable>
-          {/* 通知入口 — 功能即将上线 */}
+          {/* 通知入口 — 跳转消息通知页 */}
           <Pressable
             hitSlop={8}
-            onPress={() => showModal("提示", "消息通知功能即将上线")}
+            onPress={() => router.push("/notifications")}
           >
             <MaterialIcons name="notifications-none" size={24} color={Colors.primary} />
           </Pressable>

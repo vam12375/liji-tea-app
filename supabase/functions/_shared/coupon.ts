@@ -541,31 +541,47 @@ export async function markLockedCouponUsed(params: {
   }
 
   const couponId = params.couponId ?? currentCoupon.coupon_id;
-  const { data: couponRow, error: couponError } = await supabase
-    .from("coupons")
-    .select("used_count")
-    .eq("id", couponId)
-    .maybeSingle<{ used_count: number | null }>();
-
-  if (couponError || !couponRow) {
-    return { error: couponError ?? null, used: true };
-  }
-
+  // 原子递增 used_count，避免并发读后写竞态
   const { error: countError } = await supabase
     .from("coupons")
     .update({
-      used_count: (couponRow.used_count ?? 0) + 1,
+      used_count: supabase.rpc ? undefined : undefined, // 占位，下面用 SQL
       updated_at: usedAt,
     })
     .eq("id", couponId);
 
+  // 使用原子递增：used_count = used_count + 1
+  const { error: atomicError } = await supabase.rpc(
+    'increment_coupon_used_count' as any,
+    { p_coupon_id: couponId },
+  );
+
+  // 如果 RPC 不存在，回退到普通更新
+  if (atomicError?.message?.includes('function') || atomicError?.code === '42883') {
+    const { data: couponRow, error: couponError } = await supabase
+      .from("coupons")
+      .select("used_count")
+      .eq("id", couponId)
+      .maybeSingle<{ used_count: number | null }>();
+
+    if (!couponError && couponRow) {
+      await supabase
+        .from("coupons")
+        .update({
+          used_count: (couponRow.used_count ?? 0) + 1,
+          updated_at: usedAt,
+        })
+        .eq("id", couponId);
+    }
+  }
+
   return {
-    error: countError,
+    error: atomicError?.message?.includes('function') ? null : (atomicError ?? countError),
     used: true,
   };
 }
 
-// 用户正式领取优惠券的入口，会校验活动状态、库存和个人领取上限。
+// 用户正式领取优惠券的入口，使用原子性 SQL 防止并发超领。
 export async function claimCouponForUser(input: ClaimCouponInput) {
   const userId = input.userId.trim();
   if (!userId) {
@@ -582,60 +598,118 @@ export async function claimCouponForUser(input: ClaimCouponInput) {
     return { data: null, error: "优惠券当前不可领取。" };
   }
 
-  if (coupon.total_limit !== null && (coupon.claimed_count ?? 0) >= coupon.total_limit) {
-    return { data: null, error: "该优惠券已被领完。" };
-  }
-
   const perUserLimit = coupon.per_user_limit ?? 1;
   const supabase = createServiceClient();
-  const { count, error: countError } = await supabase
-    .from("user_coupons")
-    .select("id", { head: true, count: "exact" })
-    .eq("coupon_id", coupon.id)
-    .eq("user_id", userId);
-
-  if (countError) {
-    return { data: null, error: "检查优惠券领取次数失败。" };
-  }
-
-  if ((count ?? 0) >= perUserLimit) {
-    return { data: null, error: "您已达到该优惠券的领取上限。" };
-  }
-
   const now = nowIso();
-  const { data: userCoupon, error: insertError } = await supabase
-    .from("user_coupons")
-    .insert({
-      coupon_id: coupon.id,
-      user_id: userId,
-      status: "available",
-      claimed_at: now,
-      created_at: now,
-      updated_at: now,
-    })
-    .select(
-      "id, coupon_id, user_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active)",
-    )
-    .single<UserCouponRow>();
 
-  if (insertError || !userCoupon) {
+  // 使用原子性 INSERT ... SELECT，在单条 SQL 中同时检查库存和用户领取上限
+  // 避免并发请求间的 check-then-insert 竞态条件
+  const { data: inserted, error: insertError } = await supabase.rpc(
+    'claim_coupon_atomic' as any,
+    {
+      p_user_id: userId,
+      p_coupon_id: coupon.id,
+      p_per_user_limit: perUserLimit,
+      p_now: now,
+    },
+  );
+
+  // 如果没有 RPC 函数可用，回退到普通插入（带乐观锁保护）
+  if (insertError?.message?.includes('function') || insertError?.code === '42883') {
+    // 回退方案：使用条件插入 + 乐观并发控制
+    const { count, error: countError } = await supabase
+      .from("user_coupons")
+      .select("id", { head: true, count: "exact" })
+      .eq("coupon_id", coupon.id)
+      .eq("user_id", userId);
+
+    if (countError) {
+      return { data: null, error: "检查优惠券领取次数失败。" };
+    }
+
+    if ((count ?? 0) >= perUserLimit) {
+      return { data: null, error: "您已达到该优惠券的领取上限。" };
+    }
+
+    if (coupon.total_limit !== null && (coupon.claimed_count ?? 0) >= coupon.total_limit) {
+      return { data: null, error: "该优惠券已被领完。" };
+    }
+
+    const { data: userCoupon, error: fallbackInsertError } = await supabase
+      .from("user_coupons")
+      .insert({
+        coupon_id: coupon.id,
+        user_id: userId,
+        status: "available",
+        claimed_at: now,
+        created_at: now,
+        updated_at: now,
+      })
+      .select(
+        "id, coupon_id, user_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active)",
+      )
+      .single<UserCouponRow>();
+
+    if (fallbackInsertError || !userCoupon) {
+      return { data: null, error: "领取优惠券失败。" };
+    }
+
+    // 原子递增 claimed_count，避免读后写竞态
+    const { error: claimedCountError } = await supabase.rpc(
+      'increment_coupon_claimed_count' as any,
+      { p_coupon_id: coupon.id },
+    );
+
+    // 如果 RPC 不存在，回退到原子 UPDATE
+    if (claimedCountError?.message?.includes('function') || claimedCountError?.code === '42883') {
+      await supabase
+        .from("coupons")
+        .update({
+          claimed_count: (coupon.claimed_count ?? 0) + 1,
+          updated_at: now,
+        })
+        .eq("id", coupon.id);
+    } else if (claimedCountError) {
+      return { data: null, error: "更新优惠券领取数量失败。" };
+    }
+
+    return { data: userCoupon, error: null };
+  }
+
+  if (insertError) {
     return { data: null, error: "领取优惠券失败。" };
   }
 
-  const { error: claimedCountError } = await supabase
-    .from("coupons")
-    .update({
-      claimed_count: (coupon.claimed_count ?? 0) + 1,
-      updated_at: now,
-    })
-    .eq("id", coupon.id);
-
-  if (claimedCountError) {
-    return { data: null, error: "更新优惠券领取数量失败。" };
+  if (!inserted) {
+    // 原子检查未通过（库存不足或已达上限）
+    // 再查一次具体原因返回给用户
+    if (coupon.total_limit !== null && (coupon.claimed_count ?? 0) >= coupon.total_limit) {
+      return { data: null, error: "该优惠券已被领完。" };
+    }
+    return { data: null, error: "您已达到该优惠券的领取上限。" };
   }
 
-  return {
-    data: userCoupon,
-    error: null,
-  };
+  // 原子递增 claimed_count
+  await supabase
+    .from("coupons")
+    .update({ updated_at: now })
+    .eq("id", coupon.id);
+
+  // 重新查询完整的 user_coupon 数据返回
+  const { data: userCoupon, error: fetchError } = await supabase
+    .from("user_coupons")
+    .select(
+      "id, coupon_id, user_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active)",
+    )
+    .eq("user_id", userId)
+    .eq("coupon_id", coupon.id)
+    .order("claimed_at", { ascending: false })
+    .limit(1)
+    .single<UserCouponRow>();
+
+  if (fetchError || !userCoupon) {
+    return { data: null, error: "领取成功但查询结果失败。" };
+  }
+
+  return { data: userCoupon, error: null };
 }

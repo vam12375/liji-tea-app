@@ -116,7 +116,8 @@ export const useArticleStore = create<ArticleState>()((set, get) => ({
       const { data, error } = await supabase
         .from('articles')
         .select('*')
-        .order('published_at', { ascending: false });
+        .order('published_at', { ascending: false })
+        .limit(50);
 
       if (error) throw error;
 
@@ -145,7 +146,8 @@ export const useArticleStore = create<ArticleState>()((set, get) => ({
       const { data, error } = await supabase
         .from('seasonal_picks')
         .select('*')
-        .order('sort_order', { ascending: true });
+        .order('sort_order', { ascending: true })
+        .limit(20);
 
       if (error) throw error;
       set({ seasonalPicks: (data ?? []).map(mapSeasonalPick) });
