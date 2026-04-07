@@ -39,6 +39,14 @@ function mapTradeStatus(tradeStatus: string) {
   return "paying";
 }
 
+function buildAbnormalPaidNotifyMessage(order: PaymentOrderRow) {
+  if (order.status === "cancelled") {
+    return "订单已取消或已释放库存，但收到支付宝成功回调，已标记为异常单待处理。";
+  }
+
+  return `订单当前状态为 ${order.status}，但收到支付宝成功回调，已标记为异常单待处理。`;
+}
+
 Deno.serve(async (req: Request) => {
   const corsResponse = handleCors(req);
   if (corsResponse) {
@@ -145,9 +153,45 @@ Deno.serve(async (req: Request) => {
       return textResponse("success");
     }
 
+    if (normalizedTradeStatus === "success" && order.status !== "pending") {
+      const abnormalMessage = buildAbnormalPaidNotifyMessage(order);
+
+      const { error: abnormalOrderError } = await supabase
+        .from("orders")
+        .update({
+          payment_channel: "alipay",
+          payment_status: "failed",
+          payment_error_code: "abnormal_paid_notify",
+          payment_error_message: abnormalMessage,
+          updated_at: now,
+        })
+        .eq("id", order.id)
+        .neq("status", "paid");
+
+      if (abnormalOrderError) {
+        return textResponse("failure", { status: 500 });
+      }
+
+      await supabase
+        .from("payment_transactions")
+        .update({
+          notify_payload: {
+            ...params,
+            abnormal_order: true,
+            abnormal_reason: abnormalMessage,
+            abnormal_detected_at: now,
+          },
+          notify_verified: true,
+          updated_at: now,
+        })
+        .eq("out_trade_no", outTradeNo);
+
+      return textResponse("success");
+    }
+
     if (normalizedTradeStatus === "success") {
       const { error: paidError } = await markOrderPaid({
-        order: order as PaymentOrderRow,
+        order,
         channel: "alipay",
         paymentStatus: "success",
         outTradeNo,

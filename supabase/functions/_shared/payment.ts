@@ -1,9 +1,10 @@
+import { closeAlipayTrade } from "./alipay.ts";
 import {
   markLockedCouponUsed,
   releaseLockedCoupon,
   type AppliedCouponSummary,
 } from "./coupon.ts";
-import { createServiceClient } from "./supabase.ts";
+import { createServiceClient, getRequiredEnv } from "./supabase.ts";
 
 interface OrderItemProductRow {
   name: string | null;
@@ -59,6 +60,8 @@ export interface PendingOrderSnapshot {
   id: string;
   status: string;
   created_at: string;
+  out_trade_no?: string | null;
+  payment_channel?: string | null;
 }
 
 export interface TrackingEventInput {
@@ -276,10 +279,73 @@ export function isPendingOrderExpired(order: PendingOrderSnapshot) {
   return Date.now() - createdAt >= PENDING_ORDER_EXPIRE_MS;
 }
 
+async function closeExpiredAlipayTrade(order: PendingOrderSnapshot) {
+  if (!order.out_trade_no) {
+    return {
+      attempted: false,
+      success: false,
+      result: null,
+      error: null,
+    };
+  }
+
+  if (order.payment_channel && order.payment_channel !== "alipay") {
+    return {
+      attempted: false,
+      success: false,
+      result: null,
+      error: null,
+    };
+  }
+
+  try {
+    const result = await closeAlipayTrade({
+      gatewayUrl: getRequiredEnv("ALIPAY_GATEWAY"),
+      appId: getRequiredEnv("ALIPAY_APP_ID"),
+      privateKeyPem: getRequiredEnv("ALIPAY_PRIVATE_KEY"),
+      outTradeNo: order.out_trade_no,
+    });
+
+    if (result.success || result.subCode === "ACQ.TRADE_NOT_EXIST") {
+      return {
+        attempted: true,
+        success: true,
+        result,
+        error: null,
+      };
+    }
+
+    return {
+      attempted: true,
+      success: false,
+      result,
+      error: new Error(
+        `支付宝关单失败：${result.message}${
+          result.subCode ? ` (${result.subCode})` : ""
+        }`,
+      ),
+    };
+  } catch (error) {
+    return {
+      attempted: true,
+      success: false,
+      result: null,
+      error:
+        error instanceof Error ? error : new Error("调用支付宝关单接口失败。"),
+    };
+  }
+}
+
 // 关闭超时待付款订单，同时关闭支付流水并释放已锁定优惠券。
 export async function closeExpiredPendingOrder(order: PendingOrderSnapshot) {
   if (!isPendingOrderExpired(order)) {
     return { expired: false, error: null };
+  }
+
+  const remoteCloseResult = await closeExpiredAlipayTrade(order);
+
+  if (remoteCloseResult.error) {
+    return { expired: true, error: remoteCloseResult.error };
   }
 
   const supabase = createServiceClient();
@@ -309,6 +375,7 @@ export async function closeExpiredPendingOrder(order: PendingOrderSnapshot) {
       notify_payload: {
         type: "order_expired",
         cancelled_at: now,
+        alipay_close: remoteCloseResult.attempted ? remoteCloseResult.result : null,
       },
       notify_verified: true,
       updated_at: now,

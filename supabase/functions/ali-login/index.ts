@@ -73,7 +73,6 @@ async function callAliApi(
 
   const response = await fetch(url);
   const body = await response.json();
-  console.log("[ali-login] 阿里云原始响应:", JSON.stringify(body));
   if (!response.ok) {
     const msg = body["Message"] || body["Code"] || response.status;
     throw new Error("阿里云 API 请求失败: " + msg);
@@ -105,7 +104,6 @@ async function getFusionAuthToken(): Promise<string> {
     throw new Error("鉴权 Token 字段缺失");
   }
 
-  console.log("[ali-login] 鉴权 Token 获取成功");
   return authToken;
 }
 
@@ -127,7 +125,6 @@ async function verifyFusionToken(verifyToken: string): Promise<string> {
   const phoneNumber = result["PhoneNumber"] as string | undefined;
   if (!phoneNumber) throw new Error("未获取到手机号");
 
-  console.log("[ali-login] 验证成功，手机号: " + phoneNumber.substring(0, 3) + "****" + phoneNumber.substring(7));
   return phoneNumber;
 }
 
@@ -149,9 +146,7 @@ async function findOrCreateUserSession(phoneNumber: string) {
   let userId: string;
   if (existingProfile) {
     userId = existingProfile.user_id;
-    console.log("[ali-login] 已有用户: " + userId);
   } else {
-    console.log("[ali-login] 创建新用户: " + phoneNumber);
     const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
       phone: phoneNumber,
       phone_confirmed_at: new Date().toISOString(),
@@ -198,7 +193,6 @@ Deno.serve(async (req: Request) => {
       if (!verifyToken || typeof verifyToken !== "string" || verifyToken.trim() === "") {
         return errorResponse("verifyToken 不能为空", 400, "missing_verify_token");
       }
-      console.log("[ali-login] 收到融合认证登录请求");
 
       let phoneNumber: string;
       try {
@@ -209,7 +203,6 @@ Deno.serve(async (req: Request) => {
       }
 
       const session = await findOrCreateUserSession(phoneNumber);
-      console.log("[ali-login] 登录成功");
       return jsonResponse({ session });
     }
 
