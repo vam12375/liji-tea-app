@@ -1,17 +1,108 @@
-type LoggerContext = Record<string, unknown> | undefined;
-const isDevelopment =
-  typeof __DEV__ !== "undefined" ? __DEV__ : process.env.NODE_ENV !== "production";
+type Primitive = string | number | boolean | null | undefined;
+export type LoggerValue =Primitive | LoggerValue[] | Record<string, unknown>;
+export type LoggerContext = Record<string, unknown> | undefined;
 
-/** 统一拼装日志前缀和上下文字段，避免每处手写 console 参数。 */
+const isDevelopment =
+  typeof __DEV__ !== "undefined"
+    ? __DEV__
+    : process.env.NODE_ENV !== "production";
+
+const REDACTED_KEYS = [
+  "authorization",
+  "apikey",
+  "access_token",
+  "refresh_token",
+  "token",
+  "jwt",
+  "phone",
+  "mobile",
+  "verifytoken",
+  "verify_token",
+  "password",
+  "secret",
+  "privatekey",
+  "private_key",
+] as const;
+
+// 按 key 名做脱敏匹配，避免日志里泄漏 token、手机号和密钥。
+function shouldRedactKey(key: string) {
+  const normalizedKey = key.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+  return REDACTED_KEYS.some((item) => normalizedKey.includes(item));
+}
+
+function redactString(value: string) {
+  if (value.length <= 8) {
+    return "[REDACTED]";
+  }
+
+  return `${value.slice(0, 2)}***${value.slice(-2)}`;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+// 递归清洗上下文对象，保证业务日志仍可读，同时敏感字段被掩码。
+function redactUnknown(key: string, value: unknown): LoggerValue {
+  if (shouldRedactKey(key)) {
+    if (typeof value === "string") {
+      return redactString(value);
+    }
+
+    return "[REDACTED]";
+  }
+
+  if (
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    value === null ||
+    value === undefined
+  ) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) =>redactUnknown(key, item));
+  }
+
+  if (isPlainObject(value)) {
+    return redactContext(value) ?? {};
+  }
+
+  return String(value);
+}
+
+export function redactContext(
+  context?: Record<string, unknown>,
+): Record<string, LoggerValue> | undefined {
+  if (!context) {
+    return undefined;
+  }
+
+  return Object.fromEntries(
+    Object.entries(context).map(([key, value]) => [key,redactUnknown(key, value)]),
+  );
+}
+
 function formatPayload(scope: string, message: string, context?: LoggerContext) {
-  if (!context || Object.keys(context).length === 0) {
+  const safeContext = redactContext(context);
+
+  if (!safeContext|| Object.keys(safeContext).length === 0) {
     return [`[${scope}] ${message}`] as const;
   }
 
-  return [`[${scope}] ${message}`, context] as const;
+  return [`[${scope}] ${message}`, safeContext] as const;
 }
 
-/** info 级日志默认只在开发态输出，避免线上噪音。 */
+export function logDebug(scope: string, message: string, context?:LoggerContext) {
+  if (!isDevelopment) {
+    return;
+  }
+
+  console.debug(...formatPayload(scope, message, context));
+}
+
 export function logInfo(scope: string, message: string, context?: LoggerContext) {
   if (!isDevelopment) {
     return;
@@ -20,25 +111,34 @@ export function logInfo(scope: string, message: string, context?: LoggerContext)
   console.info(...formatPayload(scope, message, context));
 }
 
-/** warn 级日志默认持续输出，方便排查异常数据。 */
 export function logWarn(scope: string, message: string, context?: LoggerContext) {
   console.warn(...formatPayload(scope, message, context));
 }
 
-/** captureError 作为后续对接 Sentry/PostHog 前的统一占位层。 */
+export function logError(scope: string, message: string, context?: LoggerContext) {
+  console.error(...formatPayload(scope, message, context));
+}
+
 export function captureError(
   error: unknown,
   context?: LoggerContext & { scope?: string; message?: string },
 ) {
-  const scope = context?.scope ?? "error";
+const scope = typeof context?.scope === "string" ? context.scope : "error";
   const message =
-    context?.message ??
-    (error instanceof Error ? error.message : "发生未识别异常。");
+    typeof context?.message === "string"
+      ? context.message
+      : error instanceof Error
+        ? error.message
+        : "发生未识别异常。";
 
-  const detail =
+const detail =
     error instanceof Error
-      ? { name: error.name, stack: error.stack, ...context }
-      : context;
+      ? {
+          name: error.name,
+          stack: error.stack,
+          ...redactContext(context),
+        }
+      : redactContext(context);
 
   console.error(...formatPayload(scope, message, detail));
 }

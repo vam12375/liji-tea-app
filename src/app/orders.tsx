@@ -10,8 +10,8 @@ import {
 
 import OrderStatusBadge from "@/components/order/OrderStatusBadge";
 import PaymentCountdown from "@/components/order/PaymentCountdown";
-import AppHeader from "@/components/ui/AppHeader";
-import ScreenState from "@/components/ui/ScreenState";
+import { AppHeader } from "@/components/ui/AppHeader";
+import { ScreenState } from "@/components/ui/ScreenState";
 import { Colors } from "@/constants/Colors";
 import { orderCopy, screenStateCopy } from "@/constants/copy";
 import { ORDER_STATUS_TO_TAB, ORDER_TABS } from "@/constants/order";

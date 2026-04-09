@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+
+import { logWarn } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
 import type { Product as DBProduct } from '@/types/database';
 
@@ -13,7 +15,7 @@ export interface Product {
   description?: string;
   isNew?: boolean;
   category: string;
-  tagline?: string;
+tagline?: string;
   tastingProfile?: { label: string; description: string; value: number }[];
   brewingGuide?: {
     temperature: string;
@@ -21,7 +23,7 @@ export interface Product {
     amount: string;
     equipment: string;
   };
-  originStory?: string;
+originStory?: string;
   process?: string[];
   stock?: number;
 }
@@ -29,19 +31,19 @@ export interface Product {
 /** 将数据库行映射为前端 Product 类型 */
 function mapProduct(row: DBProduct): Product {
   return {
-    id: row.id,
+    id:row.id,
     name: row.name,
     origin: row.origin ?? '',
     price: Number(row.price),
     unit: row.unit,
     image: row.image_url ?? '',
-    description: row.description ?? undefined,
+description: row.description ?? undefined,
     isNew: row.is_new,
     category: row.category,
     tagline: row.tagline ?? undefined,
     tastingProfile: row.tasting_profile ?? undefined,
     brewingGuide: row.brewing_guide ?? undefined,
-    originStory: row.origin_story ?? undefined,
+originStory: row.origin_story ?? undefined,
     process: row.process ?? undefined,
     stock: row.stock,
   };
@@ -59,8 +61,13 @@ function upsertProduct(products: Product[], nextProduct: Product) {
   return nextProducts;
 }
 
+// Store 内统一把未知错误转成用户可展示文案，避免每个 action 重复兜底。
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 /** 每页加载的产品数量 */
-const PAGE_SIZE = 20;
+const PAGE_SIZE =20;
 
 interface ProductState {
   products: Product[];
@@ -68,13 +75,13 @@ interface ProductState {
   error: string | null;
   /** 是否还有更多产品可加载 */
   hasMore: boolean;
-  /** 当前分页页码 */
+  /**当前分页页码 */
   page: number;
 
   fetchProducts: (loadMore?: boolean) => Promise<void>;
   /** 加载更多产品（翻页） */
   loadMoreProducts: () => Promise<void>;
-  fetchProductById: (id: string) => Promise<Product | null>;
+  fetchProductById: (id: string) =>Promise<Product | null>;
   searchProducts: (query: string) => Promise<Product[]>;
   /** 实时回调：更新单个产品（库存等） */
   updateProduct: (updated: DBProduct) => void;
@@ -87,7 +94,7 @@ export const useProductStore = create<ProductState>()((set, get) => ({
   hasMore: true,
   page: 0,
 
-  fetchProducts: async (loadMore = false) => {
+fetchProducts: async (loadMore = false) => {
     try {
       const currentPage = loadMore ? get().page : 0;
       const from = currentPage * PAGE_SIZE;
@@ -101,13 +108,14 @@ export const useProductStore = create<ProductState>()((set, get) => ({
         .order('created_at', { ascending: true })
         .range(from, to);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       const newProducts = (data ?? []).map(mapProduct);
-      const hasMore = newProducts.length >= PAGE_SIZE;
+const hasMore = newProducts.length >= PAGE_SIZE;
 
       if (loadMore) {
-        // 追加模式：合并到现有列表
         set((state) => ({
           products: [...state.products, ...newProducts],
           loading: false,
@@ -115,66 +123,82 @@ export const useProductStore = create<ProductState>()((set, get) => ({
           page: currentPage + 1,
         }));
       } else {
-        // 重置模式：替换列表
         set({ products: newProducts, loading: false, hasMore, page: 1 });
       }
-    } catch (err: any) {
-      console.warn('[productStore] fetchProducts 失败:', err);
-      set({ loading: false, error: err?.message ?? '加载失败' });
+    } catch (error) {
+      logWarn('productStore', 'fetchProducts 失败', {
+        error: getErrorMessage(error, '加载失败'),
+      });
+      set({ loading: false, error: getErrorMessage(error, '加载失败') });
     }
   },
 
   loadMoreProducts: async () => {
     const { loading, hasMore } = get();
-    if (loading || !hasMore) return;
+    if (loading || !hasMore) {
+      return;
+    }
     await get().fetchProducts(true);
   },
 
-  fetchProductById: async (id) => {
+fetchProductById: async (id) => {
     try {
       const cached = get().products.find((p) => p.id === id);
-      if (cached) return cached;
+      if (cached) {
+        return cached;
+      }
 
-      const { data, error } = await supabase
+      const { data,error } = await supabase
         .from('products')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (error) throw error;
-      if (!data) return null;
+      if (error) {
+        throw error;
+      }
+      if (!data) {
+        return null;
+      }
 
       const product = mapProduct(data);
       set((state) => ({
         products: upsertProduct(state.products, product),
       }));
-      return product;
-    } catch (err) {
-      console.warn('[productStore] fetchProductById 失败:', err);
+return product;
+    } catch (error) {
+      logWarn('productStore', 'fetchProductById 失败', {
+        productId: id,
+        error: getErrorMessage(error, '加载商品失败'),
+      });
       return null;
     }
   },
 
   searchProducts: async (query) => {
     try {
-      // 清理 LIKE 特殊字符，防止注入
       const safe = query.replace(/[%_\\]/g, '\\$&');
-      const { data, error } = await supabase
+      const { data, error }= await supabase
         .from('products')
         .select('*')
         .eq('is_active', true)
         .or(`name.ilike.%${safe}%,origin.ilike.%${safe}%`)
         .limit(50);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
       return (data ?? []).map(mapProduct);
-    } catch (err) {
-      console.warn('[productStore] searchProducts 失败:', err);
+    } catch (error) {
+logWarn('productStore', 'searchProducts 失败', {
+        query,
+        error: getErrorMessage(error, '搜索失败'),
+      });
       return [];
     }
   },
 
-  updateProduct: (updated) => {
+updateProduct: (updated) => {
     const nextProduct = mapProduct(updated);
 
     set((state) => ({

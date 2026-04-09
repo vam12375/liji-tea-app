@@ -12,6 +12,7 @@ interface ScreenStateProps {
   icon?: keyof typeof MaterialIcons.glyphMap;
   actionLabel?: string;
   onAction?: () => void;
+  onActionPress?:() => void;
   activityColor?: string;
 }
 
@@ -20,15 +21,18 @@ export function ScreenState({
   variant,
   title,
   description,
-  icon = variant === "error" ? "error-outline" : "inventory",
+icon = variant === "error" ? "error-outline" : "inventory",
   actionLabel,
   onAction,
+  onActionPress,
   activityColor = Colors.primary,
 }: ScreenStateProps) {
+const resolvedAction = onAction ?? onActionPress;
+
   return (
     <View className="flex-1 items-center justify-center gap-4 px-8">
       {variant === "loading" ? (
-        <ActivityIndicator size="large" color={activityColor} />
+        <ActivityIndicator size="large" color={activityColor}/>
       ) : (
         <View className="w-16 h-16 rounded-full bg-surface-container-low items-center justify-center">
           <MaterialIcons name={icon} size={30} color={Colors.outline} />
@@ -44,9 +48,9 @@ export function ScreenState({
         ) : null}
       </View>
 
-      {actionLabel && onAction ? (
+      {actionLabel && resolvedAction ? (
         <Pressable
-          onPress={onAction}
+          onPress={resolvedAction}
           className="bg-primary-container rounded-full px-5 py-3 active:bg-primary"
         >
           <Text className="text-on-primary font-medium">{actionLabel}</Text>
@@ -56,3 +60,4 @@ export function ScreenState({
   );
 }
 
+export default ScreenState;
