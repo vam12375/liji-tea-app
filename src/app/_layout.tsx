@@ -1,5 +1,5 @@
 import "../../global.css";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { View } from "react-native";
 import { Stack, router } from "expo-router";
 import { useFonts } from "expo-font";
@@ -10,12 +10,16 @@ import { NotoSerifSC_700Bold } from "@expo-google-fonts/noto-serif-sc/700Bold";
 import { Manrope_400Regular } from "@expo-google-fonts/manrope/400Regular";
 import { Manrope_500Medium } from "@expo-google-fonts/manrope/500Medium";
 import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
+
 import TeaModal from "@/components/ui/TeaModal";
-import { supabase } from "@/lib/supabase";
+import { diagnoseAuthState } from "@/lib/authDiagnostics";
+import { captureError, logInfo } from "@/lib/logger";
+import { logRuntimeDiagnostics } from "@/lib/runtimeDiagnostics";
+import { setupSupabaseAutoRefresh, supabase } from "@/lib/supabase";
 import { useCouponStore } from "@/stores/couponStore";
 import { useUserStore } from "@/stores/userStore";
 
-// 防止启动屏在字体加载前消失
+// 防止启动屏在字体加载前消失，避免首屏闪烁未加载字体的内容。
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -27,75 +31,231 @@ export default function RootLayout() {
     Manrope_700Bold,
   });
 
-  // --- Supabase Auth 状态监听 ---
-  const setSession = useUserStore((s) => s.setSession);
-  const setInitialized = useUserStore((s) => s.setInitialized);
-  const fetchProfile = useUserStore((s) => s.fetchProfile);
-  const fetchAddresses = useUserStore((s) => s.fetchAddresses);
-  const fetchFavorites = useUserStore((s) => s.fetchFavorites);
-  const fetchPublicCoupons = useCouponStore((s) => s.fetchPublicCoupons);
-  const fetchUserCoupons = useCouponStore((s) => s.fetchUserCoupons);
-  const resetCoupons = useCouponStore((s) => s.reset);
+  // 统一收口用户与优惠券初始化动作，方便登录态切换时做幂等控制。
+  const setSession = useUserStore((state) => state.setSession);
+  const setInitialized = useUserStore((state) => state.setInitialized);
+  const fetchProfile = useUserStore((state) => state.fetchProfile);
+  const fetchAddresses = useUserStore((state) => state.fetchAddresses);
+  const fetchFavorites = useUserStore((state) => state.fetchFavorites);
+  const fetchPublicCoupons = useCouponStore((state) => state.fetchPublicCoupons);
+  const fetchUserCoupons = useCouponStore((state) => state.fetchUserCoupons);
+  const resetCoupons = useCouponStore((state) => state.reset);
 
-  useEffect(() => {
-    // 加载现有 session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setInitialized();
+  // 下面几个 ref 用来实现“同一用户只初始化一次”和“同一时刻只跑一条初始化链路”。
+  const authBootstrapRequestIdRef = useRef(0);
+  const bootstrappingUserIdRef = useRef<string | null>(null);
+  const lastInitializedUserIdRef = useRef<string | null>(null);
+  const hasLoadedPublicCouponsRef = useRef(false);
 
-      if (session) {
-        void fetchProfile();
-        void fetchAddresses();
-        void fetchFavorites();
-        void fetchPublicCoupons();
-        void fetchUserCoupons();
+  /**
+   * 公开优惠券对游客和登录用户都可见，但没有必要在短时间内重复拉取。
+   * 这里用一个 ref 做轻量缓存，只有首次进入或明确要求刷新时才重新请求。
+   */
+  const loadPublicCouponsOnce = useCallback(
+    async (source: string, force = false) => {
+      if (!force && hasLoadedPublicCouponsRef.current) {
+        logInfo("layout", "跳过重复公开优惠券初始化", { source });
         return;
       }
 
-      resetCoupons();
-      void fetchPublicCoupons();
-    });
+      await fetchPublicCoupons();
+      hasLoadedPublicCouponsRef.current = true;
+      logInfo("layout", "公开优惠券初始化完成", { source });
+    },
+    [fetchPublicCoupons],
+  );
 
-    // 监听 auth 状态变化
+  /**
+   * 登录用户初始化链路：个人资料、地址、收藏、公开券、用户券一起并发拉取。
+   * 同一个 userId 已初始化或正在初始化时直接跳过，避免 getSession 与 onAuthStateChange 双触发。
+   */
+  const bootstrapAuthenticatedUser = useCallback(
+    async (userId: string, source: string) => {
+      if (lastInitializedUserIdRef.current === userId) {
+        logInfo("layout", "跳过重复登录态初始化", {
+          userId,
+          source,
+          reason: "already_initialized",
+        });
+        return;
+      }
+
+      if (bootstrappingUserIdRef.current === userId) {
+        logInfo("layout", "跳过并发登录态初始化", {
+          userId,
+          source,
+          reason: "initializing",
+        });
+        return;
+      }
+
+      const requestId = ++authBootstrapRequestIdRef.current;
+      bootstrappingUserIdRef.current = userId;
+
+      logInfo("layout", "开始初始化登录态数据", {
+        userId,
+        source,
+        requestId,
+      });
+
+      try {
+        await Promise.all([
+          fetchProfile(),
+          fetchAddresses(),
+          fetchFavorites(),
+          loadPublicCouponsOnce(`${source}:signed_in`),
+          fetchUserCoupons(),
+        ]);
+
+        // 如果初始化结束时当前 session 已经切到别的用户，就不再把这次结果标记为有效。
+        const currentUserId = useUserStore.getState().session?.user?.id ?? null;
+        if (currentUserId !== userId || authBootstrapRequestIdRef.current !== requestId) {
+          logInfo("layout", "忽略过期登录态初始化结果", {
+            userId,
+            currentUserId,
+            source,
+            requestId,
+          });
+          return;
+        }
+
+        lastInitializedUserIdRef.current = userId;
+        logInfo("layout", "登录态数据初始化完成", {
+          userId,
+          source,
+          requestId,
+        });
+      } catch (error: unknown) {
+        captureError(error, {
+          scope: "layout",
+          message: "初始化登录态数据失败",
+          userId,
+          source,
+          requestId,
+        });
+
+        // 开发态补充一次认证链路诊断，便于快速判断 session / token 是否异常。
+        if (__DEV__) {
+          void diagnoseAuthState();
+        }
+      } finally {
+        if (bootstrappingUserIdRef.current === userId) {
+          bootstrappingUserIdRef.current = null;
+        }
+      }
+    },
+    [fetchAddresses, fetchFavorites, fetchProfile, fetchUserCoupons, loadPublicCouponsOnce],
+  );
+
+  /**
+   * 统一处理 session 解析结果，让 getSession 与 onAuthStateChange 复用同一套逻辑。
+   * 这样可以避免两条入口各自维护一套初始化分支，降低重复触发风险。
+   */
+  const handleResolvedSession = useCallback(
+    async (
+      session: Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"],
+      source: "getSession" | "auth_change",
+    ) => {
+      const previousUserId = useUserStore.getState().session?.user?.id ?? null;
+      const nextUserId = session?.user?.id ?? null;
+      const hadSession = Boolean(previousUserId);
+
+      logInfo("layout", "处理认证状态变更", {
+        source,
+        previousUserId,
+        nextUserId,
+      });
+
+      // 先写入 session，保证后续 store action 能读取到最新 userId。
+      setSession(session);
+
+      // initialized 只需要在根布局首次解析完 session 后置为 true。
+      if (source === "getSession") {
+        setInitialized();
+      }
+
+      if (nextUserId) {
+        await bootstrapAuthenticatedUser(nextUserId, source);
+        return;
+      }
+
+      // 进入未登录态时，主动让旧请求失效，并清空用户相关的初始化标记。
+      authBootstrapRequestIdRef.current += 1;
+      bootstrappingUserIdRef.current = null;
+      lastInitializedUserIdRef.current = null;
+
+      // 只有发生真实登出时才重置优惠券，再重新拉一次公开券；首次游客进入则复用缓存逻辑。
+      if (hadSession) {
+        resetCoupons();
+        hasLoadedPublicCouponsRef.current = false;
+      }
+
+      await loadPublicCouponsOnce(`${source}:signed_out`, hadSession);
+
+      // 被动登出（token 过期等）时跳转登录页，主动未登录启动则不打断当前路由。
+      if (source === "auth_change" && hadSession) {
+        router.replace("/login");
+      }
+    },
+    [bootstrapAuthenticatedUser, loadPublicCouponsOnce, resetCoupons, setInitialized, setSession],
+  );
+
+  useEffect(() => {
+    // 启动时先输出运行环境和认证诊断，便于排查原生支付、Session 恢复等问题。
+    logRuntimeDiagnostics();
+    if (__DEV__) {
+      void diagnoseAuthState();
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    // 启动阶段先读取本地 session，再根据结果走统一初始化逻辑。
+    void supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        if (!active) {
+          return;
+        }
+
+        void handleResolvedSession(session, "getSession");
+      })
+      .catch((error: unknown) => {
+        captureError(error, {
+          scope: "layout",
+          message: "getSession 初始化失败",
+        });
+        setInitialized();
+      });
+
+    // 后续所有认证状态变化都复用同一个处理函数，避免逻辑分叉。
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      const hadSession = !!useUserStore.getState().session;
-      setSession(session);
-
-      if (session) {
-        void fetchProfile();
-        void fetchAddresses();
-        void fetchFavorites();
-        void fetchPublicCoupons();
-        void fetchUserCoupons();
+      if (!active) {
         return;
       }
 
-      resetCoupons();
-      void fetchPublicCoupons();
-
-      // 被动登出（token 过期等）时跳转登录页
-      if (hadSession) {
-        router.replace("/login");
-      }
+      void handleResolvedSession(session, "auth_change");
     });
 
-    return () => subscription.unsubscribe();
-  }, [
-    setSession,
-    setInitialized,
-    fetchProfile,
-    fetchAddresses,
-    fetchFavorites,
-    fetchPublicCoupons,
-    fetchUserCoupons,
-    resetCoupons,
-  ]);
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [handleResolvedSession, setInitialized]);
 
   useEffect(() => {
+    // 统一托管 Supabase token 自动刷新与 AppState 联动逻辑。
+    const cleanup = setupSupabaseAutoRefresh();
+    return cleanup;
+  }, []);
+
+  useEffect(() => {
+    // 字体加载完成后再隐藏启动屏，避免首屏布局抖动。
     if (fontsLoaded) {
-      SplashScreen.hideAsync();
+      void SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
 
@@ -110,7 +270,7 @@ export default function RootLayout() {
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
-      {/* 全局自定义弹窗 */}
+      {/* 全局自定义弹窗保持挂载在根布局，便于任意页面直接调用。 */}
       <TeaModal />
     </>
   );

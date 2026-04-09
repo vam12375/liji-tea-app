@@ -1,7 +1,17 @@
 import { create } from 'zustand';
+
 import { supabase } from '@/lib/supabase';
 import { useUserStore } from '@/stores/userStore';
-import type { CommunityPostType } from '@/types/database';
+import type { CommunityPostType, Post as DBPost } from '@/types/database';
+
+const STORY_SELECT = `
+  id,
+  author_id,
+  image_url,
+  caption,
+  created_at,
+  author:profiles!stories_author_id_fkey(name, avatar_url)
+`;
 
 const POST_SELECT = `
   id,
@@ -16,49 +26,69 @@ const POST_SELECT = `
   quote,
   title,
   description,
+  created_at,
   like_count,
   comment_count,
-  created_at,
-  updated_at,
-  author:profiles!posts_author_id_fkey (
-    id,
-    name,
-    avatar_url
-  )
-`;
-
-const STORY_SELECT = `
-  id,
-  author_id,
-  image_url,
-  caption,
-  expires_at,
-  created_at,
-  updated_at,
-  author:profiles!stories_author_id_fkey (
-    id,
-    name,
-    avatar_url
-  )
+  author:profiles!posts_author_id_fkey(name, avatar_url)
 `;
 
 const COMMENT_SELECT = `
   id,
   post_id,
   author_id,
-  parent_id,
   content,
-  like_count,
   created_at,
-  updated_at,
-  author:profiles!post_comments_author_id_fkey (
-    id,
-    name,
-    avatar_url
-  )
+  like_count,
+  author:profiles!post_comments_author_id_fkey(name, avatar_url)
 `;
 
-/** 前端 Story 类型 */
+const POST_PAGE_SIZE = 20;
+
+type BrewingData = NonNullable<DBPost['brewing_data']>;
+
+type AuthorRelation = {
+  name?: string | null;
+  avatar_url?: string | null;
+};
+
+type StoryRow = {
+  id: string;
+  author_id: string;
+  image_url?: string | null;
+  caption?: string | null;
+  created_at: string;
+  author?: AuthorRelation | AuthorRelation[] | null;
+};
+
+type PostRow = {
+  id: string;
+  author_id: string;
+  type: CommunityPostType;
+  location?: string | null;
+  image_url?: string | null;
+  caption?: string | null;
+  tea_name?: string | null;
+  brewing_data?: BrewingData | null;
+  brewing_images?: string[] | null;
+  quote?: string | null;
+  title?: string | null;
+  description?: string | null;
+  created_at: string;
+  like_count?: number | null;
+  comment_count?: number | null;
+  author?: AuthorRelation | AuthorRelation[] | null;
+};
+
+type CommentRow = {
+  id: string;
+  post_id: string;
+  author_id: string;
+  content: string;
+  created_at: string;
+  like_count?: number | null;
+  author?: AuthorRelation | AuthorRelation[] | null;
+};
+
 export interface Story {
   id: string;
   authorId: string;
@@ -70,7 +100,6 @@ export interface Story {
   isViewed: boolean;
 }
 
-/** 评论类型 */
 export interface Comment {
   id: string;
   authorId: string;
@@ -83,7 +112,6 @@ export interface Comment {
   isLiked: boolean;
 }
 
-/** 前端 Post 类型 */
 export interface Post {
   id: string;
   authorId: string;
@@ -98,7 +126,7 @@ export interface Post {
   likes: number;
   comments: number;
   teaName?: string;
-  brewingData?: { temp?: string; time?: string; amount?: string };
+  brewingData?: BrewingData;
   brewingImages?: string[];
   quote?: string;
   title?: string;
@@ -115,15 +143,12 @@ export interface CreatePostInput {
   image?: string;
   caption?: string;
   teaName?: string;
-  brewingData?: { temp?: string; time?: string; amount?: string };
+  brewingData?: BrewingData;
   brewingImages?: string[];
   quote?: string;
   title?: string;
   description?: string;
 }
-
-/** 每页加载的帖子数量 */
-const POST_PAGE_SIZE = 20;
 
 interface CommunityState {
   stories: Story[];
@@ -136,13 +161,11 @@ interface CommunityState {
   likedPostIds: Set<string>;
   likedCommentIds: Set<string>;
   bookmarkedPostIds: Set<string>;
-  /** 是否还有更多帖子可加载 */
   hasMorePosts: boolean;
-  /** 当前帖子分页页码 */
   postsPage: number;
   fetchStories: () => Promise<void>;
   fetchPosts: (loadMore?: boolean) => Promise<void>;
-  /** 加载更多帖子（翻页） */
+  fetchMyPosts: () => Promise<void>;
   loadMorePosts: () => Promise<void>;
   fetchPostDetail: (postId: string) => Promise<Post | null>;
   createPost: (input: CreatePostInput) => Promise<Post>;
@@ -155,7 +178,10 @@ interface CommunityState {
 }
 
 function getRelation<T>(value: T | T[] | null | undefined): T | null {
-  if (Array.isArray(value)) return value[0] ?? null;
+  if (Array.isArray(value)) {
+    return value[0] ?? null;
+  }
+
   return value ?? null;
 }
 
@@ -164,25 +190,43 @@ function buildFallbackName(authorId: string) {
 }
 
 function buildAvatar(name: string, avatarUrl?: string | null) {
-  if (avatarUrl) return avatarUrl;
+  if (avatarUrl) {
+    return avatarUrl;
+  }
+
   return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8B5E3C&color=fff&size=100&font-size=0.4`;
 }
 
 function formatRelativeTime(iso?: string | null) {
-  if (!iso) return '';
+  if (!iso) {
+    return '';
+  }
+
   const createdAt = new Date(iso).getTime();
   const diffMs = Date.now() - createdAt;
-  const diffMinutes = Math.max(0, Math.floor(diffMs / 60000));
+  const diffMinutes = Math.max(0, Math.floor(diffMs / 60_000));
 
-  if (diffMinutes < 1) return '刚刚';
-  if (diffMinutes < 60) return `${diffMinutes}分钟前`;
+  if (diffMinutes < 1) {
+    return '刚刚';
+  }
+
+  if (diffMinutes < 60) {
+    return `${diffMinutes}分钟前`;
+  }
 
   const diffHours = Math.floor(diffMinutes / 60);
-  if (diffHours < 24) return `${diffHours}小时前`;
-  if (diffHours < 48) return '昨天';
+  if (diffHours < 24) {
+    return `${diffHours}小时前`;
+  }
+
+  if (diffHours < 48) {
+    return '昨天';
+  }
 
   const diffDays = Math.floor(diffHours / 24);
-  if (diffDays < 30) return `${diffDays}天前`;
+  if (diffDays < 30) {
+    return `${diffDays}天前`;
+  }
 
   return new Date(iso).toLocaleDateString('zh-CN', {
     month: 'numeric',
@@ -190,7 +234,7 @@ function formatRelativeTime(iso?: string | null) {
   });
 }
 
-function mapStory(row: any, viewedIds: Set<string>): Story {
+function mapStory(row: StoryRow, viewedIds: Set<string>): Story {
   const author = getRelation(row.author);
   const name = author?.name?.trim() || buildFallbackName(row.author_id);
 
@@ -206,7 +250,7 @@ function mapStory(row: any, viewedIds: Set<string>): Story {
   };
 }
 
-function mapComment(row: any, likedCommentIds: Set<string>): Comment {
+function mapComment(row: CommentRow, likedCommentIds: Set<string>): Comment {
   const author = getRelation(row.author);
   const name = author?.name?.trim() || buildFallbackName(row.author_id);
 
@@ -223,7 +267,14 @@ function mapComment(row: any, likedCommentIds: Set<string>): Comment {
   };
 }
 
-function mapPost(row: any, options?: { likedPostIds?: Set<string>; bookmarkedPostIds?: Set<string>; commentList?: Comment[] }): Post {
+function mapPost(
+  row: PostRow,
+  options?: {
+    likedPostIds?: Set<string>;
+    bookmarkedPostIds?: Set<string>;
+    commentList?: Comment[];
+  },
+): Post {
   const author = getRelation(row.author);
   const name = author?.name?.trim() || buildFallbackName(row.author_id);
   const likedPostIds = options?.likedPostIds ?? new Set<string>();
@@ -245,7 +296,7 @@ function mapPost(row: any, options?: { likedPostIds?: Set<string>; bookmarkedPos
     comments,
     teaName: row.tea_name ?? undefined,
     brewingData: row.brewing_data ?? undefined,
-    brewingImages: row.brewing_images?.length ? row.brewing_images : undefined,
+    brewingImages: Array.isArray(row.brewing_images) && row.brewing_images.length > 0 ? row.brewing_images : undefined,
     quote: row.quote ?? undefined,
     title: row.title ?? undefined,
     description: row.description ?? undefined,
@@ -258,7 +309,10 @@ function mapPost(row: any, options?: { likedPostIds?: Set<string>; bookmarkedPos
 
 function upsertPost(posts: Post[], nextPost: Post) {
   const index = posts.findIndex((post) => post.id === nextPost.id);
-  if (index === -1) return [nextPost, ...posts];
+  if (index === -1) {
+    return [nextPost, ...posts];
+  }
+
   const next = [...posts];
   next[index] = nextPost;
   return next;
@@ -269,6 +323,7 @@ function requireUserId() {
   if (!userId) {
     throw new Error('请先登录后再进行社区互动');
   }
+
   return userId;
 }
 
@@ -285,8 +340,13 @@ async function loadPostInteractionSets(postIds: string[], userId?: string | null
     supabase.from('post_bookmarks').select('post_id').eq('user_id', userId).in('post_id', postIds),
   ]);
 
-  if (likesResult.error) throw likesResult.error;
-  if (bookmarksResult.error) throw bookmarksResult.error;
+  if (likesResult.error) {
+    throw likesResult.error;
+  }
+
+  if (bookmarksResult.error) {
+    throw bookmarksResult.error;
+  }
 
   return {
     likedPostIds: new Set((likesResult.data ?? []).map((item) => item.post_id)),
@@ -305,7 +365,10 @@ async function loadCommentLikedSet(commentIds: string[], userId?: string | null)
     .eq('user_id', userId)
     .in('comment_id', commentIds);
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
+
   return new Set((data ?? []).map((item) => item.comment_id));
 }
 
@@ -333,7 +396,9 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
         .order('created_at', { ascending: false })
         .limit(30);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       const storyIds = (data ?? []).map((story) => story.id);
       let viewedIds = new Set<string>();
@@ -345,12 +410,15 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
           .eq('user_id', userId)
           .in('story_id', storyIds);
 
-        if (viewsError) throw viewsError;
+        if (viewsError) {
+          throw viewsError;
+        }
+
         viewedIds = new Set((viewRows ?? []).map((row) => row.story_id));
       }
 
       set({
-        stories: (data ?? []).map((story) => mapStory(story, viewedIds)),
+        stories: ((data ?? []) as StoryRow[]).map((story) => mapStory(story, viewedIds)),
         storiesLoading: false,
       });
     } catch (error) {
@@ -373,29 +441,27 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
         .order('created_at', { ascending: false })
         .range(from, to);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       const postIds = (data ?? []).map((post) => post.id);
       const { likedPostIds, bookmarkedPostIds } = await loadPostInteractionSets(postIds, userId);
-      const newPosts = (data ?? []).map((post) => mapPost(post, { likedPostIds, bookmarkedPostIds }));
+      const newPosts = ((data ?? []) as PostRow[]).map((post) =>
+        mapPost(post, { likedPostIds, bookmarkedPostIds }),
+      );
       const hasMorePosts = newPosts.length >= POST_PAGE_SIZE;
 
       if (loadMore) {
-        // 追加模式：合并到现有列表，合并互动状态
-        set((state) => {
-          const mergedLikedPostIds = new Set([...state.likedPostIds, ...likedPostIds]);
-          const mergedBookmarkedPostIds = new Set([...state.bookmarkedPostIds, ...bookmarkedPostIds]);
-          return {
-            posts: [...state.posts, ...newPosts],
-            likedPostIds: mergedLikedPostIds,
-            bookmarkedPostIds: mergedBookmarkedPostIds,
-            hasMorePosts,
-            postsPage: currentPage + 1,
-            loading: false,
-          };
-        });
+        set((state) => ({
+          posts: [...state.posts, ...newPosts],
+          likedPostIds: new Set([...state.likedPostIds, ...likedPostIds]),
+          bookmarkedPostIds: new Set([...state.bookmarkedPostIds, ...bookmarkedPostIds]),
+          hasMorePosts,
+          postsPage: currentPage + 1,
+          loading: false,
+        }));
       } else {
-        // 重置模式：替换列表
         set({
           posts: newPosts,
           likedPostIds,
@@ -416,10 +482,66 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
     }
   },
 
-  // 加载更多帖子
+  fetchMyPosts: async () => {
+    try {
+      set({ loading: true });
+      const userId = useUserStore.getState().session?.user?.id;
+
+      if (!userId) {
+        set({
+          posts: [],
+          likedPostIds: new Set<string>(),
+          bookmarkedPostIds: new Set<string>(),
+          hasMorePosts: false,
+          postsPage: 0,
+          loading: false,
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('posts')
+        .select(POST_SELECT)
+        .eq('author_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      const postIds = (data ?? []).map((post) => post.id);
+      const { likedPostIds, bookmarkedPostIds } = await loadPostInteractionSets(postIds, userId);
+      const posts = ((data ?? []) as PostRow[]).map((post) =>
+        mapPost(post, { likedPostIds, bookmarkedPostIds }),
+      );
+
+      set({
+        posts,
+        likedPostIds,
+        bookmarkedPostIds,
+        hasMorePosts: false,
+        postsPage: 0,
+        loading: false,
+      });
+    } catch (error) {
+      console.warn('[communityStore] fetchMyPosts 失败:', error);
+      set({
+        posts: [],
+        likedPostIds: new Set<string>(),
+        bookmarkedPostIds: new Set<string>(),
+        hasMorePosts: false,
+        postsPage: 0,
+        loading: false,
+      });
+    }
+  },
+
   loadMorePosts: async () => {
     const { loading, hasMorePosts } = get();
-    if (loading || !hasMorePosts) return;
+    if (loading || !hasMorePosts) {
+      return;
+    }
+
     await get().fetchPosts(true);
   },
 
@@ -437,11 +559,16 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
           .order('created_at', { ascending: true }),
       ]);
 
-      if (postResult.error) throw postResult.error;
-      if (commentResult.error) throw commentResult.error;
+      if (postResult.error) {
+        throw postResult.error;
+      }
 
-      const postRow = postResult.data;
-      const commentRows = commentResult.data ?? [];
+      if (commentResult.error) {
+        throw commentResult.error;
+      }
+
+      const postRow = postResult.data as PostRow;
+      const commentRows = (commentResult.data ?? []) as CommentRow[];
       const commentIds = commentRows.map((comment) => comment.id);
       const [postInteractions, likedCommentIds] = await Promise.all([
         loadPostInteractionSets([postId], userId),
@@ -459,11 +586,17 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
         const likedPostIds = new Set(state.likedPostIds);
         const bookmarkedPostIds = new Set(state.bookmarkedPostIds);
 
-        if (postInteractions.likedPostIds.has(postId)) likedPostIds.add(postId);
-        else likedPostIds.delete(postId);
+        if (postInteractions.likedPostIds.has(postId)) {
+          likedPostIds.add(postId);
+        } else {
+          likedPostIds.delete(postId);
+        }
 
-        if (postInteractions.bookmarkedPostIds.has(postId)) bookmarkedPostIds.add(postId);
-        else bookmarkedPostIds.delete(postId);
+        if (postInteractions.bookmarkedPostIds.has(postId)) {
+          bookmarkedPostIds.add(postId);
+        } else {
+          bookmarkedPostIds.delete(postId);
+        }
 
         return {
           posts: upsertPost(state.posts, detailedPost),
@@ -474,7 +607,6 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
           detailLoading: false,
         };
       });
-
 
       return detailedPost;
     } catch (error) {
@@ -507,243 +639,262 @@ export const useCommunityStore = create<CommunityState>()((set, get) => ({
         .select(POST_SELECT)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
-      const newPost = mapPost(data, {
+      const post = mapPost(data as PostRow, {
         likedPostIds: new Set<string>(),
         bookmarkedPostIds: new Set<string>(),
-        commentList: [],
       });
 
       set((state) => ({
-        posts: [newPost, ...state.posts],
-        activePost: newPost,
+        posts: [post, ...state.posts],
         submitting: false,
       }));
 
-      return newPost;
-    } catch (error: any) {
+      return post;
+    } catch (error) {
       set({ submitting: false });
-      console.warn('[communityStore] createPost 失败:', error);
-      throw new Error(error?.message ?? '发布失败，请稍后重试');
+      throw error;
     }
   },
 
   togglePostLike: async (postId) => {
     const userId = requireUserId();
-    const isLiked = get().likedPostIds.has(postId);
+    const state = get();
+    const isLiked = state.likedPostIds.has(postId);
 
-    try {
+    if (isLiked) {
+      const { error } = await supabase
+        .from('post_likes')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw error;
+      }
+    } else {
+      const { error } = await supabase.from('post_likes').insert({
+        post_id: postId,
+        user_id: userId,
+      });
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    set((current) => {
+      const likedPostIds = new Set(current.likedPostIds);
       if (isLiked) {
-        const { error } = await supabase
-          .from('post_likes')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', userId);
-
-        if (error) throw error;
+        likedPostIds.delete(postId);
       } else {
-        const { error } = await supabase
-          .from('post_likes')
-          .insert({ post_id: postId, user_id: userId });
-
-        if (error) throw error;
+        likedPostIds.add(postId);
       }
 
-      set((state) => {
-        const likedPostIds = new Set(state.likedPostIds);
-        if (isLiked) likedPostIds.delete(postId);
-        else likedPostIds.add(postId);
+      const updatePost = (post: Post) =>
+        post.id === postId
+          ? {
+              ...post,
+              isLiked: !isLiked,
+              likes: Math.max(0, post.likes + (isLiked ? -1 : 1)),
+            }
+          : post;
 
-        const updatePostLikes = (post: Post) => ({
-          ...post,
-          likes: Math.max(0, post.likes + (isLiked ? -1 : 1)),
-          isLiked: !isLiked,
-        });
-
-        return {
-          likedPostIds,
-          posts: state.posts.map((post) => (post.id === postId ? updatePostLikes(post) : post)),
-          activePost: state.activePost?.id === postId ? updatePostLikes(state.activePost) : state.activePost,
-        };
-      });
-    } catch (error: any) {
-      console.warn('[communityStore] togglePostLike 失败:', error);
-      throw new Error(error?.message ?? '点赞失败，请稍后重试');
-    }
+      return {
+        likedPostIds,
+        posts: current.posts.map(updatePost),
+        activePost:
+          current.activePost?.id === postId ? updatePost(current.activePost) : current.activePost,
+      };
+    });
   },
 
   togglePostBookmark: async (postId) => {
     const userId = requireUserId();
-    const isBookmarked = get().bookmarkedPostIds.has(postId);
+    const state = get();
+    const isBookmarked = state.bookmarkedPostIds.has(postId);
 
-    try {
+    if (isBookmarked) {
+      const { error } = await supabase
+        .from('post_bookmarks')
+        .delete()
+        .eq('post_id', postId)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw error;
+      }
+    } else {
+      const { error } = await supabase.from('post_bookmarks').insert({
+        post_id: postId,
+        user_id: userId,
+      });
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    set((current) => {
+      const bookmarkedPostIds = new Set(current.bookmarkedPostIds);
       if (isBookmarked) {
-        const { error } = await supabase
-          .from('post_bookmarks')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', userId);
-
-        if (error) throw error;
+        bookmarkedPostIds.delete(postId);
       } else {
-        const { error } = await supabase
-          .from('post_bookmarks')
-          .insert({ post_id: postId, user_id: userId });
-
-        if (error) throw error;
+        bookmarkedPostIds.add(postId);
       }
 
-      set((state) => {
-        const bookmarkedPostIds = new Set(state.bookmarkedPostIds);
-        if (isBookmarked) bookmarkedPostIds.delete(postId);
-        else bookmarkedPostIds.add(postId);
+      const updatePost = (post: Post) =>
+        post.id === postId
+          ? {
+              ...post,
+              isBookmarked: !isBookmarked,
+            }
+          : post;
 
-        const updatePostBookmark = (post: Post) => ({
-          ...post,
-          isBookmarked: !isBookmarked,
-        });
-
-        return {
-          bookmarkedPostIds,
-          posts: state.posts.map((post) => (post.id === postId ? updatePostBookmark(post) : post)),
-          activePost: state.activePost?.id === postId ? updatePostBookmark(state.activePost) : state.activePost,
-        };
-      });
-    } catch (error: any) {
-      console.warn('[communityStore] togglePostBookmark 失败:', error);
-      throw new Error(error?.message ?? '收藏失败，请稍后重试');
-    }
+      return {
+        bookmarkedPostIds,
+        posts: current.posts.map(updatePost),
+        activePost:
+          current.activePost?.id === postId ? updatePost(current.activePost) : current.activePost,
+      };
+    });
   },
 
   addComment: async (postId, content) => {
     const userId = requireUserId();
 
-    try {
-      const { data, error } = await supabase
-        .from('post_comments')
-        .insert({
-          post_id: postId,
-          author_id: userId,
-          content,
-        })
-        .select(COMMENT_SELECT)
-        .single();
+    const { data, error } = await supabase
+      .from('post_comments')
+      .insert({
+        post_id: postId,
+        author_id: userId,
+        content,
+      })
+      .select(COMMENT_SELECT)
+      .single();
 
-      if (error) throw error;
-
-      const newComment = mapComment(data, get().likedCommentIds);
-
-      set((state) => {
-        const appendComment = (post: Post) => ({
-          ...post,
-          comments: post.comments + 1,
-          answerCount: post.type === 'question' ? (post.answerCount ?? post.comments) + 1 : post.answerCount,
-          commentList: [...(post.commentList ?? []), newComment],
-        });
-
-        return {
-          posts: state.posts.map((post) => (post.id === postId ? appendComment(post) : post)),
-          activePost: state.activePost?.id === postId ? appendComment(state.activePost) : state.activePost,
-        };
-      });
-
-      return newComment;
-    } catch (error: any) {
-      console.warn('[communityStore] addComment 失败:', error);
-      throw new Error(error?.message ?? '评论发布失败，请稍后重试');
+    if (error) {
+      throw error;
     }
+
+    const comment = mapComment(data as CommentRow, get().likedCommentIds);
+
+    set((state) => {
+      const posts = state.posts.map((post) =>
+        post.id === postId ? { ...post, comments: post.comments + 1 } : post,
+      );
+
+      const activePost =
+        state.activePost?.id === postId
+          ? {
+              ...state.activePost,
+              comments: state.activePost.comments + 1,
+              commentList: [...(state.activePost.commentList ?? []), comment],
+            }
+          : state.activePost;
+
+      return { posts, activePost };
+    });
+
+    return comment;
   },
 
   toggleCommentLike: async (postId, commentId) => {
     const userId = requireUserId();
     const isLiked = get().likedCommentIds.has(commentId);
 
-    try {
+    if (isLiked) {
+      const { error } = await supabase
+        .from('comment_likes')
+        .delete()
+        .eq('comment_id', commentId)
+        .eq('user_id', userId);
+
+      if (error) {
+        throw error;
+      }
+    } else {
+      const { error } = await supabase.from('comment_likes').insert({
+        comment_id: commentId,
+        user_id: userId,
+      });
+
+      if (error) {
+        throw error;
+      }
+    }
+
+    set((state) => {
+      const likedCommentIds = new Set(state.likedCommentIds);
       if (isLiked) {
-        const { error } = await supabase
-          .from('comment_likes')
-          .delete()
-          .eq('comment_id', commentId)
-          .eq('user_id', userId);
-
-        if (error) throw error;
+        likedCommentIds.delete(commentId);
       } else {
-        const { error } = await supabase
-          .from('comment_likes')
-          .insert({ comment_id: commentId, user_id: userId });
-
-        if (error) throw error;
+        likedCommentIds.add(commentId);
       }
 
-      set((state) => {
-        const likedCommentIds = new Set(state.likedCommentIds);
-        if (isLiked) likedCommentIds.delete(commentId);
-        else likedCommentIds.add(commentId);
+      const updateComment = (comment: Comment) =>
+        comment.id === commentId
+          ? {
+              ...comment,
+              isLiked: !isLiked,
+              likes: Math.max(0, comment.likes + (isLiked ? -1 : 1)),
+            }
+          : comment;
 
-        const updateComment = (comment: Comment) =>
-          comment.id === commentId
-            ? {
-                ...comment,
-                likes: Math.max(0, comment.likes + (isLiked ? -1 : 1)),
-                isLiked: !isLiked,
-              }
-            : comment;
+      const activePost =
+        state.activePost?.id === postId
+          ? {
+              ...state.activePost,
+              commentList: state.activePost.commentList?.map(updateComment),
+            }
+          : state.activePost;
 
-        const updatePostComments = (post: Post) => ({
-          ...post,
-          commentList: post.commentList?.map(updateComment),
-        });
-
-        return {
-          likedCommentIds,
-          posts: state.posts.map((post) => (post.id === postId ? updatePostComments(post) : post)),
-          activePost: state.activePost?.id === postId ? updatePostComments(state.activePost) : state.activePost,
-        };
-      });
-    } catch (error: any) {
-      console.warn('[communityStore] toggleCommentLike 失败:', error);
-      throw new Error(error?.message ?? '评论点赞失败，请稍后重试');
-    }
+      return { likedCommentIds, activePost };
+    });
   },
 
-  /** 删除帖子（仅作者本人可操作） */
   deletePost: async (postId) => {
     const userId = requireUserId();
-
     const { error } = await supabase
       .from('posts')
       .delete()
       .eq('id', postId)
       .eq('author_id', userId);
 
-    if (error) throw new Error(error.message ?? '删除失败');
+    if (error) {
+      throw error;
+    }
 
     set((state) => ({
-      posts: state.posts.filter((p) => p.id !== postId),
+      posts: state.posts.filter((post) => post.id !== postId),
       activePost: state.activePost?.id === postId ? null : state.activePost,
     }));
   },
 
   markStoryViewed: async (storyId) => {
+    set((state) => ({
+      stories: state.stories.map((story) =>
+        story.id === storyId ? { ...story, isViewed: true } : story,
+      ),
+    }));
+
     const userId = useUserStore.getState().session?.user?.id;
-    if (!userId || get().stories.find((story) => story.id === storyId)?.isViewed) {
+    if (!userId) {
       return;
     }
 
-    try {
-      const { error } = await supabase
-        .from('story_views')
-        .upsert({ story_id: storyId, user_id: userId }, { onConflict: 'story_id,user_id', ignoreDuplicates: true });
+    const { error } = await supabase.from('story_views').upsert(
+      {
+        story_id: storyId,
+        user_id: userId,
+      },
+      { onConflict: 'story_id,user_id' },
+    );
 
-      if (error) throw error;
-
-      set((state) => ({
-        stories: state.stories.map((story) =>
-          story.id === storyId ? { ...story, isViewed: true } : story
-        ),
-      }));
-    } catch (error) {
+    if (error) {
       console.warn('[communityStore] markStoryViewed 失败:', error);
     }
   },
