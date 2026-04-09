@@ -28,14 +28,14 @@ export const paymentChannelConfig = {
   wechat: {
     enabled: readBooleanFlag(
       process.env.EXPO_PUBLIC_PAYMENT_WECHAT_ENABLED,
-      false,
+      true,
     ),
     isMock: true,
   },
   card: {
     enabled: readBooleanFlag(
       process.env.EXPO_PUBLIC_PAYMENT_CARD_ENABLED,
-      false,
+      true,
     ),
     isMock: true,
   },
