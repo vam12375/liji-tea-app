@@ -12,7 +12,11 @@
     "web": "expo start --web",
     "prebuild:android": "expo prebuild --platform android",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:functions": "tsc --project supabase/functions/tsconfig.json --noEmit",
+    "typecheck:all": "npm run typecheck && npm run typecheck:functions",
+    "check": "npm run lint && npm run typecheck:all && npm run test",
+    "test": "tsx ./tests/run-tests.ts"
   },
   "dependencies": {
     "@expo-google-fonts/manrope": "^0.4.2",
@@ -59,6 +63,7 @@
     "eslint-config-expo": "~55.0.0",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.2",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.2"
   },
   "overrides": {

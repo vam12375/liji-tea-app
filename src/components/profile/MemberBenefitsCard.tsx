@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text }from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useUserStore } from "@/stores/userStore";

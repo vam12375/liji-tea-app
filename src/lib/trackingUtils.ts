@@ -6,11 +6,6 @@
 import { Colors } from "@/constants/Colors";
 import type { Order, OrderItem } from "@/types/database";
 
-// ─── 常量 ────────────────────────────────────────────────────────────────────
-
-/** 待支付订单自动过期时长（毫秒） */
-export const PENDING_ORDER_EXPIRE_MS = 10 * 60 * 1000;
-
 // ─── 类型定义 ─────────────────────────────────────────────────────────────────
 
 export type TimelineState = "done" | "current" | "pending" | "cancelled";
@@ -119,23 +114,6 @@ export function hasPaymentEvidence(order: Order) {
   );
 }
 
-/** 计算待支付订单的截止时间戳 */
-export function getPendingPaymentDeadline(createdAt: string) {
-  const createdTime = new Date(createdAt).getTime();
-  if (Number.isNaN(createdTime)) {
-    return null;
-  }
-
-  return createdTime + PENDING_ORDER_EXPIRE_MS;
-}
-
-/** 将剩余毫秒数格式化为 MM:SS 倒计时文案 */
-export function formatRemainingPaymentTime(remainingMs: number) {
-  const totalSeconds = Math.max(0, Math.ceil(remainingMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
 
 /**
  * 顶部状态卡只负责回答"订单当前走到哪一步了"，

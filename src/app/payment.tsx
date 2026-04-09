@@ -1,32 +1,38 @@
-import { useEffect, useRef, useState } from "react";
-import { Animated, Easing, Pressable, Text, View } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, Pressable, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import {
   InfoRow,
   isPaymentChannel,
   PAYMENT_MAP,
-  type PaymentPhase,
   parseAmount,
   PROCESSING_PHASE_TEXT,
 } from "@/components/payment";
+import AppHeader from "@/components/ui/AppHeader";
 import { Colors } from "@/constants/Colors";
-import { createAlipayOrder, waitForPaymentConfirmation } from "@/lib/alipay";
 import {
-  invokeAlipayAppPay,
-  isAlipayNativeModuleAvailable,
-} from "@/lib/alipayNative";
+  getConfirmPaymentButtonText,
+  getPaymentResultCopy,
+  paymentCopy,
+} from "@/constants/copy";
+import type { PaymentPhase } from "@/constants/payment";
+import { isAlipayNativeModuleAvailable } from "@/lib/alipayNative";
+import { executePaymentByChannel } from "@/lib/paymentFlow";
 import { isPaymentChannelEnabled, paymentChannelConfig } from "@/lib/paymentConfig";
-import { confirmMockPayment } from "@/lib/payment";
 import { routes } from "@/lib/routes";
 import { useCartStore } from "@/stores/cartStore";
 import { showModal } from "@/stores/modalStore";
 import { useOrderStore } from "@/stores/orderStore";
 import type { AlipayNativePayResult, PaymentChannel } from "@/types/payment";
 
-// 支付页负责串起客户端拉起支付与服务端确认状态的完整链路。
+/**
+ * 支付页负责串起“确认支付 -> 创建支付单 -> 唤起客户端 -> 等待服务端确认 -> 结果展示”的完整流程。
+ * 当前页面改为消费 [`executePaymentByChannel()`](src/lib/paymentFlow.ts:288) 这套轻量状态机，
+ * 自身只保留 UI 状态展示和少量运行环境前置校验。
+ */
 export default function PaymentScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -37,20 +43,20 @@ export default function PaymentScreen() {
     fromCart?: string;
   }>();
 
-  const { fetchOrders } = useOrderStore();
-  const { clearCart } = useCartStore();
+  const fetchOrders = useOrderStore((state) => state.fetchOrders);
+  const clearCart = useCartStore((state) => state.clearCart);
 
   const [phase, setPhase] = useState<PaymentPhase>("confirm");
   const [displayAmount, setDisplayAmount] = useState(() => parseAmount(total));
   const [outTradeNo, setOutTradeNo] = useState<string | null>(null);
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
-  const [nativeResult, setNativeResult] =
-    useState<AlipayNativePayResult | null>(null);
+  const [nativeResult, setNativeResult] = useState<AlipayNativePayResult | null>(null);
 
   const spinAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // 路由参数可能被外部构造，这里统一校验后再进入支付流程。
   const selectedMethod: PaymentChannel = isPaymentChannel(paymentMethod)
     ? paymentMethod
     : "alipay";
@@ -60,13 +66,26 @@ export default function PaymentScreen() {
   const hasNativeModule = isAlipayNativeModuleAvailable();
   const requiresNativeSdk = selectedMethod === "alipay";
   const canStartPayment = channelEnabled && (!requiresNativeSdk || hasNativeModule);
+
+  // 状态机内部会先发出 idle；页面展示层将其折叠为 confirm，避免出现额外中间态。
+  const displayPhase = phase === "idle" ? "confirm" : phase;
   const isProcessing =
-    phase === "creating_order" ||
-    phase === "invoking_sdk" ||
-    phase === "waiting_confirm";
-  const processingText = isProcessing
-    ? PROCESSING_PHASE_TEXT[phase as keyof typeof PROCESSING_PHASE_TEXT]
-    : "";
+    displayPhase === "creating_order" ||
+    displayPhase === "invoking_sdk" ||
+    displayPhase === "waiting_confirm";
+  const processingText = isProcessing ? PROCESSING_PHASE_TEXT[displayPhase] : "";
+  const amountText = useMemo(() => `¥ ${displayAmount.toFixed(2)}`, [displayAmount]);
+  const orderCode = orderId?.slice(0, 8) ?? "—";
+  const paymentResultCopy = getPaymentResultCopy(isMockChannel ? "mock" : "alipay");
+
+  // 页面头标题跟随支付阶段切换，但统一复用通用导航头组件。
+  const headerTitle =
+    displayPhase === "failed"
+      ? paymentCopy.titles.failed
+      : displayPhase === "success"
+        ? paymentCopy.titles.success
+        : paymentCopy.titles.confirm;
+  const showBackButton = displayPhase === "confirm" || displayPhase === "failed";
 
   // 处理中展示旋转动画，离开处理中阶段后立即重置动画状态。
   useEffect(() => {
@@ -91,7 +110,7 @@ export default function PaymentScreen() {
 
   // 支付成功后播放勾选动画，强化支付完成反馈。
   useEffect(() => {
-    if (phase !== "success") {
+    if (displayPhase !== "success") {
       scaleAnim.setValue(0);
       fadeAnim.setValue(0);
       return;
@@ -110,11 +129,11 @@ export default function PaymentScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [fadeAnim, phase, scaleAnim]);
+  }, [displayPhase, fadeAnim, scaleAnim]);
 
   // 成功页短暂停留后自动跳转到已支付订单列表。
   useEffect(() => {
-    if (phase !== "success") {
+    if (displayPhase !== "success") {
       return;
     }
 
@@ -123,26 +142,29 @@ export default function PaymentScreen() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [phase, router]);
+  }, [displayPhase, router]);
 
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "360deg"],
   });
 
-  // 发起支付时统一处理真实支付宝链路与模拟支付链路，并最终以服务端状态为准。
-  const handlePay = async () => {
+  /**
+   * 点击支付按钮后仅处理运行环境前置判断，并将真正的支付状态推进交给状态机入口。
+   * 这样支付宝与 mock 支付都能复用一套统一的 phase、埋点与错误处理流程。
+   */
+  const handlePay = useCallback(async () => {
     if (!orderId) {
-      const message = "缺少订单编号，无法发起支付。";
-      showModal("支付失败", message, "error");
+      const message = paymentCopy.messages.missingOrderId;
+      showModal(paymentCopy.titles.failed, message, "error");
       setFailureMessage(message);
       setPhase("failed");
       return;
     }
 
     if (!channelEnabled) {
-      const message = "当前支付渠道未启用，请返回订单页重新选择。";
-      showModal("无法发起支付", message, "error");
+      const message = paymentCopy.messages.channelDisabled;
+      showModal(paymentCopy.modalTitles.cannotStart, message, "error");
       setFailureMessage(message);
       setPhase("failed");
       return;
@@ -151,121 +173,74 @@ export default function PaymentScreen() {
     if (selectedMethod === "alipay" && !hasNativeModule) {
       const message =
         "当前 Android 开发包未集成支付宝原生 SDK，请先放入 AAR、执行 prebuild，并使用 Dev Client 或原生包调试。";
-      showModal("无法发起支付", message, "error");
+      showModal(paymentCopy.modalTitles.cannotStart, message, "error");
       setFailureMessage(message);
       setPhase("failed");
       return;
     }
 
     setFailureMessage(null);
+    setOutTradeNo(null);
     setNativeResult(null);
 
-    try {
-      if (selectedMethod === "alipay") {
-        setPhase("creating_order");
-        const createResult = await createAlipayOrder(orderId);
-        setDisplayAmount(parseAmount(createResult.amount));
-        setOutTradeNo(createResult.outTradeNo);
-
-        setPhase("invoking_sdk");
-        const sdkResult = await invokeAlipayAppPay(createResult.orderString);
-        setNativeResult(sdkResult);
-
-        if (sdkResult.resultStatus === "6001") {
-          throw new Error("你已取消本次支付宝支付。");
-        }
-
-        if (
-          sdkResult.resultStatus !== "9000" &&
-          sdkResult.resultStatus !== "8000"
-        ) {
-          throw new Error(
-            sdkResult.memo ||
-              `支付宝 SDK 返回了未完成状态：${sdkResult.resultStatus}`,
-          );
-        }
-
-        setPhase("waiting_confirm");
-        const paymentStatus = await waitForPaymentConfirmation(orderId);
-
-        if (
-          paymentStatus.status === "paid" ||
-          paymentStatus.paymentStatus === "success"
-        ) {
-          if (fromCart === "1") {
-            clearCart();
-          }
-
+    const result = await executePaymentByChannel(
+      orderId,
+      selectedMethod,
+      channelEnabled,
+      fromCart === "1",
+      {
+        onPhaseChange: (nextPhase) => {
+          // 对页面 UI 来说，idle 与 confirm 等价，这里直接收敛到确认页展示态。
+          setPhase(nextPhase === "idle" ? "confirm" : nextPhase);
+        },
+        onAmountUpdate: (amount) => {
+          setDisplayAmount(amount);
+        },
+        onTradeNoUpdate: (tradeNo) => {
+          setOutTradeNo(tradeNo);
+        },
+        onNativeResult: (result) => {
+          setNativeResult(result);
+        },
+        onCartClear: async () => {
+          clearCart();
+        },
+        onOrdersRefresh: async () => {
           await fetchOrders();
-          setPhase("success");
-          return;
-        }
+        },
+      },
+    );
 
-        if (paymentStatus.paymentStatus === "closed") {
-          throw new Error("支付单已关闭，请返回订单页后重新发起支付。");
-        }
-
-        if (paymentStatus.paymentStatus === "failed") {
-          throw new Error(
-            paymentStatus.paymentErrorMessage || "服务端确认支付失败，请稍后重试。",
-          );
-        }
-
-        throw new Error("暂未收到服务端成功确认，请稍后在订单列表中刷新查看。");
-      }
-
-      if (!isMockChannel) {
-        throw new Error("当前支付渠道未接入可用的客户端支付实现。");
-      }
-
-      setPhase("creating_order");
-      const mockResult = await confirmMockPayment(orderId);
-      setOutTradeNo(mockResult.outTradeNo);
-      if (mockResult.paidAmount !== null) {
-        setDisplayAmount(mockResult.paidAmount);
-      }
-
-      if (fromCart === "1") {
-        clearCart();
-      }
-
-      await fetchOrders();
-      setPhase("success");
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "支付失败，请稍后重试。";
+    if (!result.success) {
+      const message = result.message ?? paymentCopy.messages.fallbackFailed;
       setFailureMessage(message);
-      setPhase("failed");
+      showModal(paymentCopy.titles.failed, message, "error");
     }
-  };
+  }, [
+    channelEnabled,
+    clearCart,
+    fetchOrders,
+    fromCart,
+    hasNativeModule,
+    orderId,
+    selectedMethod,
+  ]);
+
+  /** 失败页继续支持重试，直接复用统一支付入口。 */
+  const handleRetry = useCallback(() => {
+    void handlePay();
+  }, [handlePay]);
 
   return (
     <View className="flex-1 bg-background">
-      <Stack.Screen
-        options={{
-          headerShown: phase === "confirm" || phase === "failed",
-          headerTitle: phase === "failed" ? "支付失败" : "确认支付",
-          headerTitleStyle: { fontFamily: "Manrope_500Medium", fontSize: 16 },
-          headerStyle: { backgroundColor: Colors.background },
-          headerShadowVisible: false,
-          headerLeft: () => (
-            <Pressable onPress={() => router.back()} hitSlop={8}>
-              <MaterialIcons
-                name="arrow-back"
-                size={24}
-                color={Colors.onSurface}
-              />
-            </Pressable>
-          ),
-        }}
-      />
+      <AppHeader title={headerTitle} showBackButton={showBackButton} />
 
       {/* 确认阶段只展示订单与支付方式信息，尚未真正发起支付。 */}
-      {phase === "confirm" && (
+      {displayPhase === "confirm" ? (
         <View className="flex-1 justify-between">
-          <View className="items-center pt-12 px-6 gap-8">
+          <View className="items-center gap-8 px-6 pt-12">
             <View
-              className="w-16 h-16 rounded-full items-center justify-center"
+              className="h-16 w-16 items-center justify-center rounded-full"
               style={{ backgroundColor: `${methodInfo.color}18` }}
             >
               <MaterialIcons
@@ -276,67 +251,61 @@ export default function PaymentScreen() {
             </View>
 
             <View className="items-center gap-2">
-              <Text className="text-outline text-sm">支付金额</Text>
+              <Text className="text-sm text-outline">{paymentCopy.labels.amount}</Text>
               <Text
-                className="text-on-surface font-bold"
+                className="font-bold text-on-surface"
                 style={{ fontSize: 40, fontFamily: "Manrope_700Bold" }}
               >
-                楼 {displayAmount.toFixed(2)}
+                {amountText}
               </Text>
             </View>
 
-            <View className="w-full bg-surface-container-low rounded-xl p-4 gap-3">
-              <InfoRow label="支付方式" value={methodInfo.label} />
-              <InfoRow label="订单编号" value={orderId?.slice(0, 8) ?? "—"} />
-              <InfoRow label="订单状态" value="待支付" />
+            <View className="w-full gap-3 rounded-xl bg-surface-container-low p-4">
+              <InfoRow label={paymentCopy.labels.paymentMethod} value={methodInfo.label} />
+              <InfoRow label={paymentCopy.labels.orderNumber} value={orderCode} />
+              <InfoRow
+                label={paymentCopy.labels.orderStatus}
+                value={paymentCopy.labels.orderPendingStatus}
+              />
               {outTradeNo ? (
-                <InfoRow label="支付单号" value={outTradeNo.slice(-12)} />
+                <InfoRow label={paymentCopy.labels.tradeNumber} value={outTradeNo.slice(-12)} />
               ) : null}
             </View>
 
-            <View className="w-full bg-surface-container-low rounded-xl p-4 gap-2">
-              <Text className="text-on-surface text-sm font-medium">
-                支付结果说明
+            <View className="w-full gap-2 rounded-xl bg-surface-container-low p-4">
+              <Text className="text-sm font-medium text-on-surface">
+                {paymentCopy.titles.result}
               </Text>
-              <Text className="text-outline text-xs leading-5">
-                {selectedMethod === "alipay"
-                  ? "最终支付结果以服务端验签后的订单状态为准，客户端不会直接写入 paid。"
-                  : "当前支付方式为后端模拟支付，支付成功后由服务端直接更新订单状态。"}
-              </Text>
+              <Text className="text-xs leading-5 text-outline">{paymentResultCopy}</Text>
               {!channelEnabled ? (
-                <Text className="text-error text-xs leading-5">
-                  当前渠道未启用，请返回订单页重新选择。
+                <Text className="text-xs leading-5 text-error">
+                  {paymentCopy.messages.channelDisabled}
                 </Text>
               ) : null}
               {selectedMethod === "alipay" && !hasNativeModule ? (
-                <Text className="text-outline text-xs leading-5">
+                <Text className="text-xs leading-5 text-outline">
                   当前开发包尚未集成支付宝原生模块，本页不会继续发起真实 App 支付。
                 </Text>
               ) : null}
             </View>
           </View>
 
-          <View
-            style={{ paddingBottom: insets.bottom || 16 }}
-            className="px-4 pb-2"
-          >
+          <View className="px-4 pb-2" style={{ paddingBottom: insets.bottom || 16 }}>
             <Pressable
               onPress={handlePay}
               disabled={!canStartPayment}
-              className="rounded-full py-4 items-center justify-center active:opacity-80"
+              className="items-center justify-center rounded-full py-4 active:opacity-80"
               style={{
-                backgroundColor: canStartPayment
-                  ? methodInfo.color
-                  : Colors.outlineVariant,
+                backgroundColor: canStartPayment ? methodInfo.color : Colors.outlineVariant,
               }}
             >
-              <Text className="text-white font-medium text-base">
-                确认支付 楼{displayAmount.toFixed(2)}
+              <Text className="text-base font-medium text-white">
+                {getConfirmPaymentButtonText(displayAmount)}
               </Text>
             </Pressable>
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* 处理中阶段强调“等待服务端确认”，避免用户误以为 SDK 返回即支付成功。 */}
       {isProcessing ? (
@@ -350,33 +319,33 @@ export default function PaymentScreen() {
           </Animated.View>
 
           <View className="items-center gap-2">
-            <Text className="text-on-surface font-medium text-base text-center">
+            <Text className="text-center text-base font-medium text-on-surface">
               {processingText}
             </Text>
-            <Text className="text-outline text-xs text-center leading-5">
+            <Text className="text-center text-xs leading-5 text-outline">
               {selectedMethod === "alipay"
-                ? phase === "invoking_sdk"
-                  ? "支付客户端返回结果后，仍会继续等待服务端验签确认。"
-                  : "请勿关闭页面，支付状态会在服务端确认后更新。"
-                : "模拟支付成功后，订单会由后端直接更新为待发货。"}
+                ? displayPhase === "invoking_sdk"
+                  ? paymentCopy.messages.waitingAfterSdk
+                  : paymentCopy.messages.waitingForServerConfirm
+                : paymentCopy.messages.mockSuccessHint}
             </Text>
           </View>
 
-          <View className="w-full bg-surface-container-low rounded-xl p-4 gap-3">
-            <InfoRow label="订单编号" value={orderId?.slice(0, 8) ?? "—"} />
-            <InfoRow label="支付金额" value={`楼 ${displayAmount.toFixed(2)}`} />
+          <View className="w-full gap-3 rounded-xl bg-surface-container-low p-4">
+            <InfoRow label={paymentCopy.labels.orderNumber} value={orderCode} />
+            <InfoRow label={paymentCopy.labels.amount} value={amountText} />
             {outTradeNo ? (
-              <InfoRow label="支付单号" value={outTradeNo} />
+              <InfoRow label={paymentCopy.labels.tradeNumber} value={outTradeNo} />
             ) : null}
           </View>
         </View>
       ) : null}
 
       {/* 成功阶段展示支付结果摘要，并提供跳转订单列表入口。 */}
-      {phase === "success" && (
+      {displayPhase === "success" ? (
         <View className="flex-1 items-center justify-center gap-6 px-6">
           <Animated.View
-            className="w-20 h-20 rounded-full items-center justify-center"
+            className="h-20 w-20 items-center justify-center rounded-full"
             style={{
               backgroundColor: "#07C16018",
               transform: [{ scale: scaleAnim }],
@@ -385,45 +354,42 @@ export default function PaymentScreen() {
             <MaterialIcons name="check-circle" size={48} color="#07C160" />
           </Animated.View>
 
-          <Animated.View
-            className="items-center gap-2"
-            style={{ opacity: fadeAnim }}
-          >
-            <Text className="text-on-surface font-bold text-xl">支付成功</Text>
+          <Animated.View className="items-center gap-2" style={{ opacity: fadeAnim }}>
+            <Text className="text-xl font-bold text-on-surface">{paymentCopy.titles.success}</Text>
             <Text
-              className="text-on-surface font-bold"
+              className="font-bold text-on-surface"
               style={{ fontSize: 32, fontFamily: "Manrope_700Bold" }}
             >
-              楼 {displayAmount.toFixed(2)}
+              {amountText}
             </Text>
-            <Text className="text-outline text-sm mt-2">
-              订单号：{orderId?.slice(0, 8)}
+            <Text className="mt-2 text-sm text-outline">
+              {paymentCopy.labels.orderNumber}：{orderCode}
             </Text>
             {outTradeNo ? (
-              <Text className="text-outline text-xs">
-                支付单号：{outTradeNo}
+              <Text className="text-xs text-outline">
+                {paymentCopy.labels.tradeNumber}：{outTradeNo}
               </Text>
             ) : null}
           </Animated.View>
 
-          <Animated.View className="w-full mt-8" style={{ opacity: fadeAnim }}>
+          <Animated.View className="mt-8 w-full" style={{ opacity: fadeAnim }}>
             <Pressable
               onPress={() => router.replace(routes.ordersTab("paid"))}
-              className="bg-primary-container rounded-full py-4 items-center active:bg-primary"
+              className="items-center rounded-full bg-primary-container py-4 active:bg-primary"
             >
-              <Text className="text-on-primary font-medium text-base">
-                查看订单
+              <Text className="text-base font-medium text-on-primary">
+                {paymentCopy.buttons.viewOrders}
               </Text>
             </Pressable>
           </Animated.View>
         </View>
-      )}
+      ) : null}
 
       {/* 失败阶段保留错误信息和重试入口，方便用户继续支付或返回订单。 */}
-      {phase === "failed" && (
+      {displayPhase === "failed" ? (
         <View className="flex-1 justify-between px-6 py-10">
           <View className="items-center gap-6 pt-8">
-            <View className="w-20 h-20 rounded-full bg-error/10 items-center justify-center">
+            <View className="h-20 w-20 items-center justify-center rounded-full bg-error/10">
               <MaterialIcons
                 name="error-outline"
                 size={44}
@@ -432,53 +398,50 @@ export default function PaymentScreen() {
             </View>
 
             <View className="items-center gap-2">
-              <Text className="text-on-surface text-xl font-bold">
-                支付未完成
+              <Text className="text-xl font-bold text-on-surface">
+                {paymentCopy.titles.incomplete}
               </Text>
-              <Text className="text-outline text-sm text-center leading-6">
-                {failureMessage ?? "支付失败，请稍后重试。"}
+              <Text className="text-center text-sm leading-6 text-outline">
+                {failureMessage ?? paymentCopy.messages.fallbackFailed}
               </Text>
             </View>
 
-            <View className="w-full bg-surface-container-low rounded-xl p-4 gap-3">
-              <InfoRow label="订单编号" value={orderId?.slice(0, 8) ?? "—"} />
-              <InfoRow
-                label="支付金额"
-                value={`楼 ${displayAmount.toFixed(2)}`}
-              />
+            <View className="w-full gap-3 rounded-xl bg-surface-container-low p-4">
+              <InfoRow label={paymentCopy.labels.orderNumber} value={orderCode} />
+              <InfoRow label={paymentCopy.labels.amount} value={amountText} />
               {outTradeNo ? (
-                <InfoRow label="支付单号" value={outTradeNo} />
+                <InfoRow label={paymentCopy.labels.tradeNumber} value={outTradeNo} />
               ) : null}
               {nativeResult?.resultStatus ? (
-                <InfoRow label="SDK 状态" value={nativeResult.resultStatus} />
+                <InfoRow
+                  label={paymentCopy.labels.sdkStatus}
+                  value={nativeResult.resultStatus}
+                />
               ) : null}
             </View>
           </View>
 
-          <View
-            style={{ paddingBottom: insets.bottom || 16 }}
-            className="gap-3"
-          >
+          <View className="gap-3" style={{ paddingBottom: insets.bottom || 16 }}>
             <Pressable
-              onPress={handlePay}
-              className="bg-primary-container rounded-full py-4 items-center active:bg-primary"
+              onPress={handleRetry}
+              className="items-center rounded-full bg-primary-container py-4 active:bg-primary"
             >
-              <Text className="text-on-primary font-medium text-base">
-                重新发起支付
+              <Text className="text-base font-medium text-on-primary">
+                {paymentCopy.buttons.retry}
               </Text>
             </Pressable>
 
             <Pressable
               onPress={() => router.replace(routes.ordersTab("pending"))}
-              className="rounded-full py-4 items-center border border-outline-variant active:opacity-80"
+              className="items-center rounded-full border border-outline-variant py-4 active:opacity-80"
             >
-              <Text className="text-on-surface font-medium text-base">
-                返回订单
+              <Text className="text-base font-medium text-on-surface">
+                {paymentCopy.buttons.backToOrders}
               </Text>
             </Pressable>
           </View>
         </View>
-      )}
+      ) : null}
     </View>
   );
 }
