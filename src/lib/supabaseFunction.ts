@@ -1,109 +1,291 @@
-import type { FunctionInvokeOptions } from "@supabase/supabase-js";
+import type { FunctionInvokeOptions } from '@supabase/supabase-js';
 
-import { supabase } from "@/lib/supabase";
+import { logDebug, logWarn } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
 
-const fallbackFunctionJwt = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim();
+export type EdgeFunctionAuthMode = 'auto' | 'public' | 'session';
+export type SupabaseFunctionErrorKind =
+  | 'auth'
+  | 'business'
+  | 'network'
+  | 'http'
+  | 'unknown';
+
+const fallbackFunctionJwt =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
 const functionGatewayApiKey = fallbackFunctionJwt;
 
-/** Edge Function 网关要求 apikey始终存在；session/auto 模式不显式写 Authorization，避免与 SDK 默认头冲突。 */
-async function getCurrentAccessToken() {
+interface AccessTokenSnapshot {
+  sessionExists: boolean;
+  accessToken: string | null;
+}
+
+export interface InvokeSupabaseFunctionOptions extends FunctionInvokeOptions {
+authMode?: EdgeFunctionAuthMode;
+}
+
+export interface NormalizedFunctionError {
+  kind: SupabaseFunctionErrorKind;
+  message: string;
+  status: number | null;
+  code?: string | null;
+responseBody?: unknown;
+}
+
+export class SupabaseFunctionError extends Error {
+  kind: SupabaseFunctionErrorKind;
+  status: number | null;
+  code: string | null;
+  responseBody?: unknown;
+  cause?: unknown;
+
+  constructor(params: {
+message: string;
+    kind: SupabaseFunctionErrorKind;
+    status?: number | null;
+    code?: string | null;
+    responseBody?: unknown;
+    cause?: unknown;
+  }) {
+    super(params.message);
+    this.name = 'SupabaseFunctionError';
+    this.kind = params.kind;
+    this.status = params.status ?? null;
+    this.code = params.code ?? null;
+    this.responseBody = params.responseBody;
+    this.cause = params.cause;
+  }
+}
+
+export interface InvokeSupabaseFunctionStrictOptions<T>
+  extends InvokeSupabaseFunctionOptions {
+  fallbackMessage: string;
+  validate?: (data: T | null) => boolean;
+  invalidDataMessage?: string;
+}
+
+async function getCurrentAccessTokenSnapshot(): Promise<AccessTokenSnapshot> {
   const {
     data: { session },
   } = await supabase.auth.getSession();
 
-const accessToken = session?.access_token?.trim() || null;
+  const accessToken = session?.access_token?.trim() || null;
 
-  if (__DEV__) {
-    console.log("[getCurrentAccessToken]", {
-      hasSession: !!session,
-      hasAccessToken: !!accessToken,
-      tokenLength: accessToken?.length|| 0,
-    });
-  }
+  logDebug('supabase-function', '读取当前会话令牌快照', {
+    hasSession: !!session,
+    hasAccessToken: !!accessToken,
+    tokenLength: accessToken?.length ?? 0,
+  });
 
-  return accessToken;
+  return {
+    sessionExists: !!session,
+    accessToken,
+  };
 }
 
+// 所有 Edge Function 调用统一从这里构建请求头，保证鉴权策略一致。
 export async function buildEdgeFunctionHeaders(
   init?: HeadersInit,
-  authMode: "auto" | "public" | "session" = "auto",
+  authMode: EdgeFunctionAuthMode = 'auto',
 ): Promise<Record<string, string>> {
   const headers = new Headers(init);
 
-  if (authMode === "public" && fallbackFunctionJwt) {
-    headers.delete("authorization");
-headers.set("Authorization", `Bearer ${fallbackFunctionJwt}`);
-  } else {
-    headers.delete("authorization");
-    headers.delete("Authorization");
+  headers.delete('authorization');
+  headers.delete('Authorization');
+
+  if (authMode === 'public' && fallbackFunctionJwt) {
+    headers.set('Authorization', `Bearer ${fallbackFunctionJwt}`);
   }
 
   if (functionGatewayApiKey) {
-headers.delete("apikey");
-    headers.set("apikey", functionGatewayApiKey);
+    headers.delete('apikey');
+    headers.set('apikey', functionGatewayApiKey);
   }
 
   return Object.fromEntries(headers.entries());
 }
 
-interface InvokeSupabaseFunctionOptions extends FunctionInvokeOptions {
-  authMode?: "auto" | "public" | "session";
-}
-
 function getErrorContextResponse(error: unknown) {
   if (
     error &&
-    typeof error === "object" &&
-"context" in error &&
+    typeof error === 'object' &&
+    'context' in error &&
     error.context instanceof Response
-  ) {
+  ){
     return error.context;
   }
 
   return null;
 }
 
-async function readEdgeErrorMessage(error: unknown) {
-  const response = getErrorContextResponse(error);
-  if (!response) {
-    return error instanceof Error ? error.message : null;
-  }
-
-  const clonedResponse= response.clone();
-
+// 尽量把服务端返回体读出来，后续错误归一化时可以给出更可排查的上下文。
+async function readResponseBody(response: Response) {
   try {
-    const json = (await clonedResponse.json()) as { message?: string };
-    if (json?.message) {
-      return json.message;
+    return await response.clone().json();
+  } catch {
+    try {
+      const text =await response.clone().text();
+      return text.trim() || null;
+    } catch {
+      return null;
     }
-  } catch {
-    //ignore
   }
-
-  try {
-    const text = (await clonedResponse.text()).trim();
-    return text || null;
-  } catch {
-    // ignore
-  }
-
-  return error instanceof Error ? error.message : null;
 }
 
-async function shouldRetryWithSessionRefresh(error: unknown) {
-  const response = getErrorContextResponse(error);
-  if (!response || response.status !== 401) {
+function getMessageFromBody(body: unknown) {
+  if (!body) {
+    return null;
+  }
+
+  if (typeof body === 'string') {
+    return body.trim() || null;
+  }
+
+  if (typeof body === 'object') {
+    const record = body as Record<string, unknown>;
+
+    if (typeof record.message === 'string' && record.message.trim()) {
+return record.message.trim();
+    }
+
+    if (typeof record.error === 'string' && record.error.trim()) {
+      return record.error.trim();
+    }
+  }
+
+  return null;
+}
+
+function classifyFunctionError(params: {
+  status: number | null;
+body: unknown;
+  fallbackMessage: string;
+  rawError: unknown;
+}): NormalizedFunctionError {
+  const { status, body, fallbackMessage, rawError } = params;
+  const parsedMessage = getMessageFromBody(body);
+  const baseMessage =
+parsedMessage ||
+    (rawError instanceof Error ? rawError.message : null) ||
+    fallbackMessage;
+
+  const code =
+    body &&
+    typeof body === 'object' &&
+    'code' in body &&
+    typeof body.code === 'string'
+      ? body.code
+      : null;
+
+  if (status === 401 || status === 403) {
+    return {
+      kind: 'auth',
+      message: parsedMessage || '登录状态已失效，请重新登录。',
+      status,
+      code,
+      responseBody: body,
+    };
+  }
+
+  if (status !== null && status >= 400 && status < 500) {
+    return {
+      kind: 'business',
+      message: baseMessage,
+      status,
+      code,
+      responseBody: body,
+    };
+  }
+
+  if (status !== null && status >= 500) {
+    return {
+      kind: 'http',
+      message: baseMessage,
+      status,
+      code,
+responseBody: body,
+    };
+  }
+
+  if (rawError instanceof Error) {
+    const lowerMessage = rawError.message.toLowerCase();
+
+    if (
+      lowerMessage.includes('network') ||
+      lowerMessage.includes('fetch') ||
+lowerMessage.includes('timeout')
+    ) {
+      return {
+        kind: 'network',
+        message: baseMessage,
+        status,
+        code,
+        responseBody: body,
+      };
+    }
+  }
+
+  return {
+    kind: 'unknown',
+    message: baseMessage,
+    status,
+    code,
+    responseBody: body,
+  };
+}
+
+export async function normalizeFunctionError(
+  error: unknown,
+  fallbackMessage: string,
+): Promise<NormalizedFunctionError> {
+const response = getErrorContextResponse(error);
+  const status = response?.status ?? null;
+  const body = response ? await readResponseBody(response) : null;
+
+  return classifyFunctionError({
+    status,
+    body,
+fallbackMessage,
+    rawError: error,
+  });
+}
+
+export async function readEdgeErrorMessage(
+  error: unknown,
+  fallbackMessage: string,
+) {
+  const normalized = await normalizeFunctionError(error, fallbackMessage);
+return normalized.message;
+}
+
+async function shouldRetryWithSessionRefresh(
+  error: unknown,
+  authMode: EdgeFunctionAuthMode,
+) {
+  if (authMode === 'public') {
     return false;
   }
 
-  const message = (await readEdgeErrorMessage(error))?.toLowerCase() ?? "";
-  return message.includes("invalid jwt") || message.includes("jwt");
+  const normalized = await normalizeFunctionError(
+    error,
+    '调用 Edge Function失败。',
+  );
+
+  if (normalized.status !== 401) {
+    return false;
+  }
+
+  const message = normalized.message.toLowerCase();
+  return message.includes('invalid jwt') || message.includes('jwt expired');
 }
 
 async function refreshEdgeFunctionSession() {
-  const { data, error } =await supabase.auth.refreshSession();
+  const { data, error } = await supabase.auth.refreshSession();
 
   if (error) {
+    logWarn('supabase-function', '刷新 Edge Function 会话失败', {
+      message: error.message,
+    });
     return false;
   }
 
@@ -114,32 +296,49 @@ export async function invokeSupabaseFunction<T>(
   functionName: string,
   options: InvokeSupabaseFunctionOptions = {},
 ) {
-  const { authMode = "auto", ...invokeOptions } = options;
+  const { authMode = 'auto', ...invokeOptions } = options;
 
   const runInvoke = async () => {
-const accessToken = authMode === "public" ? null : await getCurrentAccessToken();
-    const headers = await buildEdgeFunctionHeaders(invokeOptions.headers, authMode);
+    const tokenSnapshot =
+      authMode === 'public'
+        ? { sessionExists: false, accessToken: null }
+        : await getCurrentAccessTokenSnapshot();
 
-    if (authMode === "session" && !accessToken) {
-      throw new Error("未获取到有效的登录凭证，请重新登录。");
-    }
-
-    if (__DEV__) {
-const authHeader = headers.authorization || headers.Authorization || "";
-      const apikeyHeader = headers.apikey ||"";
-      console.log("[supabaseFunction] 调用函数:", functionName, {
-        authMode,
-        hasSessionAccessToken: !!accessToken,
-        authPrefix: authHeader.substring(0, 30),
-        authSuffix: authHeader.substring(Math.max(0, authHeader.length - 20)),
-        apikeyPrefix: apikeyHeader.substring(0, 30),
-        apikeySuffix: apikeyHeader.substring(Math.max(0, apikeyHeader.length - 20)),
+    if (authMode === 'session' && !tokenSnapshot.accessToken) {
+      throw new SupabaseFunctionError({
+        kind: 'auth',
+        message: '未获取到有效的登录凭证，请重新登录。',
+        status: 401,
       });
     }
 
+const resolvedAuthMode: EdgeFunctionAuthMode =
+      authMode === 'auto'
+        ? tokenSnapshot.accessToken
+          ? 'session'
+          : 'public'
+        : authMode;
+
+    const headers = await buildEdgeFunctionHeaders(
+      invokeOptions.headers,
+      resolvedAuthMode === 'session' ? 'auto' : resolvedAuthMode,
+    );
+
+    logDebug('supabase-function', '调用 Edge Function', {
+      functionName,
+      authMode,
+      resolvedAuthMode,
+      hasSession: tokenSnapshot.sessionExists,
+hasSessionAccessToken: !!tokenSnapshot.accessToken,
+      hasAuthorizationHeader: Boolean(
+        headers.authorization || headers.Authorization,
+      ),
+      hasApiKeyHeader: Boolean(headers.apikey),
+    });
+
     return supabase.functions.invoke<T>(functionName, {
       ...invokeOptions,
-headers,
+      headers,
     });
   };
 
@@ -147,16 +346,55 @@ headers,
 
   if (
     !result.error ||
-    authMode === "public" ||
-    !(await shouldRetryWithSessionRefresh(result.error))
+    !(await shouldRetryWithSessionRefresh(result.error, authMode))
   ) {
     return result;
   }
 
-  const refreshed = await refreshEdgeFunctionSession();
+const refreshed = await refreshEdgeFunctionSession();
   if (!refreshed) {
     return result;
   }
 
   return runInvoke();
+}
+
+export async function invokeSupabaseFunctionStrict<T>(
+  functionName: string,
+  options: InvokeSupabaseFunctionStrictOptions<T>,
+):Promise<T> {
+  const {
+    fallbackMessage,
+    validate,
+    invalidDataMessage = '服务端返回的数据格式不正确。',
+    ...invokeOptions
+  } = options;
+
+  const { data, error } = await invokeSupabaseFunction<T>(
+    functionName,
+    invokeOptions,
+  );
+
+  if (error) {
+    const normalized = await normalizeFunctionError(error, fallbackMessage);
+    throw new SupabaseFunctionError({
+      message: normalized.message,
+      kind: normalized.kind,
+      status: normalized.status,
+      code: normalized.code,
+      responseBody: normalized.responseBody,
+      cause: error,
+    });
+  }
+
+  const payload = data ?? null;
+if (validate && !validate(payload)) {
+    throw new SupabaseFunctionError({
+      message: invalidDataMessage,
+      kind: 'unknown',
+      responseBody: payload,
+    });
+  }
+
+  return payload as T;
 }

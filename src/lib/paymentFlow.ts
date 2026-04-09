@@ -1,4 +1,5 @@
 import { paymentCopy } from "@/constants/copy";
+import { isMockPaymentChannel } from "@/lib/paymentConfig";
 import type { PaymentPhase } from "@/constants/payment";
 import { track } from "@/lib/analytics";
 import { captureError } from "@/lib/logger";
@@ -187,7 +188,11 @@ export function resolvePaymentExecutor(
     return executors.alipay;
   }
 
-  return executors.mock;
+  if (isMockChannel) {
+    return executors.mock;
+  }
+
+  throw new Error(`支付渠道 ${paymentMethod} 尚未接入可执行的支付链路。`);
 }
 
 /**
@@ -318,7 +323,7 @@ export async function executePaymentByChannel(
   try {
     const executor = resolvePaymentExecutor(
       paymentMethod,
-      paymentMethod !== "alipay",
+      isMockPaymentChannel(paymentMethod),
       executors,
     );
 
