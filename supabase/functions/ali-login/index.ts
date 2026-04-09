@@ -9,6 +9,8 @@
 // - ALI_ACCESS_KEY_ID / ALI_ACCESS_KEY_SECRET
 // - ALI_FUSION_SCHEME_CODE  （融合认证方案 Code，在阿里云控制台「融合认证」应用下获取）
 
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
 import { createServiceClient, getRequiredEnv } from "../_shared/supabase.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/http.ts";
 
@@ -132,8 +134,36 @@ async function verifyFusionToken(verifyToken: string): Promise<string> {
 // 查找或创建用户，生成 Session
 // ────────────────────────────────────────────────────────────
 
+function createAnonAuthClient() {
+  return createClient(
+    getRequiredEnv("SUPABASE_URL"),
+    getRequiredEnv("SUPABASE_ANON_KEY"),
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  );
+}
+
+async function buildOneClickPassword(phoneNumber: string) {
+  const raw = `${getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY")}:${phoneNumber}:ali-one-click`;
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(raw),
+  );
+  const hash = Array.from(new Uint8Array(hashBuffer))
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("");
+
+  return `LiJi!${hash.slice(0, 24)}a1`;
+}
+
 async function findOrCreateUserSession(phoneNumber: string) {
   const supabase = createServiceClient();
+  const authClient = createAnonAuthClient();
+  const password = await buildOneClickPassword(phoneNumber);
 
   const { data: existingProfile, error: profileError } = await supabase
     .from("profiles")
@@ -146,17 +176,32 @@ async function findOrCreateUserSession(phoneNumber: string) {
   let userId: string;
   if (existingProfile) {
     userId = existingProfile.user_id;
+
+    const { error: updateError } = await supabase.auth.admin.updateUserById(userId, {
+      phone: phoneNumber,
+      password,
+      phone_confirm: true,
+    });
+
+    if (updateError) {
+      throw new Error("更新用户失败: " + updateError.message);
+    }
   } else {
     const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
       phone: phoneNumber,
-      phone_confirmed_at: new Date().toISOString(),
+      password,
+      phone_confirm: true,
     });
-    if (createError) throw new Error("创建用户失败: " + createError.message);
-    userId = newUser.user!.id;
+
+    if (createError || !newUser.user) {
+      throw new Error("创建用户失败: " + (createError?.message ?? "用户数据缺失"));
+    }
+
+    userId = newUser.user.id;
   }
 
   const { data: sessionData, error: sessionError } =
-    await supabase.auth.admin.createSession({ user_id: userId });
+    await authClient.auth.signInWithPassword({ phone: phoneNumber, password });
 
   if (sessionError || !sessionData?.session) {
     throw new Error("Session 生成失败: " + sessionError?.message);

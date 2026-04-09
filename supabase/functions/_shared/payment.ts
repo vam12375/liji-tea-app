@@ -434,104 +434,42 @@ export async function markOrderPaid(params: {
   );
   const logistics = createTrackingEvents(params.order, now);
 
-  const orderUpdate: Record<string, unknown> = {
-    status: "paid",
-    payment_channel: params.channel,
-    payment_status: params.paymentStatus,
-    out_trade_no: params.outTradeNo,
-    trade_no: params.tradeNo,
-    paid_amount: amount,
-    paid_at: now,
-    payment_error_code: params.paymentErrorCode ?? null,
-    payment_error_message: params.paymentErrorMessage ?? null,
-    logistics_company: logistics.company,
-    logistics_tracking_no: logistics.trackingNo,
-    logistics_status: "pending",
-    logistics_receiver_name:
+  const { error } = await supabase.rpc("mark_order_paid_atomic", {
+    p_order_id: params.order.id,
+    p_channel: params.channel,
+    p_payment_status: params.paymentStatus,
+    p_out_trade_no: params.outTradeNo,
+    p_trade_no: params.tradeNo,
+    p_paid_at: now,
+    p_paid_amount: amount,
+    p_payment_error_code: params.paymentErrorCode ?? null,
+    p_payment_error_message: params.paymentErrorMessage ?? null,
+    p_request_payload: params.requestPayload ?? null,
+    p_notify_payload: params.notifyPayload ?? null,
+    p_notify_verified: params.notifyVerified ?? false,
+    p_logistics_company: logistics.company,
+    p_logistics_tracking_no: logistics.trackingNo,
+    p_logistics_receiver_name:
       params.order.logistics_receiver_name ||
       params.order.address?.name ||
       null,
-    logistics_receiver_phone:
+    p_logistics_receiver_phone:
       params.order.logistics_receiver_phone ||
       params.order.address?.phone ||
       null,
-    logistics_address:
+    p_logistics_address:
       params.order.logistics_address || params.order.address?.address || null,
-    shipped_at: null,
-    delivered_at: null,
-    updated_at: now,
-  };
-
-  const { error: orderError } = await supabase
-    .from("orders")
-    .update(orderUpdate)
-    .eq("id", params.order.id);
-
-  if (orderError) {
-    return { error: orderError };
-  }
-
-  const { error: transactionError } = await supabase
-    .from("payment_transactions")
-    .upsert(
-      {
-        order_id: params.order.id,
-        user_id: params.order.user_id,
-        channel: params.channel,
-        out_trade_no: params.outTradeNo,
-        trade_no: params.tradeNo,
-        amount,
-        status: params.paymentStatus,
-        request_payload: params.requestPayload ?? null,
-        notify_payload: params.notifyPayload ?? null,
-        notify_verified: params.notifyVerified ?? false,
-        updated_at: now,
-      },
-      {
-        onConflict: "out_trade_no",
-      },
-    );
-
-  if (transactionError) {
-    return { error: transactionError };
-  }
-
-  const { error: couponUseError } = await markLockedCouponUsed({
-    userCouponId: params.order.user_coupon_id,
-    couponId: params.order.coupon_id,
-    orderId: params.order.id,
-    usedAt: now,
+    p_tracking_events: logistics.events.map((event) => ({
+      status: event.status,
+      title: event.title,
+      detail: event.detail,
+      event_time: event.eventTime,
+      sort_order: event.sortOrder,
+    })),
   });
 
-  if (couponUseError) {
-    return { error: couponUseError };
-  }
-
-  const { error: deleteEventsError } = await supabase
-    .from("order_tracking_events")
-    .delete()
-    .eq("order_id", params.order.id);
-
-  if (deleteEventsError) {
-    return { error: deleteEventsError };
-  }
-
-  const { error: insertEventsError } = await supabase
-    .from("order_tracking_events")
-    .insert(
-      logistics.events.map((event) => ({
-        order_id: params.order.id,
-        user_id: params.order.user_id,
-        status: event.status,
-        title: event.title,
-        detail: event.detail,
-        event_time: event.eventTime,
-        sort_order: event.sortOrder,
-      })),
-    );
-
-  if (insertEventsError) {
-    return { error: insertEventsError };
+  if (error) {
+    return { error };
   }
 
   return {

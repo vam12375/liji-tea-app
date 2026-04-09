@@ -541,23 +541,18 @@ export async function markLockedCouponUsed(params: {
   }
 
   const couponId = params.couponId ?? currentCoupon.coupon_id;
-  // 原子递增 used_count，避免并发读后写竞态
-  const { error: countError } = await supabase
-    .from("coupons")
-    .update({
-      used_count: supabase.rpc ? undefined : undefined, // 占位，下面用 SQL
-      updated_at: usedAt,
-    })
-    .eq("id", couponId);
 
   // 使用原子递增：used_count = used_count + 1
   const { error: atomicError } = await supabase.rpc(
-    'increment_coupon_used_count' as any,
+    "increment_coupon_used_count" as any,
     { p_coupon_id: couponId },
   );
 
+  const rpcMissing =
+    atomicError?.code === "42883" || atomicError?.message?.includes("function");
+
   // 如果 RPC 不存在，回退到普通更新
-  if (atomicError?.message?.includes('function') || atomicError?.code === '42883') {
+  if (rpcMissing) {
     const { data: couponRow, error: couponError } = await supabase
       .from("coupons")
       .select("used_count")
@@ -565,19 +560,29 @@ export async function markLockedCouponUsed(params: {
       .maybeSingle<{ used_count: number | null }>();
 
     if (!couponError && couponRow) {
-      await supabase
+      const { error: fallbackUpdateError } = await supabase
         .from("coupons")
         .update({
           used_count: (couponRow.used_count ?? 0) + 1,
           updated_at: usedAt,
         })
         .eq("id", couponId);
+
+      return {
+        error: fallbackUpdateError,
+        used: fallbackUpdateError === null,
+      };
     }
+
+    return {
+      error: couponError,
+      used: false,
+    };
   }
 
   return {
-    error: atomicError?.message?.includes('function') ? null : (atomicError ?? countError),
-    used: true,
+    error: atomicError,
+    used: atomicError === null,
   };
 }
 

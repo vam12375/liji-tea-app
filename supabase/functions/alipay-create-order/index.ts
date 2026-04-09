@@ -163,61 +163,22 @@ Deno.serve(async (req: Request) => {
       body: `order_id=${order.id}`,
     });
 
-    const now = new Date().toISOString();
-    // 先落订单支付中状态，避免客户端拉起支付后服务端无状态可查。
-    const { error: orderUpdateError } = await supabase
-      .from("orders")
-      .update({
-        total: amount,
-        payment_channel: "alipay",
-        payment_status: "paying",
-        out_trade_no: outTradeNo,
-        payment_error_code: null,
-        payment_error_message: null,
-        updated_at: now,
-      })
-      .eq("id", order.id);
+    const { error: initError } = await supabase.rpc("atomic_init_payment", {
+      p_order_id: order.id,
+      p_user_id: user.id,
+      p_channel: "alipay",
+p_out_trade_no: outTradeNo,
+      p_amount: amount,
+      p_subject: subject,
+      p_item_count: orderItems.length,
+    });
 
-    if (orderUpdateError) {
+    if (initError) {
       return errorResponse(
-        "更新订单支付信息失败。",
+        "初始化支付流程失败。",
         500,
-        "order_update_failed",
-        orderUpdateError.message,
-      );
-    }
-
-    // 同步记录支付流水，保留支付单生成上下文供后续排查。
-    const { error: transactionError } = await supabase
-      .from("payment_transactions")
-      .upsert(
-        {
-          order_id: order.id,
-          user_id: user.id,
-          channel: "alipay",
-          out_trade_no: outTradeNo,
-          amount,
-          status: "paying",
-          request_payload: {
-            orderId: order.id,
-            amount: amountText,
-            subject,
-            itemCount: orderItems.length,
-          },
-          notify_verified: false,
-          updated_at: now,
-        },
-        {
-          onConflict: "out_trade_no",
-        },
-      );
-
-    if (transactionError) {
-      return errorResponse(
-        "写入支付流水失败。",
-        500,
-        "transaction_upsert_failed",
-        transactionError.message,
+        "payment_init_failed",
+        initError.message,
       );
     }
 
