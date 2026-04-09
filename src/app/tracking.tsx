@@ -5,8 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
 
 import PaymentCountdown from "@/components/order/PaymentCountdown";
-import AppHeader from "@/components/ui/AppHeader";
-import ScreenState from "@/components/ui/ScreenState";
+import { AppHeader } from "@/components/ui/AppHeader";
+import { ScreenState } from "@/components/ui/ScreenState";
 import { Colors } from "@/constants/Colors";
 import { screenStateCopy, trackingCopy } from "@/constants/copy";
 import { useNow } from "@/hooks/useNow";

@@ -47,6 +47,7 @@
 - [目录结构](#目录结构)
 - [关键业务链路](#关键业务链路)
 - [文档索引](#文档索引)
+- [支付排障手册](#支付排障手册)
 - [当前状态与注意事项](#当前状态与注意事项)
 
 ## 项目概览
@@ -528,12 +529,27 @@ npm run check
 
 ## 文档索引
 
--[安卓 APK 打包说明](./docs/打包.md)
+- [安卓 APK 打包说明](./docs/打包.md)
 - [安全审查报告](./docs/安全.MD)
+- [支付链路与运行时排障手册](./docs/payment-and-runtime-troubleshooting.md)
 - [完整开发指南](./docs/plans/2026-03-20-liji-tea-app-development-guide.md)
 - [阿里云一键登录设计](./docs/plans/2026-03-23-ali-one-click-login-design.md)
 - [支付宝沙箱接入实现计划](./docs/plans/2026-03-23-alipay-sandbox-implementation.md)
 - [支付宝沙箱 App Pay 设计稿](./docs/superpowers/specs/2026-03-23-alipay-sandbox-app-pay-design.md)
+
+## 支付排障手册
+
+如果你正在联调支付、排查订单状态异常、确认 notify 回写或检查环境变量配置，建议优先阅读：
+
+- [支付链路与运行时排障手册](./docs/payment-and-runtime-troubleshooting.md)
+
+文档中包含：
+
+- 当前支付链路分层说明
+- 订单 / 支付 / notify 的推荐排查顺序
+- `orders` / `payment_transactions` 的关键字段排查建议
+-环境变量清单
+- 发布前最小核对清单
 
 ## 当前状态与注意事项
 
@@ -557,10 +573,11 @@ npm run check
 
 ### 正式上线前建议补齐
 
--服务端计价与订单可信边界
+- 服务端计价与订单可信边界
 - RLS / Migration / 权限策略落库
 - 支付成功状态完全服务端收口
 - 更完善的错误处理、测试与发布流程
+- 支付异常链路的集成测试与回放脚本
 
 > [!IMPORTANT]
 > 仓库内已经保留安全审查文档。  

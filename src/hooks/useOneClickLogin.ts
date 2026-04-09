@@ -1,16 +1,15 @@
-import { useCallback, useEffect, useState } from "react";
-import type { Session } from "@supabase/supabase-js";
+import type { Session } from '@supabase/supabase-js';
+import { useCallback, useEffect, useState }from 'react';
 
-import { supabase } from "@/lib/supabase";
-import AliOneClickModule, {
-  AliLoginErrorCodes,
-} from "@/modules/ali-one-login";
-import { useUserStore } from "@/stores/userStore";
+import { captureError, logError, logWarn } from '@/lib/logger';
+import { supabase } from '@/lib/supabase';
+import AliOneClickModule, { AliLoginErrorCodes } from '@/modules/ali-one-login';
+import { useUserStore } from '@/stores/userStore';
 
 export interface UseOneClickLogin {
   loading: boolean;
   error: string | null;
-  isSupported: boolean;
+isSupported: boolean;
   login: () => Promise<{ success: boolean; error?: string }>;
   quit: () => Promise<void>;
 }
@@ -21,34 +20,36 @@ interface AliLoginSessionPayload {
 }
 
 interface AliLoginEdgeResponse {
-  session?: unknown;
+session?: unknown;
   error?: string;
 }
 
+// 登录链路依赖服务端返回 session，这里先做一次最小运行时校验。
 function isSessionPayload(value: unknown): value is Session & AliLoginSessionPayload {
-  if (typeof value !== "object" || value === null) {
+  if (typeof value !== 'object' || value === null) {
     return false;
-  }
+}
 
   const session = value as Record<string, unknown>;
   return (
-    typeof session.access_token === "string" &&
-    typeof session.refresh_token === "string" &&
-    typeof session.user === "object" &&
+    typeof session.access_token === 'string' &&
+    typeof session.refresh_token === 'string' &&
+    typeof session.user === 'object' &&
     session.user !== null
   );
 }
 
 export function useOneClickLogin(): UseOneClickLogin {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] =useState<string | null>(null);
   const [isSupported, setIsSupported] = useState(false);
 
   const { fetchProfile, fetchAddresses, fetchFavorites } = useUserStore();
 
   useEffect(() => {
-    setIsSupported(true);
+setIsSupported(true);
 
+    // 页面卸载时主动退出阿里一键登录弹层，避免原生残留状态。
     return () => {
       void AliOneClickModule.quit();
     };
@@ -59,14 +60,15 @@ export function useOneClickLogin(): UseOneClickLogin {
     error?: string;
   }> => {
     if (loading) {
-      return { success: false, error: "正在登录中" };
+      return { success: false, error: '正在登录中' };
     }
 
     setLoading(true);
     setError(null);
 
     try {
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+      // 先向服务端申请鉴权 token，再把 verifyToken 交给 Edge Function 换 session。
+      const supabaseUrl =process.env.EXPO_PUBLIC_SUPABASE_URL!;
       const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
       const tokenResp = await fetch(
@@ -82,32 +84,32 @@ export function useOneClickLogin(): UseOneClickLogin {
       if (!tokenResp.ok) {
         return {
           success: false,
-          error: "获取鉴权 Token 失败，请稍后重试",
+          error: '获取鉴权 Token 失败，请稍后重试',
         };
       }
 
-      const tokenData = (await tokenResp.json()) as { authToken?: string };
+      const tokenData = (await tokenResp.json()) as {authToken?: string };
       if (!tokenData.authToken) {
         return {
           success: false,
-          error: "获取鉴权 Token 失败，请稍后重试",
+          error: '获取鉴权 Token 失败，请稍后重试',
         };
       }
 
-      await AliOneClickModule.initWithToken(tokenData.authToken);
+await AliOneClickModule.initWithToken(tokenData.authToken);
 
-      const templateId = process.env.EXPO_PUBLIC_ALI_TEMPLATE_ID ?? "";
+      const templateId = process.env.EXPO_PUBLIC_ALI_TEMPLATE_ID ?? '';
       let verifyToken: string;
 
       try {
         const result = await AliOneClickModule.login(templateId);
-        verifyToken = result.verifyToken;
+verifyToken = result.verifyToken;
       } catch (err: unknown) {
         if (
-          typeof err === "object" &&
+          typeof err === 'object' &&
           err !== null &&
-          "code" in err &&
-          err.code === AliLoginErrorCodes.USER_CANCEL
+          'code' in err &&
+          err.code ===AliLoginErrorCodes.USER_CANCEL
         ) {
           return { success: false };
         }
@@ -115,16 +117,20 @@ export function useOneClickLogin(): UseOneClickLogin {
         throw err;
       }
 
-      const { data, error: edgeError } =
-        await supabase.functions.invoke<AliLoginEdgeResponse>("ali-login", {
+      const { data, error: edgeError } = await supabase.functions.invoke<AliLoginEdgeResponse>(
+        'ali-login',
+        {
           body: { verifyToken },
-        });
+        },
+      );
 
       if (edgeError) {
-        console.error("[useOneClickLogin] Edge Function 调用失败:", edgeError);
+        logError('oneClickLogin', 'Edge Function 调用失败', {
+          error: edgeError instanceof Error ? edgeError.message : String(edgeError),
+        });
         return {
           success: false,
-          error: "登录验证失败，请稍后重试",
+          error: '登录验证失败，请稍后重试',
         };
       }
 
@@ -133,17 +139,18 @@ export function useOneClickLogin(): UseOneClickLogin {
       }
 
       if (isSessionPayload(data?.session)) {
-        const { data: sessionData, error: sessionError } =
-          await supabase.auth.setSession({
-            access_token: data.session.access_token,
-            refresh_token: data.session.refresh_token,
-          });
+        const { data:sessionData, error: sessionError } = await supabase.auth.setSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
 
         if (sessionError || !sessionData.session) {
-          console.error("[useOneClickLogin] Session 写入失败:", sessionError);
+          logError('oneClickLogin', 'Session 写入失败', {
+            error: sessionError?.message ?? '未知错误',
+          });
           return {
             success: false,
-            error: sessionError?.message ?? "登录态写入失败，请稍后重试",
+            error: sessionError?.message ?? '登录态写入失败，请稍后重试',
           };
         }
 
@@ -152,25 +159,26 @@ export function useOneClickLogin(): UseOneClickLogin {
         return { success: true };
       }
 
-      return { success: false, error: "登录失败，请稍后重试" };
-    } catch (err: unknown) {
-      console.error("[useOneClickLogin] 登录异常:", err);
-      const message =
-        err instanceof Error ? err.message : "一键登录失败，请稍后重试";
+      return{ success: false, error: '登录失败，请稍后重试' };
+    } catch (err:unknown) {
+      captureError(err, { scope: 'oneClickLogin', message: '登录异常' });
+      const message = err instanceof Error ? err.message : '一键登录失败，请稍后重试';
       setError(message);
       return { success: false, error: message };
     } finally {
-      setLoading(false);
+setLoading(false);
     }
   }, [fetchAddresses, fetchFavorites, fetchProfile, loading]);
 
   const quit = useCallback(async (): Promise<void> => {
     try {
-      await AliOneClickModule.quit();
+await AliOneClickModule.quit();
     } catch (err) {
-      console.warn("[useOneClickLogin] quit 失败:", err);
+      logWarn('oneClickLogin', 'quit 失败', {
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }, []);
 
-  return { loading, error, isSupported, login, quit };
+  return {loading, error, isSupported, login, quit };
 }

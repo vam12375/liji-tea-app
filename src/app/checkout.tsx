@@ -4,7 +4,7 @@ import {
   ScrollView,
   Switch,
   Text,
-  TextInput,
+TextInput,
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -17,17 +17,15 @@ import OrderItemCard from "@/components/checkout/OrderItemCard";
 import PaymentMethods from "@/components/checkout/PaymentMethods";
 import PriceBreakdown from "@/components/checkout/PriceBreakdown";
 import { Colors } from "@/constants/Colors";
+import { findDefaultItem } from "@/lib/collections";
 import { getEnabledPaymentChannels, isPaymentChannelEnabled } from "@/lib/paymentConfig";
-import {
-  quoteOrder,
-  type DeliveryType,
-  type OrderPricingQuote,
-} from "@/lib/order";
+import type { DeliveryType } from "@/lib/order";
 import { routes } from "@/lib/routes";
+import { useCheckoutPricing } from "@/hooks/useCheckoutPricing";
+import { useCheckoutSubmit } from "@/hooks/useCheckoutSubmit";
 import { useCartStore } from "@/stores/cartStore";
 import { useCouponStore } from "@/stores/couponStore";
-import { showModal } from "@/stores/modalStore";
-import { useOrderStore } from "@/stores/orderStore";
+import { useOrderStore} from "@/stores/orderStore";
 import { useProductStore } from "@/stores/productStore";
 import { useUserStore } from "@/stores/userStore";
 import type { PaymentChannel } from "@/types/payment";
@@ -35,23 +33,25 @@ import type { PaymentChannel } from "@/types/payment";
 export default function CheckoutScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { productId, quantity: qtyParam } = useLocalSearchParams<{ productId?: string; quantity?: string }>();
-  const { items: cartItems } = useCartStore();
+  const { productId, quantity: qtyParam } = useLocalSearchParams<{
+    productId?: string;
+    quantity?: string;
+  }>();
+  const {items: cartItems } = useCartStore();
   const session = useUserStore((state) => state.session);
-  const getDefaultAddress = useUserStore((state) => state.getDefaultAddress);
+  const address = useUserStore((state) => findDefaultItem(state.addresses) ?? null);
   const { createOrder } = useOrderStore();
   const products = useProductStore((state) => state.products);
-  const selectedUserCouponId = useCouponStore((state) => state.selectedUserCouponId);
+const selectedUserCouponId = useCouponStore((state) => state.selectedUserCouponId);
   const userCoupons = useCouponStore((state) => state.userCoupons);
   const loadingUserCoupons = useCouponStore((state) => state.loadingUser);
-  const fetchUserCoupons = useCouponStore((state) => state.fetchUserCoupons);
+const fetchUserCoupons = useCouponStore((state) => state.fetchUserCoupons);
   const clearSelectedCoupon = useCouponStore((state) => state.clearSelectedCoupon);
   const enabledChannels = getEnabledPaymentChannels();
 
-  // productId 存在时表示直接购买（支持传入数量），否则沿用购物车里的待结算商品。
   const orderItems = useMemo(() => {
     if (productId) {
-      const product = products.find((item) => item.id === productId);
+const product = products.find((item) => item.id === productId);
       if (product) {
         const qty = parseInt(qtyParam ?? "1", 10) || 1;
         return [{ product, quantity: qty }];
@@ -61,7 +61,6 @@ export default function CheckoutScreen() {
     return cartItems;
   }, [cartItems, productId, products, qtyParam]);
 
-  // 结算相关接口只需要商品 id 和数量，这里把页面数据收敛成请求体结构。
   const requestItems = useMemo(
     () =>
       orderItems.map((item) => ({
@@ -77,12 +76,14 @@ export default function CheckoutScreen() {
   );
   const [note, setNote] = useState("");
   const [giftBox, setGiftBox] = useState(false);
-  const [pricing, setPricing] = useState<OrderPricingQuote | null>(null);
-  const [pricingLoading, setPricingLoading] = useState(false);
-  const [pricingError, setPricingError] = useState<string | null>(null);
 
-  const address = getDefaultAddress();
-  // 从用户优惠券列表中派生当前选中项和提示文案，避免渲染层重复判断。
+const { pricing, pricingLoading, pricingError } = useCheckoutPricing({
+    items: requestItems,
+    deliveryType: delivery,
+    giftWrap: giftBox,
+selectedUserCouponId,
+  });
+
   const selectedCoupon = useMemo(
     () => userCoupons.find((item) => item.id === selectedUserCouponId) ?? null,
     [selectedUserCouponId, userCoupons],
@@ -114,128 +115,35 @@ export default function CheckoutScreen() {
     return "暂无可用优惠券";
   }, [availableCouponCount, loadingUserCoupons, selectedCoupon, session]);
 
-  // 如果当前选中的支付方式被环境配置关闭，则自动回退到首个可用渠道。
   useEffect(() => {
     if (!isPaymentChannelEnabled(payment)) {
       setPayment(enabledChannels[0] ?? "alipay");
     }
   }, [enabledChannels, payment]);
 
-  // 登录后拉取用户已领取的优惠券，供结算页选择和实时询价使用。
   useEffect(() => {
     if (session) {
       void fetchUserCoupons();
-    }
+}
   }, [fetchUserCoupons, session]);
 
-  // 所有影响价格的条件变化后都重新走服务端询价，前端不自行信任本地金额。
-  useEffect(() => {
-    if (requestItems.length === 0) {
-      setPricing(null);
-      setPricingError("暂无可结算商品");
-      setPricingLoading(false);
-      return;
-    }
+  const handleSubmit = useCheckoutSubmit({
+    router,
+    session,
+    address,
+    requestItems,
+    delivery,
+    payment,
+note,
+    giftBox,
+    selectedUserCouponId,
+    pricingLoading,
+    pricingError,
+    productId,
+    createOrder,
+    clearSelectedCoupon,
+  });
 
-    let cancelled = false;
-    setPricingLoading(true);
-    setPricingError(null);
-
-    quoteOrder({
-      items: requestItems,
-      deliveryType: delivery,
-      giftWrap: giftBox,
-      userCouponId: selectedUserCouponId ?? undefined,
-    })
-      .then((quote) => {
-        if (!cancelled) {
-          setPricing(quote);
-        }
-      })
-      .catch((error: unknown) => {
-        if (cancelled) {
-          return;
-        }
-
-        setPricing(null);
-        setPricingError(
-          error instanceof Error ? error.message : "获取订单金额失败",
-        );
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setPricingLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [delivery, giftBox, requestItems, selectedUserCouponId]);
-
-  // 正式下单前再次校验登录态、地址、支付渠道与最新询价结果。
-  const handleSubmit = async () => {
-    if (!session) {
-      router.push(routes.login);
-      return;
-    }
-
-    if (enabledChannels.length === 0 || !isPaymentChannelEnabled(payment)) {
-      showModal("暂不可下单", "当前环境未启用有效的支付渠道。", "error");
-      return;
-    }
-
-    if (requestItems.length === 0) {
-      showModal("提示", "当前暂无可结算商品");
-      return;
-    }
-
-    if (!address) {
-      showModal("提示", "请先添加收货地址");
-      return;
-    }
-
-    if (pricingLoading) {
-      showModal(
-        "请稍候",
-        "订单金额正在由服务端计算，请稍后再提交。",
-      );
-      return;
-    }
-
-    if (pricingError) {
-      showModal("订单失败", pricingError, "error");
-      return;
-    }
-
-    const { order, error } = await createOrder({
-      items: requestItems,
-      addressId: address.id,
-      deliveryType: delivery,
-      paymentMethod: payment,
-      notes: note || undefined,
-      giftWrap: giftBox,
-      userCouponId: selectedUserCouponId ?? undefined,
-    });
-
-    if (error || !order) {
-      showModal("订单失败", error ?? "创建订单失败", "error");
-      return;
-    }
-
-    clearSelectedCoupon();
-
-    router.replace(
-      routes.payment({
-        orderId: order.orderId,
-        total: order.total.toFixed(2),
-        paymentMethod: payment,
-        fromCart: productId ? "0" : "1",
-      }),
-    );
-  };
-
-  // 只有在服务端金额已准备完成且支付渠道可用时才允许提交订单。
   const submitDisabled =
     requestItems.length === 0 ||
     pricingLoading ||
@@ -251,7 +159,7 @@ export default function CheckoutScreen() {
           headerShown: true,
           headerTitle: "确认订单",
           headerTitleStyle: { fontFamily: "Manrope_500Medium", fontSize: 16 },
-          headerStyle: { backgroundColor: Colors.background },
+          headerStyle: {backgroundColor: Colors.background },
           headerShadowVisible: false,
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={8}>
@@ -279,7 +187,7 @@ export default function CheckoutScreen() {
             onPress={() => router.push(routes.addresses)}
             className="bg-surface-container-low rounded-xl p-4 flex-row items-center gap-3 active:opacity-80"
           >
-            <View className="w-10 h-10 rounded-full bg-primary-fixed items-center justify-center">
+<View className="w-10 h-10 rounded-full bg-primary-fixed items-center justify-center">
               <MaterialIcons
                 name="add-location-alt"
                 size={22}
@@ -315,11 +223,10 @@ export default function CheckoutScreen() {
 
         <PaymentMethods selected={payment} onSelect={setPayment} />
 
-        {/* 优惠券入口只负责选择 user_coupon，真正是否可用仍由服务端在询价/下单时校验。 */}
         <Pressable
           onPress={() => {
             if (!session) {
-              router.push(routes.login);
+router.push(routes.login);
               return;
             }
 
@@ -333,7 +240,7 @@ export default function CheckoutScreen() {
               size={20}
               color={selectedCoupon ? Colors.primary : Colors.tertiary}
             />
-            <View className="flex-1">
+<View className="flex-1">
               <Text className="text-on-surface text-sm font-medium">优惠券</Text>
               <Text className="text-outline text-xs mt-0.5">{couponDescription}</Text>
               {pricing?.appliedCoupon ? (
@@ -380,7 +287,7 @@ export default function CheckoutScreen() {
           </View>
           <Switch
             value={giftBox}
-            onValueChange={setGiftBox}
+onValueChange={setGiftBox}
             trackColor={{
               true: Colors.primaryContainer,
               false: Colors.outlineVariant,
@@ -389,7 +296,6 @@ export default function CheckoutScreen() {
           />
         </View>
 
-        {/* 价格明细完全基于服务端返回结构渲染，避免本地金额与订单实际金额不一致。 */}
         <View className="bg-surface-container-low rounded-xl p-4 gap-3">
           <Text className="text-on-surface text-sm font-medium">价格明细</Text>
           {pricing ? (
@@ -401,7 +307,7 @@ export default function CheckoutScreen() {
               couponDiscount={pricing.couponDiscount}
               couponTitle={pricing.appliedCoupon?.title ?? null}
               couponCode={pricing.appliedCoupon?.code ?? null}
-              giftWrapFee={pricing.giftWrapFee}
+giftWrapFee={pricing.giftWrapFee}
             />
           ) : (
             <Text className="text-outline text-sm leading-6">
@@ -419,7 +325,7 @@ export default function CheckoutScreen() {
       <View
         style={{ paddingBottom: insets.bottom || 16 }}
         className="absolute bottom-0 left-0 right-0 bg-background/95 border-t border-outline-variant/10 px-4 pt-3"
-      >
+>
         <Pressable
           onPress={handleSubmit}
           disabled={submitDisabled}
