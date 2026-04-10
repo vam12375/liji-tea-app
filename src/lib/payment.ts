@@ -3,10 +3,14 @@ import type {
   MockLogisticsAction,
   MockLogisticsUpdateResponse,
   MockPaymentConfirmResponse,
+  PaymentChannel,
 } from'@/types/payment';
 
-// mock 支付确认统一走严格调用层，便于和真实链路保持相同错误语义。
-export async function confirmMockPayment(orderId: string) {
+// mock 支付确认显式传入当前选中的渠道，避免补付时仍沿用首次下单方式。
+export async function confirmMockPayment(
+  orderId: string,
+  paymentChannel: PaymentChannel,
+) {
   return invokeSupabaseFunctionStrict<MockPaymentConfirmResponse>(
     'mock-payment-confirm',
     {
@@ -14,7 +18,7 @@ export async function confirmMockPayment(orderId: string) {
       fallbackMessage: '模拟支付失败。',
       invalidDataMessage: '服务端返回的模拟支付结果不完整。',
       validate: (data: MockPaymentConfirmResponse | null) => Boolean(data?.orderId),
-      body: { orderId },
+      body: { orderId, paymentChannel },
     },
   );
 }

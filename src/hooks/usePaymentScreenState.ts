@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import{ Animated, Easing } from "react-native";
+import { Animated, Easing } from "react-native";
 
 import {
   isPaymentChannel,
@@ -7,11 +7,12 @@ import {
   parseAmount,
   PROCESSING_PHASE_TEXT,
 } from "@/components/payment";
-import { getPaymentResultCopy, paymentCopy }from "@/constants/copy";
+import { getPaymentResultCopy, paymentCopy } from "@/constants/copy";
 import type { PaymentPhase } from "@/constants/payment";
 import { isAlipayNativeModuleAvailable } from "@/lib/alipayNative";
 import { executePaymentByChannel } from "@/lib/paymentFlow";
 import {
+  getEnabledPaymentChannels,
   isPaymentChannelEnabled,
   paymentChannelConfig,
 } from "@/lib/paymentConfig";
@@ -27,7 +28,18 @@ interface UsePaymentScreenStateParams {
   onOrdersRefresh: () => Promise<void>;
 }
 
-// 支付页所有阶段展示与触发逻辑都从这里统一编排，避免页面组件直接耦合支付细节。
+function resolveInitialMethod(
+  paymentMethod: string | undefined,
+  enabledChannels: PaymentChannel[],
+): PaymentChannel {
+  if (isPaymentChannel(paymentMethod) && isPaymentChannelEnabled(paymentMethod)) {
+    return paymentMethod;
+  }
+
+  return enabledChannels[0] ?? "alipay";
+}
+
+// 统一编排支付页的展示状态和动作，避免页面组件直接耦合支付细节。
 export function usePaymentScreenState({
   orderId,
   total,
@@ -36,21 +48,31 @@ export function usePaymentScreenState({
   onCartClear,
   onOrdersRefresh,
 }: UsePaymentScreenStateParams) {
+  const enabledChannels = useMemo(() => getEnabledPaymentChannels(), []);
   const [phase, setPhase] = useState<PaymentPhase>("confirm");
   const [displayAmount, setDisplayAmount] = useState(() => parseAmount(total));
   const [outTradeNo, setOutTradeNo] = useState<string | null>(null);
   const [failureMessage, setFailureMessage] = useState<string | null>(null);
   const [nativeResult, setNativeResult] =
     useState<AlipayNativePayResult | null>(null);
+  // 支付页把路由里的支付方式只当作初始值，补付时允许用户重新选择。
+  const [selectedMethod, setSelectedMethod] = useState<PaymentChannel>(() =>
+    resolveInitialMethod(paymentMethod, enabledChannels),
+  );
 
   const spinAnim = useRef(new Animated.Value(0)).current;
-const scaleAnim = useRef(new Animated.Value(0)).current;
+  const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const selectedMethod: PaymentChannel = isPaymentChannel(paymentMethod)
-    ? paymentMethod
-    : "alipay";
-  const methodInfo =PAYMENT_MAP[selectedMethod];
+  useEffect(() => {
+    setSelectedMethod(resolveInitialMethod(paymentMethod, enabledChannels));
+  }, [enabledChannels, orderId, paymentMethod]);
+
+  useEffect(() => {
+    setDisplayAmount(parseAmount(total));
+  }, [orderId, total]);
+
+  const methodInfo = PAYMENT_MAP[selectedMethod];
   const channelEnabled = isPaymentChannelEnabled(selectedMethod);
   const isMockChannel = paymentChannelConfig[selectedMethod].isMock;
   const hasNativeModule = isAlipayNativeModuleAvailable();
@@ -71,7 +93,7 @@ const scaleAnim = useRef(new Animated.Value(0)).current;
     displayPhase === "failed"
       ? paymentCopy.titles.failed
       : displayPhase === "success"
-        ?paymentCopy.titles.success
+        ? paymentCopy.titles.success
         : paymentCopy.titles.confirm;
   const showBackButton = displayPhase === "confirm" || displayPhase === "failed";
 
@@ -104,7 +126,7 @@ const scaleAnim = useRef(new Animated.Value(0)).current;
 
     Animated.parallel([
       Animated.spring(scaleAnim, {
-        toValue:1,
+        toValue: 1,
         friction: 4,
         tension: 80,
         useNativeDriver: true,
@@ -113,14 +135,22 @@ const scaleAnim = useRef(new Animated.Value(0)).current;
         toValue: 1,
         duration: 400,
         useNativeDriver: true,
-}),
+      }),
     ]).start();
   }, [displayPhase, fadeAnim, scaleAnim]);
 
+  const handleSelectMethod = useCallback((nextMethod: PaymentChannel) => {
+    setSelectedMethod(nextMethod);
+    setFailureMessage(null);
+    setOutTradeNo(null);
+    setNativeResult(null);
+    setPhase("confirm");
+  }, []);
+
   const handlePay = useCallback(async () => {
-    // 发起支付前先在前端做一轮快速失败保护，避免无效请求进入后端链路。
+    // 发起支付前先做一轮前端兜底校验，避免无效请求进入支付链路。
     if (!orderId) {
-      const message =paymentCopy.messages.missingOrderId;
+      const message = paymentCopy.messages.missingOrderId;
       showModal(paymentCopy.titles.failed, message, "error");
       setFailureMessage(message);
       setPhase("failed");
@@ -128,7 +158,7 @@ const scaleAnim = useRef(new Animated.Value(0)).current;
     }
 
     if (!channelEnabled) {
-      const message =paymentCopy.messages.channelDisabled;
+      const message = paymentCopy.messages.channelDisabled;
       showModal(paymentCopy.modalTitles.cannotStart, message, "error");
       setFailureMessage(message);
       setPhase("failed");
@@ -192,7 +222,7 @@ const scaleAnim = useRef(new Animated.Value(0)).current;
 
   const handleRetry = useCallback(() => {
     void handlePay();
-  },[handlePay]);
+  }, [handlePay]);
 
   const spin = spinAnim.interpolate({
     inputRange: [0, 1],
@@ -206,8 +236,10 @@ const scaleAnim = useRef(new Animated.Value(0)).current;
     displayAmount,
     displayPhase,
     failureMessage,
+    fadeAnim,
     handlePay,
     handleRetry,
+    handleSelectMethod,
     hasNativeModule,
     headerTitle,
     isProcessing,
@@ -217,10 +249,9 @@ const scaleAnim = useRef(new Animated.Value(0)).current;
     outTradeNo,
     paymentResultCopy,
     processingText,
+    scaleAnim,
     selectedMethod,
     showBackButton,
     spin,
-scaleAnim,
-    fadeAnim,
   };
 }

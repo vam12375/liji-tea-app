@@ -1,9 +1,5 @@
 import { closeAlipayTrade } from "./alipay.ts";
-import {
-  markLockedCouponUsed,
-  releaseLockedCoupon,
-  type AppliedCouponSummary,
-} from "./coupon.ts";
+import { releaseLockedCoupon, type AppliedCouponSummary } from "./coupon.ts";
 import { createServiceClient, getRequiredEnv } from "./supabase.ts";
 
 interface OrderItemProductRow {

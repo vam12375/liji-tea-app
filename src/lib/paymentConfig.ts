@@ -49,14 +49,14 @@ export function resolvePaymentRuntimeConfig(
     wechat: {
       enabled: readBooleanFlag(
         env.EXPO_PUBLIC_PAYMENT_WECHAT_ENABLED,
-        false,
+        true,
       ),
       isMock: true,
     },
     card: {
-      enabled: readBooleanFlag(
+ enabled: readBooleanFlag(
         env.EXPO_PUBLIC_PAYMENT_CARD_ENABLED,
-        false,
+        true,
       ),
       isMock: true,
     },

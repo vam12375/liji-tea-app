@@ -11,14 +11,30 @@ import {
 export async function runPaymentConfigTests() {
   console.log("[Suite] paymentConfig");
 
-  await runCase("defaults mock-capable channels to disabled outside dev", () => {
+  await runCase("defaults mock-capable channels to enabled outside dev but keeps them unavailable", () => {
     const resolved = resolvePaymentRuntimeConfig({}, false);
 
     assert.equal(resolved.paymentChannelConfig.alipay.enabled, true);
-    assert.equal(resolved.paymentChannelConfig.wechat.enabled, false);
-    assert.equal(resolved.paymentChannelConfig.card.enabled, false);
+    assert.equal(resolved.paymentChannelConfig.wechat.enabled, true);
+    assert.equal(resolved.paymentChannelConfig.card.enabled, true);
     assert.equal(resolved.mockPaymentChannelsAllowed, false);
-    assert.deepEqual(
+    assert.equal(
+      canUsePaymentChannel(
+        "wechat",
+        resolved.paymentChannelConfig,
+        resolved.mockPaymentChannelsAllowed,
+      ),
+      false,
+    );
+    assert.equal(
+      canUsePaymentChannel(
+        "card",
+        resolved.paymentChannelConfig,
+        resolved.mockPaymentChannelsAllowed,
+      ),
+      false,
+    );
+ assert.deepEqual(
       getEnabledPaymentChannelsFromConfig(
         resolved.paymentChannelConfig,
         resolved.mockPaymentChannelsAllowed,
