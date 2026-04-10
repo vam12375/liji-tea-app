@@ -4,6 +4,7 @@
  */
 
 import { Colors } from "@/constants/Colors";
+import { formatChinaDateTime } from "@/lib/dateTime";
 import type { Order, OrderItem } from "@/types/database";
 
 // ─── 类型定义 ─────────────────────────────────────────────────────────────────
@@ -46,19 +47,7 @@ export interface TrackingEventRow {
  * 若后端当前没有更细的物流时间字段，则明确展示"待更新"，避免伪造具体时间。
  */
 export function formatDateTime(value?: string | null) {
-  if (!value) {
-    return "待更新";
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "待更新";
-  }
-
-  const pad = (num: number) => String(num).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
-    date.getHours()
-  )}:${pad(date.getMinutes())}`;
+  return formatChinaDateTime(value, "待更新");
 }
 
 /** 优先展示面向用户的 order_no，无则回落到 UUID 后 8 位。 */
