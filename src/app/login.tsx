@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform } from
 import { useRouter, Stack } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
+import { goBackOrReplace } from '@/lib/navigation';
 import { useUserStore } from '@/stores/userStore';
 import { showModal } from '@/stores/modalStore';
 import { supabase } from '@/lib/supabase';
@@ -34,7 +35,7 @@ export default function LoginScreen() {
     const result = await doOneClickLogin();
     if (result.success) {
       showModal('欢迎回来', '登录成功，祝您品茶愉快', 'success');
-      setTimeout(() => router.back(), 800);
+      setTimeout(() => goBackOrReplace(router), 800);
     } else if (result.error) {
       showModal('登录失败', result.error, 'error');
     }
@@ -82,7 +83,7 @@ export default function LoginScreen() {
       if (!error) {
         // 登录成功 — 显示优雅提示后返回
         showModal('欢迎回来', '登录成功，祝您品茶愉快', 'success');
-        setTimeout(() => router.back(), 800);
+        setTimeout(() => goBackOrReplace(router), 800);
         setLoading(false);
         return;
       }
@@ -102,7 +103,7 @@ export default function LoginScreen() {
           headerStyle: { backgroundColor: Colors.background },
           headerShadowVisible: false,
           headerLeft: () => (
-            <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Pressable onPress={() => goBackOrReplace(router)} hitSlop={8}>
               <MaterialIcons name="arrow-back" size={24} color={Colors.onSurface} />
             </Pressable>
           ),

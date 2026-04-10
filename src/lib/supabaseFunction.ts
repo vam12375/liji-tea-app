@@ -11,9 +11,10 @@ export type SupabaseFunctionErrorKind =
   | 'http'
   | 'unknown';
 
-const fallbackFunctionJwt =
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY?.trim() ?? '';
-const functionGatewayApiKey = fallbackFunctionJwt;
+const publishableFunctionKey =
+ process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? '';
+const fallbackFunctionJwt = publishableFunctionKey;
+const functionGatewayApiKey = publishableFunctionKey;
 
 interface AccessTokenSnapshot {
   sessionExists: boolean;
@@ -70,11 +71,19 @@ async function getCurrentAccessTokenSnapshot(): Promise<AccessTokenSnapshot> {
   } = await supabase.auth.getSession();
 
   const accessToken = session?.access_token?.trim() || null;
+  const expiresAt = session?.expires_at ?? null;
+  const expiresInSeconds =
+    typeof expiresAt === 'number'
+      ? expiresAt - Math.floor(Date.now() /1000)
+      : null;
 
   logDebug('supabase-function', '读取当前会话令牌快照', {
     hasSession: !!session,
     hasAccessToken: !!accessToken,
     tokenLength: accessToken?.length ?? 0,
+    expiresAt,
+    expiresInSeconds,
+    userId: session?.user?.id ?? null,
   });
 
   return {
@@ -83,17 +92,49 @@ async function getCurrentAccessTokenSnapshot(): Promise<AccessTokenSnapshot> {
   };
 }
 
+async function ensureSessionAccessToken(): Promise<AccessTokenSnapshot> {
+ const snapshot = await getCurrentAccessTokenSnapshot();
+
+  if (snapshot.accessToken) {
+    return snapshot;
+  }
+
+  logWarn('supabase-function', '当前未取到 access token，尝试主动刷新会话', {
+    hasSession: snapshot.sessionExists,
+  });
+
+  const refreshed = await refreshEdgeFunctionSession();
+  if (!refreshed) {
+    return snapshot;
+  }
+
+  return getCurrentAccessTokenSnapshot();
+}
+
 // 所有 Edge Function 调用统一从这里构建请求头，保证鉴权策略一致。
 export async function buildEdgeFunctionHeaders(
   init?: HeadersInit,
   authMode: EdgeFunctionAuthMode = 'auto',
+  accessToken?: string | null,
 ): Promise<Record<string, string>> {
   const headers = new Headers(init);
 
   headers.delete('authorization');
   headers.delete('Authorization');
 
-  if (authMode === 'public' && fallbackFunctionJwt) {
+  const normalizedAccessToken = accessToken?.trim() || null;
+
+  if (authMode === 'session') {
+    if (!normalizedAccessToken) {
+      throw new SupabaseFunctionError({
+        kind: 'auth',
+        message: '未获取到有效的登录凭证，请重新登录。',
+        status: 401,
+      });
+    }
+
+    headers.set('Authorization', `Bearer ${normalizedAccessToken}`);
+  } else if (authMode === 'public' && fallbackFunctionJwt) {
     headers.set('Authorization', `Bearer ${fallbackFunctionJwt}`);
   }
 
@@ -102,7 +143,7 @@ export async function buildEdgeFunctionHeaders(
     headers.set('apikey', functionGatewayApiKey);
   }
 
-  return Object.fromEntries(headers.entries());
+ return Object.fromEntries(headers.entries());
 }
 
 function getErrorContextResponse(error: unknown) {
@@ -289,6 +330,14 @@ async function refreshEdgeFunctionSession() {
     return false;
   }
 
+  logDebug('supabase-function', '刷新 Edge Function 会话结果', {
+    hasSession: Boolean(data.session),
+    hasAccessToken: Boolean(data.session?.access_token?.trim()),
+    tokenLength: data.session?.access_token?.trim().length ?? 0,
+    expiresAt: data.session?.expires_at ?? null,
+    userId: data.session?.user?.id ?? null,
+  });
+
   return Boolean(data.session?.access_token?.trim());
 }
 
@@ -302,7 +351,7 @@ export async function invokeSupabaseFunction<T>(
     const tokenSnapshot =
       authMode === 'public'
         ? { sessionExists: false, accessToken: null }
-        : await getCurrentAccessTokenSnapshot();
+        : await ensureSessionAccessToken();
 
     if (authMode === 'session' && !tokenSnapshot.accessToken) {
       throw new SupabaseFunctionError({
@@ -321,7 +370,8 @@ const resolvedAuthMode: EdgeFunctionAuthMode =
 
     const headers = await buildEdgeFunctionHeaders(
       invokeOptions.headers,
-      resolvedAuthMode === 'session' ? 'auto' : resolvedAuthMode,
+      resolvedAuthMode,
+      tokenSnapshot.accessToken,
     );
 
     logDebug('supabase-function', '调用 Edge Function', {
