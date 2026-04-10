@@ -29,7 +29,8 @@ interface ProductRow {
   id: string;
   name: string | null;
   price: number | string | null;
-  stock: number | null;
+  category: string | null;
+ stock: number | null;
   is_active: boolean | null;
 }
 
@@ -111,7 +112,7 @@ Deno.serve(async (req: Request) => {
     const productIds = normalized.items.map((item) => item.productId);
     const { data: products, error: productsError } = await supabase
       .from("products")
-      .select("id, name, price, stock, is_active")
+      .select("id, name, price, category, stock, is_active")
       .in("id", productIds);
 
     if (productsError) {
@@ -129,6 +130,12 @@ Deno.serve(async (req: Request) => {
     );
 
     const pricingItems: { quantity: number; unit_price: number }[] = [];
+ const couponItems: {
+      productId: string;
+ category: string;
+      quantity: number;
+      unitPrice: number;
+    }[] = [];
 
     for (const item of normalized.items) {
       const product = productMap.get(item.productId);
@@ -153,9 +160,16 @@ Deno.serve(async (req: Request) => {
         );
       }
 
+ const unitPrice = toNumber(product.price);
       pricingItems.push({
         quantity: item.quantity,
-        unit_price: toNumber(product.price),
+        unit_price: unitPrice,
+      });
+      couponItems.push({
+        productId: item.productId,
+        category: product.category ?? "",
+        quantity: item.quantity,
+        unitPrice,
       });
     }
 
@@ -176,10 +190,11 @@ Deno.serve(async (req: Request) => {
       userId: user.id,
       userCouponId,
       context: {
-        subtotal: basePricing.subtotal,
+subtotal: basePricing.subtotal,
         shipping: basePricing.shipping,
         autoDiscount: basePricing.autoDiscount,
         giftWrapFee: basePricing.giftWrapFee,
+        items: couponItems,
       },
     });
 
