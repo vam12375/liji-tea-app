@@ -55,7 +55,7 @@ async function syncExpiredLockedCouponsForUser(userId: string) {
     }
 
  const createdAt = new Date(item.created_at).getTime();
-    return Number.isFinite(createdAt) && now - createdAt >= 10 * 60 * 1000;
+    return Number.isFinite(createdAt) && now - createdAt >= 5 *60 * 1000;
   });
 
  await Promise.allSettled(

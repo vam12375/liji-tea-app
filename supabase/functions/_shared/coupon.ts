@@ -1,7 +1,7 @@
 import { createServiceClient } from "./supabase.ts";
 
 // 用户券在订单创建后的锁定时长，超时未支付会被释放回可用状态。
-const COUPON_LOCK_MINUTES = 10;
+const COUPON_LOCK_MINUTES = 5;
 
 export interface CouponRow {
   id: string;

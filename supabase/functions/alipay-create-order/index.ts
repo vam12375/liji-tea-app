@@ -102,19 +102,48 @@ Deno.serve(async (req: Request) => {
 
     // 拉起支付前先检查订单是否已经超时，避免用户继续支付失效订单。
     if (order.status === "pending") {
-      const expiredResult = await closeExpiredPendingOrder(order);
-      if (expiredResult.error) {
+      const canAttemptRemoteClose =
+        !order.out_trade_no || order.payment_channel === "alipay";
+
+      if (!canAttemptRemoteClose) {
         return errorResponse(
-          "检查待付款订单是否超时失败。",
-          500,
-          "pending_order_expire_check_failed",
-          expiredResult.error.message,
+          "待付款订单已超过 5 分钟，系统已自动取消。",
+          409,
+          "order_expired",
         );
       }
 
-      if (expiredResult.expired) {
+      try {
+ const expiredResult = await closeExpiredPendingOrder(order);
+        if (expiredResult.error || expiredResult.expired) {
+          if (expiredResult.error) {
+            console.error("[alipay-create-order] closeExpiredPendingOrder failed", {
+              orderId: order.id,
+              paymentChannel: order.payment_channel ?? null,
+              hasOutTradeNo: Boolean(order.out_trade_no),
+              errorMessage: expiredResult.error.message,
+            });
+          }
+
+ return errorResponse(
+            "待付款订单已超过 5 分钟，系统已自动取消。",
+            409,
+            "order_expired",
+          );
+        }
+      } catch (expireSyncError) {
+        console.error("[alipay-create-order] expired order sync threw", {
+          orderId: order.id,
+          paymentChannel: order.payment_channel ?? null,
+          hasOutTradeNo: Boolean(order.out_trade_no),
+          error:
+            expireSyncError instanceof Error
+              ? expireSyncError.message
+              : String(expireSyncError),
+        });
+
         return errorResponse(
-          "待付款订单已超过 10 分钟，系统已自动取消。",
+          "待付款订单已超过 5 分钟，系统已自动取消。",
           409,
           "order_expired",
         );
