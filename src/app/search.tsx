@@ -6,6 +6,7 @@ import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "@/constants/Colors";
+import { goBackOrReplace } from "@/lib/navigation";
 import { hotSearches } from "@/data/search";
 import { useProductStore, type Product } from "@/stores/productStore";
 import SearchHistoryChips from "@/components/search/SearchHistoryChips";
@@ -83,7 +84,7 @@ export default function SearchScreen() {
             </Pressable>
           )}
         </View>
-        <Pressable onPress={() => router.back()}>
+        <Pressable onPress={() => goBackOrReplace(router)}>
           <Text className="text-primary text-sm">取消</Text>
         </Pressable>
       </View>

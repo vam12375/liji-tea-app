@@ -8,7 +8,7 @@ import type { Order } from "@/types/database";
 
 /** 超时待支付订单在客户端展示为关闭时使用的统一提示文案。 */
 const EXPIRED_PENDING_ORDER_MESSAGE =
-  "待付款订单已超过 10 分钟，系统已自动取消。";
+  "待付款订单已超过 5 分钟，系统已自动取消。";
 
 /** 订单写操作的统一返回结构，便于 store 收口成功更新和错误提示。 */
 export interface OrderMutationResult {

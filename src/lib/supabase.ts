@@ -6,22 +6,24 @@ import {
   type NativeEventSubscription,
 } from "react-native";
 
-type RequiredEnvKey =
-  | "EXPO_PUBLIC_SUPABASE_URL"
-  | "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY";
+function readRequiredEnv(value: string | undefined, key: string): string {
+  const normalizedValue = value?.trim();
 
-function readRequiredEnv(key: RequiredEnvKey): string {
-  const value = process.env[key]?.trim();
-
-  if (!value) {
-    throw new Error(`缺少必需的环境变量：${key}。请检查 .env 文件配置。`);
+  if (!normalizedValue) {
+ throw new Error(`缺少必需的环境变量：${key}。请检查 .env 文件配置。`);
   }
 
-  return value;
+  return normalizedValue;
 }
 
-const supabaseUrl = readRequiredEnv("EXPO_PUBLIC_SUPABASE_URL");
-const supabaseKey = readRequiredEnv("EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+const supabaseUrl = readRequiredEnv(
+ process.env.EXPO_PUBLIC_SUPABASE_URL,
+  "EXPO_PUBLIC_SUPABASE_URL",
+);
+const supabaseKey = readRequiredEnv(
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+);
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {

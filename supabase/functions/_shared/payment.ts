@@ -69,7 +69,7 @@ export interface TrackingEventInput {
 }
 
 // 待付款订单的统一过期时长，客户端与服务端都以这个规则进行兜底处理。
-const PENDING_ORDER_EXPIRE_MS = 10 * 60 * 1000;
+const PENDING_ORDER_EXPIRE_MS = 5 * 60 * 1000;
 // 订单计价规则常量统一放在服务端，避免客户端自行改价。
 const SHIPPING_EXPRESS = 15;
 const DISCOUNT_THRESHOLD = 1000;
@@ -345,23 +345,32 @@ export async function closeExpiredPendingOrder(order: PendingOrderSnapshot) {
   }
 
   const supabase = createServiceClient();
-  const now = new Date().toISOString();
-  const orderUpdate = {
-    status: "cancelled",
-    payment_status: "closed",
-    payment_error_code: "order_expired",
-    payment_error_message: "待付款订单已超过 10 分钟，系统已自动取消。",
-    updated_at: now,
-  };
+  const { data: cancelOrderResult, error: cancelOrderError } = await supabase.rpc(
+    "cancel_pending_order_and_restore_stock",
+    {
+ p_order_id: order.id,
+      p_user_id: null,
+      p_payment_status: "closed",
+      p_payment_error_code: "order_expired",
+      p_payment_error_message: "待付款订单已超过 5 分钟，系统已自动取消。",
+    },
+  );
 
-  const { error: orderError } = await supabase
-    .from("orders")
-    .update(orderUpdate)
-    .eq("id", order.id)
-    .eq("status", "pending");
+  if (cancelOrderError) {
+    return { expired: true, error: cancelOrderError };
+  }
 
-  if (orderError) {
-    return { expired: true, error: orderError };
+  const cancelResultRow = Array.isArray(cancelOrderResult)
+    ? cancelOrderResult[0]
+    : cancelOrderResult;
+  const released =
+    cancelResultRow &&
+    typeof cancelResultRow === "object" &&
+    "released" in cancelResultRow &&
+ cancelResultRow.released === true;
+
+  if (!released) {
+    return { expired: true, error: null };
   }
 
   const { error: transactionError } = await supabase
@@ -370,25 +379,17 @@ export async function closeExpiredPendingOrder(order: PendingOrderSnapshot) {
       status: "closed",
       notify_payload: {
         type: "order_expired",
-        cancelled_at: now,
+        cancelled_at: new Date().toISOString(),
         alipay_close: remoteCloseResult.attempted ? remoteCloseResult.result : null,
       },
       notify_verified: true,
-      updated_at: now,
+      updated_at: new Date().toISOString(),
     })
     .eq("order_id", order.id)
     .in("status", ["created", "paying"]);
 
-  const { error: releaseCouponError } = await releaseLockedCoupon({
-    orderId: order.id,
-  });
-
   if (transactionError) {
     return { expired: true, error: transactionError };
-  }
-
-  if (releaseCouponError) {
-    return { expired: true, error: releaseCouponError };
   }
 
   return { expired: true, error: null };

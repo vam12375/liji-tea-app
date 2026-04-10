@@ -6,6 +6,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image as ExpoImage } from "expo-image";
 import Constants from "expo-constants";
 import { Colors } from "@/constants/Colors";
+import { goBackOrReplace } from "@/lib/navigation";
 import { useUserStore } from "@/stores/userStore";
 import { showModal, showConfirm } from "@/stores/modalStore";
 
@@ -120,7 +121,7 @@ export default function SettingsScreen() {
           headerStyle: { backgroundColor: Colors.background },
           headerShadowVisible: false,
           headerLeft: () => (
-            <Pressable onPress={() => router.back()} hitSlop={8}>
+            <Pressable onPress={() => goBackOrReplace(router)} hitSlop={8}>
               <MaterialIcons name="arrow-back" size={24} color={Colors.onSurface} />
             </Pressable>
           ),

@@ -2,7 +2,6 @@ import {
   invokeSupabaseFunctionStrict,
   SupabaseFunctionError,
 } from "@/lib/supabaseFunction";
-import { supabase } from "@/lib/supabase";
 import type { PaymentChannel } from "@/types/payment";
 
 // 统一前后端配送方式枚举，避免页面与 Edge Function 之间出现字符串不一致。
@@ -172,31 +171,42 @@ kind: "unknown",
   return data;
 }
 
-//用于关闭超时未支付订单，并同步释放此前预留的库存。
+// 用户主动取消订单时，统一走 Edge Function，由服务端再调用 RPC 完成库存回滚与关单。
 export async function cancelPendingOrderAndRestoreStock(
   orderId: string,
-  userId: string,
+  _userId: string,
 ) {
-  const { data, error } = await supabase.rpc(
-    "cancel_pending_order_and_restore_stock",
-    {
-      p_order_id: orderId,
-      p_user_id:userId,
-      p_payment_status: "closed",
-      p_payment_error_code: "order_expired",
-      p_payment_error_message: "待付款订单已超过 10 分钟，系统已自动取消。",
-    },
-  );
+  const data = await invokeSupabaseFunctionStrict<{
+    orderId: string;
+    released: boolean;
+    status: string;
+    paymentStatus: string;
+  }>("cancel-order", {
+    authMode: "session",
+    body: { orderId },
+    fallbackMessage: "取消订单失败。",
+    validate: (payload) =>
+      Boolean(
+        payload &&
+          typeof payload.orderId === "string" &&
+          typeof payload.released === "boolean" &&
+          typeof payload.status === "string" &&
+          typeof payload.paymentStatus === "string",
+      ),
+    invalidDataMessage: "服务端未返回有效的取消订单结果。",
+  });
 
-  if (error) {
-throw new Error(error.message || "关闭超时订单失败。");
-  }
-
-  const result = Array.isArray(data) ? data[0] : data;
-
-  if (!isCancelPendingOrderResponse(result)) {
+  if (!isCancelPendingOrderResponse({
+    released: data.released,
+    order_status: data.status,
+    payment_status: data.paymentStatus,
+  })) {
     throw new Error("服务端未返回有效的订单关闭结果。");
   }
 
-  return result;
+  return {
+    released: data.released,
+ order_status: data.status,
+    payment_status: data.paymentStatus,
+  };
 }
