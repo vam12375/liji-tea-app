@@ -9,7 +9,7 @@ module.exports = defineConfig([
       "import/parsers": {
         "@typescript-eslint/parser": [".ts", ".tsx"],
       },
-      "import/resolver": {
+ "import/resolver": {
         typescript: {
           project: "./tsconfig.json",
         },
@@ -17,7 +17,15 @@ module.exports = defineConfig([
           extensions: [".js", ".jsx", ".ts", ".tsx"],
         },
       },
+      "import/core-modules": ["jsr:@supabase/supabase-js@2"],
     },
-    ignores: ["dist/*"],
+ignores: ["dist/*", ".expo/*", ".expo/**"],
+  },
+  {
+    files: ["supabase/functions/**/*.ts"],
+    rules: {
+      "import/first": "off",
+      "unicode-bom": "off",
+    },
   },
 ]);

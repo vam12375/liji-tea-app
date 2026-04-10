@@ -38,29 +38,61 @@ function formatDateLabel(value?: string | null) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
+function formatCouponScope(coupon: Coupon) {
+  if (coupon.scope === "shipping") {
+    return "适用范围：运费券";
+  }
+
+  if (coupon.scope === "category") {
+    const categories = coupon.scopeCategoryIds.filter(Boolean);
+    return categories.length > 0
+      ? `适用范围：分类券（${categories.join("、")}）`
+      : "适用范围：分类券";
+  }
+
+  if (coupon.scope === "product") {
+    const products = coupon.scopeProductIds.filter(Boolean);
+    return products.length > 0
+      ? `适用范围：指定商品券（${products.length} 件商品）`
+      : "适用范围：指定商品券";
+  }
+
+  return "适用范围：全场通用";
+}
+
 function formatCouponValue(coupon: Coupon) {
   if (coupon.discountType === "fixed") {
+    if (coupon.minSpend > 0) {
+      return `满 ${formatCurrency(coupon.minSpend)} 减 ${formatCurrency(coupon.discountValue)}`;
+    }
+
     return `立减 ${formatCurrency(coupon.discountValue)}`;
   }
 
-  if (coupon.discountValue <= 1) {
-    return `${(coupon.discountValue * 10).toFixed(1).replace(/\.0$/, "")} 折`;
+  const normalizedDiscount =
+    coupon.discountValue <= 1 ? coupon.discountValue * 10 : coupon.discountValue;
+
+  if (normalizedDiscount === 9) {
+    return "9 折";
   }
 
-  if (coupon.discountValue <= 10) {
-    return `${coupon.discountValue.toFixed(1).replace(/\.0$/, "")} 折`;
+  if (normalizedDiscount === 8) {
+    return "8 折";
   }
 
-  return `${coupon.discountValue.toFixed(0)}% OFF`;
+  if (normalizedDiscount <= 10) {
+    return `${normalizedDiscount.toFixed(1).replace(/\.0$/, "")} 折`;
+  }
+
+  return `${normalizedDiscount.toFixed(0)}% OFF`;
 }
 
 function formatCouponCondition(coupon: Coupon) {
   const threshold =
-    coupon.minSpend > 0 ? `满 ${formatCurrency(coupon.minSpend)} 可用` : "无门槛";
-  const maxDiscount =
-    coupon.discountType === "percent" && coupon.maxDiscount !== null
-      ? `，最高减 ${formatCurrency(coupon.maxDiscount)}`
-      : "";
+    coupon.minSpend > 0 ? `订单满 ${formatCurrency(coupon.minSpend)} 可用` : "无门槛可用";
+  const maxDiscount = coupon.maxDiscount !== null
+    ? `，最高优惠 ${formatCurrency(coupon.maxDiscount)}`
+    : "";
 
   return `${threshold}${maxDiscount}`;
 }
@@ -544,6 +576,9 @@ export default function CouponsScreen() {
                   ) : null}
 
                   <View className="border-t border-outline-variant/10 pt-3 gap-1">
+                    <Text className="text-outline text-xs leading-5">
+                      {formatCouponScope(coupon)}
+                    </Text>
                     <Text className="text-outline text-xs">
                       {formatCouponValidity(coupon)}
                     </Text>

@@ -2,6 +2,10 @@ import { runAliOneClickSupportTests } from "./aliOneClickSupport.test";
 import { runCollectionsTests } from "./collections.test";
 import { runCommunityFeedTests } from "./communityFeed.test";
 import { runCouponSelectionTests } from "./couponSelection.test";
+import { runCouponExpiryReleaseTests } from "./couponExpiryRelease.test";
+import { runCouponPricingTests } from "./couponPricing.test";
+import { runCouponScopeTests } from "./couponScope.test";
+import { runCouponScopeExpansionTests } from "./couponScopeExpansion.test";
 import { runOrderRpcTests } from "./orderRpc.test";
 import { runOrderTimingTests } from "./orderTiming.test";
 import { runPaymentConfigTests } from "./paymentConfig.test";
@@ -20,8 +24,12 @@ async function main() {
     runAliOneClickSupportTests,
     runCollectionsTests,
     runCommunityFeedTests,
-    runCouponSelectionTests,
-    runOrderRpcTests,
+ runCouponSelectionTests,
+ runCouponExpiryReleaseTests,
+ runCouponPricingTests,
+ runCouponScopeTests,
+ runCouponScopeExpansionTests,
+ runOrderRpcTests,
     runOrderTimingTests,
     runTrackingUtilsTests,
     runPaymentConfigTests,

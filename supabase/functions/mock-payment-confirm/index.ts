@@ -35,6 +35,10 @@ Deno.serve(async (req: Request) => {
       requestBody && typeof requestBody.orderId === "string"
         ? requestBody.orderId
         : "";
+    const requestedChannel =
+      requestBody && typeof requestBody.paymentChannel === "string"
+        ? requestBody.paymentChannel
+        : "";
 
     if (!orderId) {
       return errorResponse("缺少 orderId。", 400, "missing_order_id");
@@ -55,7 +59,16 @@ Deno.serve(async (req: Request) => {
       return errorResponse("无权访问该订单。", 403, "forbidden");
     }
 
-    const channel = order.payment_channel || order.payment_method || "";
+    if (requestedChannel && !MOCK_CHANNELS.has(requestedChannel)) {
+      return errorResponse(
+        "当前支付渠道不支持模拟支付。",
+        422,
+        "channel_not_supported",
+      );
+    }
+
+    const channel =
+      requestedChannel || order.payment_channel || order.payment_method || "";
 
     if (!MOCK_CHANNELS.has(channel)) {
       return errorResponse(
@@ -91,7 +104,7 @@ Deno.serve(async (req: Request) => {
           orderId: order.id,
           status: order.status,
           paymentStatus: order.payment_status,
-          paymentChannel: channel,
+          paymentChannel: order.payment_channel || order.payment_method || channel,
           paidAt: order.paid_at,
           paidAmount: order.paid_amount,
         });

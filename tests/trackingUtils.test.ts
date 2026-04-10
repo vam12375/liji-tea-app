@@ -37,6 +37,10 @@ export async function runTrackingUtilsTests() {
     assert.equal(formatDateTime("invalid-date"), "待更新");
   });
 
+  await runCase("formats datetime in china timezone", () => {
+    assert.equal(formatDateTime("2026-04-08T12:07:00.000Z"), "2026-04-08 20:07");
+  });
+
   await runCase("masks phone numbers consistently", () => {
     assert.equal(maskPhone("13812345678"), "138****5678");
     assert.equal(maskPhone("12345"), "12345");

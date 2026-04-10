@@ -8,15 +8,18 @@ export interface CouponRow {
   title: string;
   description: string | null;
   code: string;
+ scope: CouponScope;
+  scope_category_ids: string[] | null;
+  scope_product_ids: string[] | null;
   discount_type: string;
-  discount_value: number | string | null;
+ discount_value: number | string | null;
   min_spend: number | string | null;
   max_discount: number | string | null;
-  total_limit: number | null;
+ total_limit: number | null;
   per_user_limit: number | null;
   claimed_count: number | null;
   used_count: number | null;
-  starts_at: string | null;
+ starts_at: string | null;
   ends_at: string | null;
   is_active: boolean | null;
 }
@@ -34,13 +37,23 @@ export interface UserCouponRow {
   coupon: CouponRow | null;
 }
 
+export interface CouponPricingProductItem {
+  productId: string;
+  category: string;
+  quantity: number;
+  unitPrice: number;
+}
+
 // 计算优惠券可抵扣金额时所需的订单金额上下文。
 export interface CouponPricingContext {
   subtotal: number;
   shipping: number;
   autoDiscount: number;
   giftWrapFee: number;
+  items: CouponPricingProductItem[];
 }
+
+export type CouponScope = "all" | "shipping" | "category" | "product";
 
 export interface AppliedCouponSummary {
   couponId: string;
@@ -49,8 +62,12 @@ export interface AppliedCouponSummary {
   title: string;
   discountType: string;
   discountValue: number;
-  minSpend: number;
+ minSpend: number;
   maxDiscount: number | null;
+  scope: CouponScope;
+  scopeCategoryIds: string[];
+  scopeProductIds: string[];
+  eligibleAmount: number;
   discountAmount: number;
 }
 
@@ -118,7 +135,7 @@ async function fetchCouponByInput(input: ClaimCouponInput) {
   }
 
   let query = supabase.from("coupons").select(
-    "id, title, description, code, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active",
+    "id, title, description, code, scope, scope_category_ids, scope_product_ids, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active",
   );
 
   if (couponId) {
@@ -145,7 +162,7 @@ async function fetchUserCoupon(userId: string, userCouponId: string) {
   const { data, error } = await supabase
     .from("user_coupons")
     .select(
-      "id, coupon_id, user_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active)",
+      "id, coupon_id, user_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, scope, scope_category_ids, scope_product_ids, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active)",
     )
     .eq("id", userCouponId)
     .eq("user_id", userId)
@@ -198,16 +215,60 @@ async function markUserCouponExpired(userCoupon: UserCouponRow) {
   return { error };
 }
 
-// 按优惠券类型、门槛和封顶规则计算当前订单可使用的抵扣金额。
-function calculateCouponDiscount(coupon: CouponRow, context: CouponPricingContext) {
+function getScopeCategoryIds(coupon: CouponRow) {
+  return Array.isArray(coupon.scope_category_ids) ? coupon.scope_category_ids : [];
+}
+
+function getScopeProductIds(coupon: CouponRow) {
+  return Array.isArray(coupon.scope_product_ids) ? coupon.scope_product_ids : [];
+}
+
+function getCouponEligibleAmount(coupon: CouponRow, context: CouponPricingContext) {
   const subtotal = roundCurrency(context.subtotal);
   const autoDiscount = roundCurrency(context.autoDiscount);
-  const eligibleAmount = roundCurrency(Math.max(subtotal - autoDiscount, 0));
+  const shipping = roundCurrency(context.shipping);
+
+  if (coupon.scope === "shipping") {
+    return roundCurrency(Math.max(shipping, 0));
+  }
+
+  if (coupon.scope === "category") {
+    const scopeCategoryIds = new Set(getScopeCategoryIds(coupon));
+    const categorySubtotal = context.items
+      .filter((item: CouponPricingProductItem) => scopeCategoryIds.has(item.category))
+      .reduce(
+        (sum: number, item: CouponPricingProductItem) => sum + item.unitPrice * item.quantity,
+        0,
+      );
+    return roundCurrency(Math.max(categorySubtotal, 0));
+  }
+
+  if (coupon.scope === "product") {
+    const scopeProductIds = new Set(getScopeProductIds(coupon));
+    const productSubtotal = context.items
+      .filter((item: CouponPricingProductItem) => scopeProductIds.has(item.productId))
+      .reduce(
+        (sum: number, item: CouponPricingProductItem) => sum + item.unitPrice * item.quantity,
+        0,
+      );
+    return roundCurrency(Math.max(productSubtotal, 0));
+  }
+
+  return roundCurrency(Math.max(subtotal - autoDiscount, 0));
+}
+
+// 按优惠券类型、门槛、作用范围和封顶规则计算当前订单可使用的抵扣金额。
+function calculateCouponDiscount(coupon: CouponRow, context: CouponPricingContext) {
+ const subtotal = roundCurrency(context.subtotal);
   const minSpend = roundCurrency(toNumber(coupon.min_spend));
+  const scope = coupon.scope ?? "all";
+ const eligibleAmount = getCouponEligibleAmount(coupon, context);
 
   if (subtotal < minSpend) {
     return {
       discountAmount: 0,
+      eligibleAmount,
+      scope,
       error: `当前订单未达到优惠券使用门槛，满 ¥${minSpend.toFixed(2)} 可用。`,
     };
   }
@@ -215,11 +276,16 @@ function calculateCouponDiscount(coupon: CouponRow, context: CouponPricingContex
   if (eligibleAmount <= 0) {
     return {
       discountAmount: 0,
-      error: "当前订单金额不足，暂时无法使用该优惠券。",
+      eligibleAmount,
+      scope,
+      error:
+ scope === "shipping"
+          ? "当前订单无需运费，暂时无法使用该运费券。"
+          : "当前订单金额不足，暂时无法使用该优惠券。",
     };
   }
 
-  const discountType = coupon.discount_type;
+ const discountType = coupon.discount_type;
   const discountValue = roundCurrency(toNumber(coupon.discount_value));
   const maxDiscount =
     coupon.max_discount === null ? null : roundCurrency(toNumber(coupon.max_discount));
@@ -229,10 +295,25 @@ function calculateCouponDiscount(coupon: CouponRow, context: CouponPricingContex
   if (discountType === "fixed") {
     discountAmount = discountValue;
   } else if (discountType === "percent") {
-    discountAmount = roundCurrency(eligibleAmount * (discountValue / 100));
+    const normalizedDiscountRate = discountValue <= 1 ? discountValue : discountValue / 10;
+
+    if (normalizedDiscountRate <= 0 || normalizedDiscountRate >= 10) {
+      return {
+        discountAmount: 0,
+ eligibleAmount,
+        scope,
+        error: "优惠券折扣配置无效。",
+      };
+    }
+
+    discountAmount = roundCurrency(
+ eligibleAmount - eligibleAmount * (normalizedDiscountRate / 10),
+    );
   } else {
     return {
       discountAmount: 0,
+      eligibleAmount,
+      scope,
       error: "优惠券类型无效。",
     };
   }
@@ -246,12 +327,16 @@ function calculateCouponDiscount(coupon: CouponRow, context: CouponPricingContex
   if (discountAmount <= 0) {
     return {
       discountAmount: 0,
+      eligibleAmount,
+      scope,
       error: "当前订单暂时无法使用该优惠券。",
     };
   }
 
   return {
-    discountAmount,
+ discountAmount,
+    eligibleAmount,
+    scope,
     error: null,
   };
 }
@@ -360,21 +445,25 @@ export async function resolveCouponPricingForUser(params: {
   }
 
   return {
-    data: {
-      couponDiscount: calculated.discountAmount,
+ data: {
+ couponDiscount: calculated.discountAmount,
       appliedCoupon: {
         couponId: userCoupon.coupon.id,
         userCouponId: userCoupon.id,
         code: userCoupon.coupon.code,
         title: userCoupon.coupon.title,
         discountType: userCoupon.coupon.discount_type,
-        discountValue: roundCurrency(toNumber(userCoupon.coupon.discount_value)),
+ discountValue: roundCurrency(toNumber(userCoupon.coupon.discount_value)),
         minSpend: roundCurrency(toNumber(userCoupon.coupon.min_spend)),
         maxDiscount:
-          userCoupon.coupon.max_discount === null
+ userCoupon.coupon.max_discount === null
             ? null
             : roundCurrency(toNumber(userCoupon.coupon.max_discount)),
-        discountAmount: calculated.discountAmount,
+scope: calculated.scope,
+ scopeCategoryIds: getScopeCategoryIds(userCoupon.coupon),
+ scopeProductIds: getScopeProductIds(userCoupon.coupon),
+ eligibleAmount: calculated.eligibleAmount,
+ discountAmount: calculated.discountAmount,
       },
     } as CouponPricingResult,
     error: null,
@@ -651,7 +740,7 @@ export async function claimCouponForUser(input: ClaimCouponInput) {
         updated_at: now,
       })
       .select(
-        "id, coupon_id, user_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active)",
+        "id, coupon_id, user_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, scope, scope_category_ids, scope_product_ids, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active)",
       )
       .single<UserCouponRow>();
 
@@ -704,7 +793,7 @@ export async function claimCouponForUser(input: ClaimCouponInput) {
   const { data: userCoupon, error: fetchError } = await supabase
     .from("user_coupons")
     .select(
-      "id, coupon_id, user_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active)",
+      "id, coupon_id, user_id, status, claimed_at, locked_at, lock_expires_at, used_at, order_id, coupon:coupons(id, title, description, code, scope, scope_category_ids, scope_product_ids, discount_type, discount_value, min_spend, max_discount, total_limit, per_user_limit, claimed_count, used_count, starts_at, ends_at, is_active)",
     )
     .eq("user_id", userId)
     .eq("coupon_id", coupon.id)

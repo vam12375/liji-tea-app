@@ -59,7 +59,10 @@ export interface PaymentExecutionDependencies {
   waitForPaymentConfirmation: (
     orderId: string,
   ) => Promise<PaymentOrderStatusResponse>;
-  confirmMockPayment: (orderId: string) => Promise<MockPaymentConfirmResponse>;
+  confirmMockPayment: (
+    orderId: string,
+    paymentChannel: PaymentChannel,
+  ) => Promise<MockPaymentConfirmResponse>;
 }
 
 /** 支付流程执行结果，供页面决定后续展示或弹窗。 */
@@ -100,9 +103,9 @@ export const defaultPaymentExecutionDependencies: PaymentExecutionDependencies =
     const { waitForPaymentConfirmation } = await import("@/lib/alipay");
     return waitForPaymentConfirmation(orderId);
   },
-  confirmMockPayment: async (orderId) => {
+  confirmMockPayment: async (orderId, paymentChannel) => {
     const { confirmMockPayment } = await import("@/lib/payment");
-    return confirmMockPayment(orderId);
+    return confirmMockPayment(orderId, paymentChannel);
   },
 };
 
@@ -261,13 +264,14 @@ export const alipayPaymentExecutor: PaymentExecutor = async ({
 /** mock 支付执行器：直接调用服务端模拟支付并返回结果。 */
 export const mockPaymentExecutor: PaymentExecutor = async ({
   orderId,
+  paymentMethod,
   callbacks,
   transitionTo,
   dependencies,
 }) => {
   transitionTo("creating_order");
 
-  const result = await dependencies.confirmMockPayment(orderId);
+  const result = await dependencies.confirmMockPayment(orderId, paymentMethod);
   if (typeof result.paidAmount === "number") {
     callbacks.onAmountUpdate?.(result.paidAmount);
   }

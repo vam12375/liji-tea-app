@@ -13,15 +13,22 @@ export interface OrderInputItem {
   quantity: number;
 }
 
+export type CouponDiscountType = "fixed" | "percent";
+export type CouponScope = "all" | "shipping" | "category" | "product";
+
 export interface AppliedCouponSummary {
   couponId: string;
   userCouponId: string;
   code: string;
   title: string;
-discountType: string;
+  discountType: CouponDiscountType;
   discountValue: number;
   minSpend: number;
   maxDiscount: number | null;
+  scope: CouponScope;
+  scopeCategoryIds?: string[];
+  scopeProductIds?: string[];
+  eligibleAmount: number;
   discountAmount: number;
 }
 

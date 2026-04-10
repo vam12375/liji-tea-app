@@ -9,6 +9,7 @@ interface PriceBreakdownProps {
   couponDiscount?: number;
   couponTitle?: string | null;
   couponCode?: string | null;
+  couponScopeLabel?: string | null;
   giftWrapFee: number;
 }
 
@@ -21,6 +22,7 @@ export default function PriceBreakdown({
   couponDiscount = 0,
   couponTitle,
   couponCode,
+  couponScopeLabel,
   giftWrapFee,
 }: PriceBreakdownProps) {
   // 合计金额沿用服务端同样的计算结构，只负责展示不改变业务规则。
@@ -43,11 +45,16 @@ export default function PriceBreakdown({
         />
       )}
       {couponDiscount > 0 && (
-        <Row
-          label={couponLabel}
-          value={`-¥${couponDiscount.toFixed(2)}`}
-          valueClass="text-primary font-bold"
-        />
+        <View className="gap-1">
+          <Row
+            label={couponLabel}
+            value={`-¥${couponDiscount.toFixed(2)}`}
+            valueClass="text-primary font-bold"
+          />
+          {couponScopeLabel ? (
+            <Text className="text-outline text-xs">{couponScopeLabel}</Text>
+          ) : null}
+        </View>
       )}
       {discount > 0 && autoDiscount <= 0 && couponDiscount <= 0 && (
         <Row label="优惠" value={`-¥${discount.toFixed(2)}`} valueClass="text-primary font-bold" />

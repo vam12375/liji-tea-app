@@ -1,4 +1,5 @@
 import { track } from "@/lib/analytics";
+import { fetchPaymentOrderStatus } from "@/lib/alipay";
 import { cancelPendingOrderAndRestoreStock } from "@/lib/order";
 import { isPendingOrderExpired } from "@/lib/orderTiming";
 import { captureError } from "@/lib/logger";
@@ -28,10 +29,40 @@ export function createExpiredPendingOrderUpdate(
   };
 }
 
-/**仅在客户端视图层映射超时订单状态，不直接回写服务端。 */
+/**
+ * 待付款订单一旦在客户端被判定为超时，优先调用服务端支付状态接口。
+ * 这样可以真正触发服务端的关单、释放库存、释放 locked 优惠券逻辑，
+ * 避免前端只把订单“显示成已取消”，但数据库里的优惠券仍保持 locked。
+ */
 export async function applyExpiredPendingOrderState(order: Order): Promise<Order> {
   if (!isPendingOrderExpired(order)) {
     return order;
+  }
+
+  try {
+    const remoteStatus = await fetchPaymentOrderStatus(order.id);
+
+    if (
+ remoteStatus.status === "cancelled" ||
+      remoteStatus.paymentStatus === "closed" ||
+      remoteStatus.paymentStatus === "failed"
+    ) {
+      return {
+        ...order,
+        status: remoteStatus.status === "cancelled" ? "cancelled" : order.status,
+        payment_status: remoteStatus.paymentStatus ?? "closed",
+        payment_error_code: remoteStatus.paymentErrorCode,
+        payment_error_message:
+ remoteStatus.paymentErrorMessage ?? EXPIRED_PENDING_ORDER_MESSAGE,
+        updated_at: new Date().toISOString(),
+      };
+    }
+  } catch (error: unknown) {
+    captureError(error, {
+      scope: "orderActions",
+      message: "调用 payment-order-status 触发超时订单关单失败，回退到本地过期映射",
+      orderId: order.id,
+    });
   }
 
   return {

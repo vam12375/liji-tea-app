@@ -20,6 +20,7 @@ import {
   formatRemainingPaymentTime,
   getPendingPaymentDeadline,
 } from "@/lib/orderTiming";
+import { formatChinaDateTime } from "@/lib/dateTime";
 import { routes } from "@/lib/routes";
 import { showConfirm, showModal } from "@/stores/modalStore";
 import { useOrderStore } from "@/stores/orderStore";
@@ -35,16 +36,6 @@ function getInitialActiveTab(initialTab?: string): OrdersTabKey {
   }
 
   return ORDER_STATUS_TO_TAB[initialTab] ?? "全部";
-}
-
-/** 格式化下单时间，统一成 `yyyy-mm-dd hh:mm` 形式。 */
-function formatDate(dateStr: string) {
-  const date = new Date(dateStr);
-  const pad = (value: number) => String(value).padStart(2, "0");
-
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(
-    date.getHours(),
-  )}:${pad(date.getMinutes())}`;
 }
 
 /** 订单卡片组件的入参，拆出后便于配合 `memo` 减少无关重渲染。 */
@@ -95,7 +86,9 @@ const OrderCard = memo(function OrderCard({
       </View>
 
       {/* 下单时间用于帮助用户快速定位最近订单。 */}
-      <Text className="text-xs text-outline">{formatDate(item.created_at)}</Text>
+      <Text className="text-xs text-outline">
+        {formatChinaDateTime(item.created_at, "--")}
+      </Text>
 
       {/* 待支付订单统一展示倒计时提示卡片。 */}
       {item.status === "pending" ? (

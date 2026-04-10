@@ -18,6 +18,12 @@ import PaymentMethods from "@/components/checkout/PaymentMethods";
 import PriceBreakdown from "@/components/checkout/PriceBreakdown";
 import { Colors } from "@/constants/Colors";
 import { findDefaultItem } from "@/lib/collections";
+import {
+  getBestAvailableUserCouponId,
+  getBestCouponRecommendation,
+  getCouponDiscountDelta,
+  getCouponScopeLabel,
+} from "@/lib/couponSelection";
 import { getEnabledPaymentChannels, isPaymentChannelEnabled } from "@/lib/paymentConfig";
 import type { DeliveryType } from "@/lib/order";
 import { routes } from "@/lib/routes";
@@ -44,9 +50,10 @@ export default function CheckoutScreen() {
   const products = useProductStore((state) => state.products);
 const selectedUserCouponId = useCouponStore((state) => state.selectedUserCouponId);
   const userCoupons = useCouponStore((state) => state.userCoupons);
-  const loadingUserCoupons = useCouponStore((state) => state.loadingUser);
+ const loadingUserCoupons = useCouponStore((state) => state.loadingUser);
 const fetchUserCoupons = useCouponStore((state) => state.fetchUserCoupons);
-  const clearSelectedCoupon = useCouponStore((state) => state.clearSelectedCoupon);
+  const setSelectedUserCouponId = useCouponStore((state) => state.setSelectedUserCouponId);
+ const clearSelectedCoupon = useCouponStore((state) => state.clearSelectedCoupon);
   const enabledChannels = getEnabledPaymentChannels();
 
   const orderItems = useMemo(() => {
@@ -66,6 +73,18 @@ const product = products.find((item) => item.id === productId);
       orderItems.map((item) => ({
         productId: item.product.id,
         quantity: item.quantity,
+      })),
+    [orderItems],
+  );
+
+  const couponContextItems = useMemo(
+    () =>
+      orderItems.map((item) => ({
+        productId: item.product.id,
+        productName: item.product.name,
+ category: item.product.category,
+        quantity: item.quantity,
+        unitPrice: item.product.price,
       })),
     [orderItems],
   );
@@ -109,11 +128,62 @@ selectedUserCouponId,
     }
 
     if (availableCouponCount > 0) {
-      return `${availableCouponCount} 张可用，点击选择`;
+      return `${availableCouponCount} 张可用，系统将自动为你选择最优券`;
     }
 
     return "暂无可用优惠券";
   }, [availableCouponCount, loadingUserCoupons, selectedCoupon, session]);
+
+  const bestCouponRecommendation = useMemo(
+    () =>
+      getBestCouponRecommendation(userCoupons, {
+        subtotal: pricing?.subtotal ?? 0,
+ shipping: pricing?.shipping ?? 0,
+        autoDiscount: pricing?.autoDiscount ?? 0,
+        items: couponContextItems,
+      }),
+    [
+      couponContextItems,
+      pricing?.autoDiscount,
+      pricing?.shipping,
+      pricing?.subtotal,
+      userCoupons,
+    ],
+  );
+
+  const betterCouponHint = useMemo(
+    () =>
+      getCouponDiscountDelta(userCoupons, selectedUserCouponId, {
+        subtotal: pricing?.subtotal ?? 0,
+        shipping: pricing?.shipping ?? 0,
+        autoDiscount: pricing?.autoDiscount ?? 0,
+        items: couponContextItems,
+      }),
+    [
+      couponContextItems,
+      pricing?.autoDiscount,
+ pricing?.shipping,
+      pricing?.subtotal,
+      selectedUserCouponId,
+      userCoupons,
+    ],
+  );
+
+  const selectedCouponScopeText = useMemo(() => {
+    if (!selectedCoupon?.coupon) {
+      return null;
+    }
+
+    return getCouponScopeLabel(selectedCoupon.coupon, couponContextItems);
+  }, [couponContextItems, selectedCoupon]);
+
+  const betterCouponTitle = useMemo(() => {
+    if (!betterCouponHint) {
+      return null;
+    }
+
+    return userCoupons.find((item) => item.id === betterCouponHint.bestUserCouponId)?.coupon?.title ?? null;
+  }, [betterCouponHint, userCoupons]);
 
   useEffect(() => {
     if (!isPaymentChannelEnabled(payment)) {
@@ -123,9 +193,41 @@ selectedUserCouponId,
 
   useEffect(() => {
     if (session) {
-      void fetchUserCoupons();
-}
+ void fetchUserCoupons();
+    }
   }, [fetchUserCoupons, session]);
+
+  useEffect(() => {
+    if (!session || loadingUserCoupons || requestItems.length === 0) {
+      return;
+    }
+
+    if (selectedUserCouponId) {
+      return;
+    }
+
+    const bestCouponId = getBestAvailableUserCouponId(userCoupons, {
+      subtotal: pricing?.subtotal ?? 0,
+      shipping: pricing?.shipping ?? 0,
+      autoDiscount: pricing?.autoDiscount ?? 0,
+      items: couponContextItems,
+    });
+
+ if (bestCouponId) {
+      setSelectedUserCouponId(bestCouponId);
+    }
+  }, [
+    couponContextItems,
+    loadingUserCoupons,
+    pricing?.autoDiscount,
+    pricing?.shipping,
+    pricing?.subtotal,
+    requestItems.length,
+    selectedUserCouponId,
+    session,
+    setSelectedUserCouponId,
+    userCoupons,
+  ]);
 
   const handleSubmit = useCheckoutSubmit({
     router,
@@ -240,12 +342,20 @@ router.push(routes.login);
               size={20}
               color={selectedCoupon ? Colors.primary : Colors.tertiary}
             />
-<View className="flex-1">
+            <View className="flex-1">
               <Text className="text-on-surface text-sm font-medium">优惠券</Text>
               <Text className="text-outline text-xs mt-0.5">{couponDescription}</Text>
+              {selectedCouponScopeText ? (
+                <Text className="text-outline text-xs mt-1">{selectedCouponScopeText}</Text>
+              ) : null}
               {pricing?.appliedCoupon ? (
                 <Text className="text-primary text-xs mt-1">
-                  本单已优惠 ¥{pricing.appliedCoupon.discountAmount.toFixed(2)}
+                  已自动匹配最优券，本单已优惠 ¥{pricing.appliedCoupon.discountAmount.toFixed(2)}
+                </Text>
+              ) : null}
+              {betterCouponHint && betterCouponTitle ? (
+                <Text className="text-tertiary text-xs mt-1">
+                  还有更省的券可用：{betterCouponTitle}，可再省 ¥{betterCouponHint.delta.toFixed(2)}
                 </Text>
               ) : null}
             </View>
@@ -307,7 +417,12 @@ onValueChange={setGiftBox}
               couponDiscount={pricing.couponDiscount}
               couponTitle={pricing.appliedCoupon?.title ?? null}
               couponCode={pricing.appliedCoupon?.code ?? null}
-giftWrapFee={pricing.giftWrapFee}
+              couponScopeLabel={
+                pricing.appliedCoupon
+                  ? getCouponScopeLabel(pricing.appliedCoupon, couponContextItems)
+                  : null
+              }
+ giftWrapFee={pricing.giftWrapFee}
             />
           ) : (
             <Text className="text-outline text-sm leading-6">
