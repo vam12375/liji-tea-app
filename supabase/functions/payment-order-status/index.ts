@@ -48,7 +48,18 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    const authHeader = req.headers.get("Authorization");
+    console.log("[payment-order-status] auth diagnostics", {
+      hasAuthorizationHeader: Boolean(authHeader),
+      authorizationPrefix: authHeader ? authHeader.slice(0, 16) : null,
+    });
+
     const user = await getUserFromRequest(req);
+
+    console.log("[payment-order-status] user diagnostics", {
+      hasUser: Boolean(user),
+      userId: user?.id ?? null,
+    });
 
     if (!user) {
       return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
@@ -75,10 +86,10 @@ Deno.serve(async (req: Request) => {
     const { data: order, error } = await supabase
       .from("orders")
       .select(
-        "id, user_id, status, created_at, total, payment_status, out_trade_no, trade_no, paid_at, paid_amount, payment_error_code, payment_error_message",
+        "id, user_id, status, created_at, total, payment_status, payment_channel, out_trade_no, trade_no, paid_at, paid_amount, payment_error_code, payment_error_message",
       )
       .eq("id", orderId)
-      .single<OrderStatusRow>();
+      .single<OrderStatusRow & { payment_channel?: string | null }>();
 
     if (error || !order) {
       return errorResponse(
@@ -96,23 +107,62 @@ Deno.serve(async (req: Request) => {
     let currentOrder = order;
 
     if (isPendingOrderExpired(currentOrder)) {
-      const expiredResult = await closeExpiredPendingOrder(currentOrder);
-      if (expiredResult.error) {
-        return errorResponse(
-          "检查待付款订单是否超时失败。",
-          500,
-          "pending_order_expire_check_failed",
-          expiredResult.error.message,
-        );
-      }
+      try {
+        const canAttemptRemoteClose =
+          !currentOrder.out_trade_no || currentOrder.payment_channel === "alipay";
 
-      if (expiredResult.expired) {
+        if (!canAttemptRemoteClose) {
+          currentOrder = {
+            ...currentOrder,
+            status: "cancelled",
+            payment_status: "closed",
+            payment_error_code: "order_expired",
+            payment_error_message: "待付款订单已超过 5 分钟，系统已自动取消。",
+          };
+        } else {
+          const expiredResult = await closeExpiredPendingOrder(currentOrder);
+          if (expiredResult.error) {
+ console.error("[payment-order-status] closeExpiredPendingOrder failed", {
+              orderId: currentOrder.id,
+              paymentChannel: currentOrder.payment_channel ?? null,
+              hasOutTradeNo: Boolean(currentOrder.out_trade_no),
+              errorMessage: expiredResult.error.message,
+            });
+
+            currentOrder = {
+              ...currentOrder,
+              status: "cancelled",
+ payment_status: "closed",
+              payment_error_code: "order_expired",
+              payment_error_message: "待付款订单已超过 5 分钟，系统已自动取消。",
+            };
+          } else if (expiredResult.expired) {
+            currentOrder = {
+              ...currentOrder,
+              status: "cancelled",
+ payment_status: "closed",
+              payment_error_code: "order_expired",
+              payment_error_message: "待付款订单已超过 5 分钟，系统已自动取消。",
+            };
+          }
+        }
+      } catch (expireSyncError) {
+        console.error("[payment-order-status] expired order sync threw", {
+ orderId: currentOrder.id,
+          paymentChannel: currentOrder.payment_channel ?? null,
+          hasOutTradeNo: Boolean(currentOrder.out_trade_no),
+          error:
+            expireSyncError instanceof Error
+              ? expireSyncError.message
+              : String(expireSyncError),
+        });
+
         currentOrder = {
           ...currentOrder,
           status: "cancelled",
           payment_status: "closed",
           payment_error_code: "order_expired",
-          payment_error_message: "待付款订单已超过 10 分钟，系统已自动取消。",
+          payment_error_message: "待付款订单已超过 5 分钟，系统已自动取消。",
         };
       }
     }

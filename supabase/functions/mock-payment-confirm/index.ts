@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
 
       if (expiredResult.expired) {
         return errorResponse(
-          "待付款订单已超过 10 分钟，系统已自动取消。",
+          "待付款订单已超过 5 分钟，系统已自动取消。",
           409,
           "order_expired",
         );

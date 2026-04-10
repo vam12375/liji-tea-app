@@ -254,7 +254,14 @@ export default function OrdersScreen() {
           const error = await cancelOrder(orderId);
           if (error) {
             showModal(orderCopy.actions.cancelFailedTitle, error, "error");
+            return;
           }
+
+          showModal(
+            orderCopy.actions.cancelTitle,
+            "订单已成功取消，库存已自动释放。",
+            "success",
+          );
         },
         {
           icon: "delete",

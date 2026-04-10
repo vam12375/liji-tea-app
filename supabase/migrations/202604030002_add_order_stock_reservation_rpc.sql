@@ -320,8 +320,8 @@ create or replace function public.cancel_pending_order_and_restore_stock(
   p_order_id uuid,
   p_user_id uuid default null,
   p_payment_status text default 'closed',
-  p_payment_error_code text default 'order_expired',
-  p_payment_error_message text default '待付款订单已超过 10 分钟，系统已自动取消。'
+ p_payment_error_code text default 'order_expired',
+  p_payment_error_message text default '待付款订单已超过 5 分钟，系统已自动取消。'
 )
 returns table (
   released boolean,

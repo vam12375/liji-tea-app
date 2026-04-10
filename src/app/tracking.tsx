@@ -131,7 +131,14 @@ export default function TrackingScreen() {
         const error = await cancelOrder(currentOrder.id);
         if (error) {
           showModal(trackingCopy.errors.cancelFailedTitle, error, "error");
+          return;
         }
+
+        showModal(
+          trackingCopy.actions.cancelTitle,
+          "订单已成功取消，库存已自动释放。",
+          "success",
+        );
       },
       {
         icon: "delete",

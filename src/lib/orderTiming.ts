@@ -1,6 +1,6 @@
 import type { Order } from "@/types/database";
 
-export const PENDING_ORDER_EXPIRE_MS = 10 * 60 * 1000;
+export const PENDING_ORDER_EXPIRE_MS = 5 * 60 * 1000;
 export const PENDING_ORDER_EXPIRE_MINUTES = PENDING_ORDER_EXPIRE_MS / 60_000;
 
 export function getPendingPaymentDeadline(createdAt: string) {
