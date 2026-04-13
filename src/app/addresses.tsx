@@ -123,14 +123,13 @@ const AddressForm = memo(function AddressForm({
 export default function AddressesScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const {
-    addresses,
-    fetchAddresses,
-    addAddress,
-    removeAddress,
-    setDefaultAddress,
-    updateAddress,
-  } = useUserStore();
+  // 地址页只订阅自己真正使用的字段，避免用户资料等无关更新触发整页重渲染。
+  const addresses = useUserStore((state) => state.addresses);
+  const fetchAddresses = useUserStore((state) => state.fetchAddresses);
+  const addAddress = useUserStore((state) => state.addAddress);
+  const removeAddress = useUserStore((state) => state.removeAddress);
+  const setDefaultAddress = useUserStore((state) => state.setDefaultAddress);
+  const updateAddress = useUserStore((state) => state.updateAddress);
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);

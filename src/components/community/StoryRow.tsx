@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { View, Text, ScrollView, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -7,13 +6,9 @@ import { Colors } from '@/constants/Colors';
 import { useCommunityStore } from '@/stores/communityStore';
 
 export default function StoryRow() {
+  // 故事列表由社区页统一拉取，这个展示行只负责渲染和已读标记，避免子组件重复请求。
   const stories = useCommunityStore((state) => state.stories);
-  const fetchStories = useCommunityStore((state) => state.fetchStories);
   const markStoryViewed = useCommunityStore((state) => state.markStoryViewed);
-
-  useEffect(() => {
-    void fetchStories();
-  }, [fetchStories]);
 
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerClassName="gap-4 px-1">

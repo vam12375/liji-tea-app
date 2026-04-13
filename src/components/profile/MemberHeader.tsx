@@ -19,7 +19,12 @@ const TIER_CONFIG: Record<string, { floor: number; ceiling: number; next: string
 };
 
 export default function MemberHeader() {
-  const { name, avatar, memberTier, points, uploadAvatar } = useUserStore();
+  // 会员头部只订阅当前展示所需字段，减少个人中心其他状态变化带来的无关重渲染。
+  const name = useUserStore((state) => state.name);
+  const avatar = useUserStore((state) => state.avatar);
+  const memberTier = useUserStore((state) => state.memberTier);
+  const points = useUserStore((state) => state.points);
+  const uploadAvatar = useUserStore((state) => state.uploadAvatar);
   const router = useRouter();
   const displayName = name || "茶友";
   const [uploading, setUploading] = useState(false);

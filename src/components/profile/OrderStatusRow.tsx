@@ -32,7 +32,9 @@ const STATUS_ITEMS = [
 
 export default function OrderStatusRow() {
   const router = useRouter();
-  const { orders, fetchOrders } = useOrderStore();
+  // 订单状态条只订阅订单列表和拉取动作，保留本地兜底拉取，同时避免其他订单状态变更连带重渲染。
+  const orders = useOrderStore((state) => state.orders);
+  const fetchOrders = useOrderStore((state) => state.fetchOrders);
 
   // 首次渲染时，若订单列表为空则拉取一次
   useEffect(() => {
