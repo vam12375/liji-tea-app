@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js';
-import { useCallback, useEffect, useState }from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { captureError, logError, logWarn } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -9,7 +9,7 @@ import { useUserStore } from '@/stores/userStore';
 export interface UseOneClickLogin {
   loading: boolean;
   error: string | null;
-isSupported: boolean;
+  isSupported: boolean;
   login: () => Promise<{ success: boolean; error?: string }>;
   quit: () => Promise<void>;
 }
@@ -20,7 +20,7 @@ interface AliLoginSessionPayload {
 }
 
 interface AliLoginEdgeResponse {
-session?: unknown;
+  session?: unknown;
   error?: string;
 }
 
@@ -28,7 +28,7 @@ session?: unknown;
 function isSessionPayload(value: unknown): value is Session & AliLoginSessionPayload {
   if (typeof value !== 'object' || value === null) {
     return false;
-}
+  }
 
   const session = value as Record<string, unknown>;
   return (
@@ -41,13 +41,17 @@ function isSessionPayload(value: unknown): value is Session & AliLoginSessionPay
 
 export function useOneClickLogin(): UseOneClickLogin {
   const [loading, setLoading] = useState(false);
-  const [error, setError] =useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [isSupported, setIsSupported] = useState(false);
 
-  const { fetchProfile, fetchAddresses, fetchFavorites } = useUserStore();
+  // 只订阅一键登录真正依赖的 action，避免整个 userStore 变化导致回调频繁重建。
+  const fetchProfile = useUserStore((state) => state.fetchProfile);
+  const fetchAddresses = useUserStore((state) => state.fetchAddresses);
+  const fetchFavorites = useUserStore((state) => state.fetchFavorites);
+  const setSession = useUserStore((state) => state.setSession);
 
   useEffect(() => {
-setIsSupported(true);
+    setIsSupported(true);
 
     // 页面卸载时主动退出阿里一键登录弹层，避免原生残留状态。
     return () => {
@@ -68,7 +72,7 @@ setIsSupported(true);
 
     try {
       // 先向服务端申请鉴权 token，再把 verifyToken 交给 Edge Function 换 session。
-      const supabaseUrl =process.env.EXPO_PUBLIC_SUPABASE_URL!;
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
       const publishableKey = process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 
       const tokenResp = await fetch(
@@ -88,7 +92,7 @@ setIsSupported(true);
         };
       }
 
-      const tokenData = (await tokenResp.json()) as {authToken?: string };
+      const tokenData = (await tokenResp.json()) as { authToken?: string };
       if (!tokenData.authToken) {
         return {
           success: false,
@@ -96,20 +100,20 @@ setIsSupported(true);
         };
       }
 
-await AliOneClickModule.initWithToken(tokenData.authToken);
+      await AliOneClickModule.initWithToken(tokenData.authToken);
 
       const templateId = process.env.EXPO_PUBLIC_ALI_TEMPLATE_ID ?? '';
       let verifyToken: string;
 
       try {
         const result = await AliOneClickModule.login(templateId);
-verifyToken = result.verifyToken;
+        verifyToken = result.verifyToken;
       } catch (err: unknown) {
         if (
           typeof err === 'object' &&
           err !== null &&
           'code' in err &&
-          err.code ===AliLoginErrorCodes.USER_CANCEL
+          err.code === AliLoginErrorCodes.USER_CANCEL
         ) {
           return { success: false };
         }
@@ -139,7 +143,7 @@ verifyToken = result.verifyToken;
       }
 
       if (isSessionPayload(data?.session)) {
-        const { data:sessionData, error: sessionError } = await supabase.auth.setSession({
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
           access_token: data.session.access_token,
           refresh_token: data.session.refresh_token,
         });
@@ -154,25 +158,26 @@ verifyToken = result.verifyToken;
           };
         }
 
-        useUserStore.getState().setSession(sessionData.session);
+        // 先写入 session，再并发补齐用户资料，保证返回页面时认证上下文已经完整。
+        setSession(sessionData.session);
         await Promise.all([fetchProfile(), fetchAddresses(), fetchFavorites()]);
         return { success: true };
       }
 
-      return{ success: false, error: '登录失败，请稍后重试' };
-    } catch (err:unknown) {
+      return { success: false, error: '登录失败，请稍后重试' };
+    } catch (err: unknown) {
       captureError(err, { scope: 'oneClickLogin', message: '登录异常' });
       const message = err instanceof Error ? err.message : '一键登录失败，请稍后重试';
       setError(message);
       return { success: false, error: message };
     } finally {
-setLoading(false);
+      setLoading(false);
     }
-  }, [fetchAddresses, fetchFavorites, fetchProfile, loading]);
+  }, [fetchAddresses, fetchFavorites, fetchProfile, loading, setSession]);
 
   const quit = useCallback(async (): Promise<void> => {
     try {
-await AliOneClickModule.quit();
+      await AliOneClickModule.quit();
     } catch (err) {
       logWarn('oneClickLogin', 'quit 失败', {
         error: err instanceof Error ? err.message : String(err),
@@ -180,5 +185,5 @@ await AliOneClickModule.quit();
     }
   }, []);
 
-  return {loading, error, isSupported, login, quit };
+  return { loading, error, isSupported, login, quit };
 }

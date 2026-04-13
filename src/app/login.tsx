@@ -12,7 +12,9 @@ import { useOneClickLogin } from '@/hooks/useOneClickLogin';
 
 export default function LoginScreen() {
   const router = useRouter();
-  const { signIn, signUp } = useUserStore();
+  // 登录页只订阅认证动作，避免 userStore 其他字段变化打断表单输入或按钮态。
+  const signIn = useUserStore((state) => state.signIn);
+  const signUp = useUserStore((state) => state.signUp);
   // 阿里云一键登录
   const { loading: oneClickLoading, isSupported, login: doOneClickLogin } = useOneClickLogin();
 
