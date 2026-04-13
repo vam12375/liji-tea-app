@@ -4,7 +4,7 @@ import {
   ScrollView,
   Switch,
   Text,
-TextInput,
+  TextInput,
   View,
 } from "react-native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
@@ -20,7 +20,6 @@ import { Colors } from "@/constants/Colors";
 import { findDefaultItem } from "@/lib/collections";
 import {
   getBestAvailableUserCouponId,
-  getBestCouponRecommendation,
   getCouponDiscountDelta,
   getCouponScopeLabel,
 } from "@/lib/couponSelection";
@@ -31,7 +30,7 @@ import { useCheckoutPricing } from "@/hooks/useCheckoutPricing";
 import { useCheckoutSubmit } from "@/hooks/useCheckoutSubmit";
 import { useCartStore } from "@/stores/cartStore";
 import { useCouponStore } from "@/stores/couponStore";
-import { useOrderStore} from "@/stores/orderStore";
+import { useOrderStore } from "@/stores/orderStore";
 import { useProductStore } from "@/stores/productStore";
 import { useUserStore } from "@/stores/userStore";
 import type { PaymentChannel } from "@/types/payment";
@@ -43,22 +42,22 @@ export default function CheckoutScreen() {
     productId?: string;
     quantity?: string;
   }>();
-  const {items: cartItems } = useCartStore();
+  const cartItems = useCartStore((state) => state.items);
   const session = useUserStore((state) => state.session);
   const address = useUserStore((state) => findDefaultItem(state.addresses) ?? null);
-  const { createOrder } = useOrderStore();
+  const createOrder = useOrderStore((state) => state.createOrder);
   const products = useProductStore((state) => state.products);
-const selectedUserCouponId = useCouponStore((state) => state.selectedUserCouponId);
+  // 结算页只订阅必要切片，减少购物车、订单和优惠券其他字段变化带来的重算。
+  const selectedUserCouponId = useCouponStore((state) => state.selectedUserCouponId);
   const userCoupons = useCouponStore((state) => state.userCoupons);
- const loadingUserCoupons = useCouponStore((state) => state.loadingUser);
-const fetchUserCoupons = useCouponStore((state) => state.fetchUserCoupons);
+  const loadingUserCoupons = useCouponStore((state) => state.loadingUser);
   const setSelectedUserCouponId = useCouponStore((state) => state.setSelectedUserCouponId);
- const clearSelectedCoupon = useCouponStore((state) => state.clearSelectedCoupon);
+  const clearSelectedCoupon = useCouponStore((state) => state.clearSelectedCoupon);
   const enabledChannels = getEnabledPaymentChannels();
 
   const orderItems = useMemo(() => {
     if (productId) {
-const product = products.find((item) => item.id === productId);
+      const product = products.find((item) => item.id === productId);
       if (product) {
         const qty = parseInt(qtyParam ?? "1", 10) || 1;
         return [{ product, quantity: qty }];
@@ -82,7 +81,7 @@ const product = products.find((item) => item.id === productId);
       orderItems.map((item) => ({
         productId: item.product.id,
         productName: item.product.name,
- category: item.product.category,
+        category: item.product.category,
         quantity: item.quantity,
         unitPrice: item.product.price,
       })),
@@ -96,11 +95,11 @@ const product = products.find((item) => item.id === productId);
   const [note, setNote] = useState("");
   const [giftBox, setGiftBox] = useState(false);
 
-const { pricing, pricingLoading, pricingError } = useCheckoutPricing({
+  const { pricing, pricingLoading, pricingError } = useCheckoutPricing({
     items: requestItems,
     deliveryType: delivery,
     giftWrap: giftBox,
-selectedUserCouponId,
+    selectedUserCouponId,
   });
 
   const selectedCoupon = useMemo(
@@ -134,23 +133,6 @@ selectedUserCouponId,
     return "暂无可用优惠券";
   }, [availableCouponCount, loadingUserCoupons, selectedCoupon, session]);
 
-  const bestCouponRecommendation = useMemo(
-    () =>
-      getBestCouponRecommendation(userCoupons, {
-        subtotal: pricing?.subtotal ?? 0,
- shipping: pricing?.shipping ?? 0,
-        autoDiscount: pricing?.autoDiscount ?? 0,
-        items: couponContextItems,
-      }),
-    [
-      couponContextItems,
-      pricing?.autoDiscount,
-      pricing?.shipping,
-      pricing?.subtotal,
-      userCoupons,
-    ],
-  );
-
   const betterCouponHint = useMemo(
     () =>
       getCouponDiscountDelta(userCoupons, selectedUserCouponId, {
@@ -162,7 +144,7 @@ selectedUserCouponId,
     [
       couponContextItems,
       pricing?.autoDiscount,
- pricing?.shipping,
+      pricing?.shipping,
       pricing?.subtotal,
       selectedUserCouponId,
       userCoupons,
@@ -182,7 +164,10 @@ selectedUserCouponId,
       return null;
     }
 
-    return userCoupons.find((item) => item.id === betterCouponHint.bestUserCouponId)?.coupon?.title ?? null;
+    return (
+      userCoupons.find((item) => item.id === betterCouponHint.bestUserCouponId)
+        ?.coupon?.title ?? null
+    );
   }, [betterCouponHint, userCoupons]);
 
   useEffect(() => {
@@ -191,12 +176,7 @@ selectedUserCouponId,
     }
   }, [enabledChannels, payment]);
 
-  useEffect(() => {
-    if (session) {
- void fetchUserCoupons();
-    }
-  }, [fetchUserCoupons, session]);
-
+  // 用户券由根布局统一预取，这里只在数据齐备后补一次“最优券自动选择”。
   useEffect(() => {
     if (!session || loadingUserCoupons || requestItems.length === 0) {
       return;
@@ -213,7 +193,7 @@ selectedUserCouponId,
       items: couponContextItems,
     });
 
- if (bestCouponId) {
+    if (bestCouponId) {
       setSelectedUserCouponId(bestCouponId);
     }
   }, [
@@ -236,7 +216,7 @@ selectedUserCouponId,
     requestItems,
     delivery,
     payment,
-note,
+    note,
     giftBox,
     selectedUserCouponId,
     pricingLoading,
@@ -261,7 +241,7 @@ note,
           headerShown: true,
           headerTitle: "确认订单",
           headerTitleStyle: { fontFamily: "Manrope_500Medium", fontSize: 16 },
-          headerStyle: {backgroundColor: Colors.background },
+          headerStyle: { backgroundColor: Colors.background },
           headerShadowVisible: false,
           headerLeft: () => (
             <Pressable onPress={() => router.back()} hitSlop={8}>

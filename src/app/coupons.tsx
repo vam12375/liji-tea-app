@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -178,8 +178,6 @@ export default function CouponsScreen() {
   const loadingPublic = useCouponStore((state) => state.loadingPublic);
   const loadingUser = useCouponStore((state) => state.loadingUser);
   const claiming = useCouponStore((state) => state.claiming);
-  const fetchPublicCoupons = useCouponStore((state) => state.fetchPublicCoupons);
-  const fetchUserCoupons = useCouponStore((state) => state.fetchUserCoupons);
   const claimCoupon = useCouponStore((state) => state.claimCoupon);
   const setSelectedUserCouponId = useCouponStore(
     (state) => state.setSelectedUserCouponId,
@@ -188,14 +186,8 @@ export default function CouponsScreen() {
     (state) => state.clearSelectedCoupon,
   );
 
+  // 优惠券数据已由根布局和登录态切换统一预取，这个页面只消费 store，避免进入页时再次重复请求。
   const [redeemCode, setRedeemCode] = useState("");
-
-  useEffect(() => {
-    void fetchPublicCoupons();
-    if (session) {
-      void fetchUserCoupons();
-    }
-  }, [fetchPublicCoupons, fetchUserCoupons, session]);
 
   const selectedCoupon = useMemo(
     () => userCoupons.find((item) => item.id === selectedUserCouponId) ?? null,

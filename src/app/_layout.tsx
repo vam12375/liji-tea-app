@@ -45,22 +45,15 @@ export default function RootLayout() {
   const authBootstrapRequestIdRef = useRef(0);
   const bootstrappingUserIdRef = useRef<string | null>(null);
   const lastInitializedUserIdRef = useRef<string | null>(null);
-  const hasLoadedPublicCouponsRef = useRef(false);
 
   /**
-   * 公开优惠券对游客和登录用户都可见，但没有必要在短时间内重复拉取。
-   * 这里用一个 ref 做轻量缓存，只有首次进入或明确要求刷新时才重新请求。
+   * 公开优惠券由根布局统一预取。
+   * couponStore 内部已经做了 TTL 与并发去重，这里只负责在登录态切换时决定是否强制刷新。
    */
-  const loadPublicCouponsOnce = useCallback(
+  const preloadPublicCoupons = useCallback(
     async (source: string, force = false) => {
-      if (!force && hasLoadedPublicCouponsRef.current) {
-        logInfo("layout", "跳过重复公开优惠券初始化", { source });
-        return;
-      }
-
-      await fetchPublicCoupons();
-      hasLoadedPublicCouponsRef.current = true;
-      logInfo("layout", "公开优惠券初始化完成", { source });
+      await fetchPublicCoupons(force ? { force: true } : undefined);
+      logInfo("layout", "公开优惠券预取完成", { source, force });
     },
     [fetchPublicCoupons],
   );
@@ -99,17 +92,21 @@ export default function RootLayout() {
       });
 
       try {
+        // 登录成功后一次性补齐用户域与优惠券域数据，避免各页面挂载后再次各自发请求。
         await Promise.all([
           fetchProfile(),
           fetchAddresses(),
           fetchFavorites(),
-          loadPublicCouponsOnce(`${source}:signed_in`),
+          preloadPublicCoupons(`${source}:signed_in`),
           fetchUserCoupons(),
         ]);
 
         // 如果初始化结束时当前 session 已经切到别的用户，就不再把这次结果标记为有效。
         const currentUserId = useUserStore.getState().session?.user?.id ?? null;
-        if (currentUserId !== userId || authBootstrapRequestIdRef.current !== requestId) {
+        if (
+          currentUserId !== userId ||
+          authBootstrapRequestIdRef.current !== requestId
+        ) {
           logInfo("layout", "忽略过期登录态初始化结果", {
             userId,
             currentUserId,
@@ -144,7 +141,13 @@ export default function RootLayout() {
         }
       }
     },
-    [fetchAddresses, fetchFavorites, fetchProfile, fetchUserCoupons, loadPublicCouponsOnce],
+    [
+      fetchAddresses,
+      fetchFavorites,
+      fetchProfile,
+      fetchUserCoupons,
+      preloadPublicCoupons,
+    ],
   );
 
   /**
@@ -187,17 +190,22 @@ export default function RootLayout() {
       // 只有发生真实登出时才重置优惠券，再重新拉一次公开券；首次游客进入则复用缓存逻辑。
       if (hadSession) {
         resetCoupons();
-        hasLoadedPublicCouponsRef.current = false;
       }
 
-      await loadPublicCouponsOnce(`${source}:signed_out`, hadSession);
+      await preloadPublicCoupons(`${source}:signed_out`, hadSession);
 
       // 被动登出（token 过期等）时跳转登录页，主动未登录启动则不打断当前路由。
       if (source === "auth_change" && hadSession) {
         router.replace("/login");
       }
     },
-    [bootstrapAuthenticatedUser, loadPublicCouponsOnce, resetCoupons, setInitialized, setSession],
+    [
+      bootstrapAuthenticatedUser,
+      preloadPublicCoupons,
+      resetCoupons,
+      setInitialized,
+      setSession,
+    ],
   );
 
   useEffect(() => {
