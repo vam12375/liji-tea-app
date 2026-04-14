@@ -1,12 +1,26 @@
+import { useEffect } from "react";
 import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Colors } from "@/constants/Colors";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { useUserStore } from "@/stores/userStore";
 
 export default function TopAppBar() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const session = useUserStore((state) => state.session);
+  const unreadCount = useNotificationStore((state) => state.unreadCount);
+  const refreshUnreadCount = useNotificationStore((state) => state.refreshUnreadCount);
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      return;
+    }
+
+    void refreshUnreadCount();
+  }, [refreshUnreadCount, session?.user?.id]);
 
   return (
     <View
@@ -30,8 +44,16 @@ export default function TopAppBar() {
           <Pressable
             hitSlop={8}
             onPress={() => router.push("/notifications")}
+            className="relative"
           >
             <MaterialIcons name="notifications-none" size={24} color={Colors.primary} />
+            {unreadCount > 0 ? (
+              <View className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-error items-center justify-center px-1">
+                <Text className="text-white text-[9px] font-bold">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Text>
+              </View>
+            ) : null}
           </Pressable>
         </View>
       </View>

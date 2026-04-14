@@ -216,3 +216,37 @@ export interface StoryView {
   user_id: string;
   created_at: string;
 }
+
+/** 商品评价记录。 */
+export interface ProductReview {
+  id: string;
+  product_id: string;
+  order_id: string;
+  order_item_id: string;
+  user_id: string;
+  rating: number;
+  content: string | null;
+  tags: string[];
+  images: string[];
+  is_anonymous: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** 消息通知分类。 */
+export type NotificationType = "order" | "system" | "community" | "review";
+
+/** 应用内消息通知结构。 */
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  related_type: string | null;
+  related_id: string | null;
+  metadata: Record<string, unknown>;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
+}

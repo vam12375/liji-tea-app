@@ -3,8 +3,12 @@ import type { Href } from "expo-router";
 import type { CommunityPostType } from "@/types/database";
 import type { PaymentChannel } from "@/types/payment";
 
+/** 订单页初始化标签参数。 */
 export type OrdersInitialTab = "pending" | "paid" | "shipping" | "delivered";
 
+/**
+ * 统一路由构造器：集中维护页面路径与动态参数，避免业务层散落字符串。
+ */
 export const routes = {
   tabs: "/(tabs)" as const,
   cart: "/cart" as const,
@@ -59,6 +63,12 @@ export const routes = {
   coupons: "/coupons" as Href,
   settings: "/settings" as const,
   notifications: "/notifications" as const,
-  myReviews: "/my-reviews" as const,
+  myReviews: "/my-reviews" as Href,
+  points: "/points" as Href,
+  tasks: "/tasks" as Href,
+  productReviews: (productId: string): Href => ({
+    pathname: "/my-reviews",
+    params: { productId, initialTab: "已评价" },
+  }),
   brewingLog: "/brewing-log" as const,
 } as const;

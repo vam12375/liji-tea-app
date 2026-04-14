@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 
 import { runCase } from "./testHarness";
-import { routes } from "@/lib/routes";
+import { routes } from "../src/lib/routes";
 
 /** 路由工具函数测试。 */
 export async function runRoutesTests() {
@@ -32,5 +32,12 @@ export async function runRoutesTests() {
         },
       },
     );
+  });
+
+  await runCase("builds product reviews route params", () => {
+    assert.deepEqual(routes.productReviews("product-1"), {
+      pathname: "/my-reviews",
+      params: { productId: "product-1", initialTab: "已评价" },
+    });
   });
 }
