@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { View, Text, ScrollView, Pressable, Animated } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,6 +12,7 @@ import { useProductStore } from "@/stores/productStore";
 
 import { useCartStore } from "@/stores/cartStore";
 import { useUserStore } from "@/stores/userStore";
+import { useReviewStore } from "@/stores/reviewStore";
 import TastingProfile from "@/components/product/TastingProfile";
 import BrewingGuideCard from "@/components/product/BrewingGuideCard";
 import ProcessTimeline from "@/components/product/ProcessTimeline";
@@ -35,15 +36,34 @@ export default function ProductDetailScreen() {
   const product = products.find((p) => p.id === id);
   const [bootstrapping, setBootstrapping] = useState(() => !product);
   const [notFound, setNotFound] = useState(false);
+  const fetchProductReviews = useReviewStore((state) => state.fetchProductReviews);
+  const productReviewsById = useReviewStore((state) => state.productReviewsById);
+  const productReviews = useMemo(() => (id ? productReviewsById[id] ?? [] : []), [id, productReviewsById]);
+  const reviewSummary = useMemo(
+    () => ({
+      total: productReviews.length,
+      averageRating:
+        productReviews.length > 0
+          ? productReviews.reduce((sum, review) => sum + review.rating, 0) / productReviews.length
+          : 0,
+      positiveRate:
+        productReviews.length > 0
+          ? productReviews.filter((review) => review.rating >= 4).length / productReviews.length
+          : 0,
+      tags: [] as { label: string; count: number }[],
+    }),
+    [productReviews],
+  );
+  const previewReviews = useMemo(() => productReviews.slice(0, 3), [productReviews]);
 
   // ====== 数量选择器状态 ======
   const [quantity, setQuantity] = useState(1);
 
-  // ====== 加购动画状态 ======
+  // ====== 加购反馈动画状态：控制成功提示与飞点显示 ======
   const [showToast, setShowToast] = useState(false);
   const [showDot, setShowDot] = useState(false);
 
-  // 动画值
+  // 动画值：分别驱动 Toast、购物车抖动、角标弹跳与飞点轨迹
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastTranslateY = useRef(new Animated.Value(20)).current;
   const toastScale = useRef(new Animated.Value(0.8)).current;
@@ -193,7 +213,7 @@ export default function ProductDetailScreen() {
     toastTranslateY,
   ]);
 
-  // 实时订阅库存变化
+  // 实时订阅商品库存变化，确保详情页在库存更新后及时同步显示。
   useEffect(() => {
     let active = true;
 
@@ -233,6 +253,13 @@ export default function ProductDetailScreen() {
     setQuantity(1);
   }, [id]);
 
+  // 商品详情进入后拉取评价数据，供评价摘要和预览列表使用。
+  useEffect(() => {
+    if (!id) return;
+    void fetchProductReviews(id);
+  }, [fetchProductReviews, id]);
+
+  // 订阅当前商品的数据库更新事件，主要用于库存等字段的实时同步。
   useEffect(() => {
     if (!id) return;
 
@@ -422,6 +449,104 @@ export default function ProductDetailScreen() {
 
           {/* 制作工艺 */}
           {product.process && <ProcessTimeline steps={product.process} />}
+
+          {/* 用户评价概览：展示评分摘要、标签统计与前几条评价预览 */}
+          <View className="gap-4">
+            <View className="flex-row items-center justify-between">
+              <View className="gap-1">
+                <Text className="font-headline text-lg text-on-surface font-bold">
+                  茶友评价
+                </Text>
+                <Text className="text-on-surface-variant text-xs">
+                  {reviewSummary.total > 0
+                    ? `综合评分 ${reviewSummary.averageRating} · 好评率 ${reviewSummary.positiveRate}%`
+                    : "还没有茶友评价，期待你的第一条反馈"}
+                </Text>
+              </View>
+              <View className="flex-row gap-2">
+                <Pressable
+                  onPress={() => router.push(routes.productReviews(product.id))}
+                  className="px-3 py-2 rounded-full bg-surface-container-low active:opacity-70"
+                >
+                  <Text className="text-primary text-xs font-medium">查看全部</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push(routes.myReviews)}
+                  className="px-3 py-2 rounded-full bg-surface-container-low active:opacity-70"
+                >
+                  <Text className="text-primary text-xs font-medium">去评价</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {reviewSummary.tags.length > 0 ? (
+              <View className="flex-row flex-wrap gap-2">
+                {reviewSummary.tags.map((tag) => (
+                  <View
+                    key={tag.label}
+                    className="px-3 py-1 rounded-full bg-primary-container/20"
+                  >
+                    <Text className="text-primary text-xs">
+                      {tag.label} · {tag.count}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {previewReviews.length > 0 ? (
+              <View className="gap-3">
+                {previewReviews.map((review) => (
+                  <View
+                    key={review.id}
+                    className="rounded-2xl bg-surface-container-low p-4 gap-2"
+                  >
+                    <View className="flex-row items-center justify-between gap-3">
+                      <Text className="text-on-surface text-sm font-medium">
+                        {review.is_anonymous
+                          ? "匿名茶友"
+                          : review.user?.name ?? "茶友"}
+                      </Text>
+                      <Text className="text-primary text-sm">
+                        {"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}
+                      </Text>
+                    </View>
+                    {review.tags.length > 0 ? (
+                      <View className="flex-row flex-wrap gap-2">
+                        {review.tags.map((tag) => (
+                          <View
+                            key={`${review.id}-${tag}`}
+                            className="px-2.5 py-1 rounded-full bg-background"
+                          >
+                            <Text className="text-on-surface-variant text-[11px]">
+                              {tag}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                    <Text className="text-on-surface-variant text-sm leading-6">
+                      {review.content?.trim() || "这位茶友暂未填写文字评价。"}
+                    </Text>
+                    <Text className="text-outline text-[11px]">
+                      {new Date(review.created_at).toLocaleDateString("zh-CN")}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <View className="rounded-2xl bg-surface-container-low p-5 items-center gap-2">
+                <MaterialIcons
+                  name="rate-review"
+                  size={24}
+                  color={Colors.outline}
+                />
+                <Text className="text-on-surface-variant text-sm text-center">
+                  暂无评价，购买后可前往“我的评价”提交晒单与口感反馈。
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </ScrollView>
 
