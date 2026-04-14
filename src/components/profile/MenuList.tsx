@@ -21,6 +21,8 @@ const MENU_ITEMS: MenuItem[] = [
   { icon: "confirmation-number", label: "优惠券", route: routes.coupons },
   { icon: "receipt-long", label: "我的订单", route: routes.orders },
   { icon: "favorite", label: "我的收藏", route: routes.favorites },
+  { icon: "task-alt", label: "任务中心", route: routes.tasks },
+  { icon: "stars", label: "积分明细", route: routes.points },
   { icon: "article", label: "我的帖子", route: routes.myPosts },
   { icon: "comment", label: "我的评价", route: "/my-reviews" as Href },
   { icon: "history-edu", label: "冲泡记录", route: "/brewing-log" as Href },

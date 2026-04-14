@@ -66,9 +66,9 @@ export function resolvePaymentRuntimeConfig(
     paymentChannelConfig,
     paymentEnvironment: env.EXPO_PUBLIC_PAYMENT_ENV?.trim() || "sandbox",
     mockPaymentChannelsAllowed: readBooleanFlag(
-         env.EXPO_PUBLIC_PAYMENT_ALLOW_MOCK,
-         true,
-       ),
+      env.EXPO_PUBLIC_PAYMENT_ALLOW_MOCK,
+      isDev,
+    ),
   };
 }
 

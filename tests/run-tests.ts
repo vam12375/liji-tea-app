@@ -11,6 +11,8 @@ import { runOrderTimingTests } from "./orderTiming.test";
 import { runPaymentConfigTests } from "./paymentConfig.test";
 import { runPaymentFlowTests } from "./paymentFlow.test";
 import { runRoutesTests } from "./routes.test";
+import { runReviewsNotificationsTests } from "./reviewsNotifications.test";
+import { runMemberPointsTests } from "./memberPoints.test";
 import { runTrackingUtilsTests } from "./trackingUtils.test";
 import { runUserMutationsTests } from "./userMutations.test";
 
@@ -35,6 +37,8 @@ async function main() {
     runPaymentConfigTests,
     runPaymentFlowTests,
     runRoutesTests,
+    runReviewsNotificationsTests,
+    runMemberPointsTests,
     runUserMutationsTests,
   ];
 
