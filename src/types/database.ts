@@ -329,3 +329,22 @@ export interface AppNotification {
   created_at: string;
   updated_at: string;
 }
+
+// 商家端角色与审计（见 supabase/migrations/202604170003_merchant_console_base.sql）。
+export interface UserRoleRow {
+  user_id: string;
+  role: "admin" | "staff";
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface MerchantAuditLog {
+  id: number;
+  actor_id: string;
+  actor_role: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  payload: Record<string, unknown> | null;
+  created_at: string;
+}

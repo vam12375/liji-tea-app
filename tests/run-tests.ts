@@ -18,6 +18,7 @@ import { runSearchNormalizeTests } from "./searchNormalize.test";
 import { runMemberPointsTests } from "./memberPoints.test";
 import { runTrackingUtilsTests } from "./trackingUtils.test";
 import { runUserMutationsTests } from "./userMutations.test";
+import { runUserRoleTests } from "./userRole.test";
 
 /**
  * 轻量测试入口：按固定顺序串行执行各个测试套件。
@@ -46,6 +47,7 @@ async function main() {
     runSearchNormalizeTests,
     runMemberPointsTests,
     runUserMutationsTests,
+    runUserRoleTests,
   ];
 
   for (const suite of suites) {

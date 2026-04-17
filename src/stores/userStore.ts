@@ -1,10 +1,12 @@
 import { create } from 'zustand';
 import type { Session } from '@supabase/supabase-js';
 
+import type { UserRole } from '@/lib/userRole';
 import { createUserStoreAddressActions } from '@/stores/userStore.addresses';
 import { createUserStoreAuthActions } from '@/stores/userStore.auth';
 import { createUserStoreFavoriteActions } from '@/stores/userStore.favorites';
 import { createUserStoreProfileActions } from '@/stores/userStore.profile';
+import { createUserStoreRoleActions } from '@/stores/userStore.role';
 import type { Address } from '@/stores/userStore.shared';
 import type { Profile, Address as DBAddress } from '@/types/database';
 
@@ -14,6 +16,9 @@ export interface UserState {
   // Auth 状态
   session: Session | null;
   initialized: boolean;
+
+  // 商家端角色（guest=普通顾客，staff/admin=员工），由 user_roles 表归一化得出。
+  role: UserRole;
 
   // Profile 数据
   profile: Profile | null;
@@ -61,11 +66,15 @@ export interface UserState {
   fetchFavorites: () => Promise<void>;
   toggleFavorite: (productId: string) => void;
   isFavorite: (productId: string) => boolean;
+
+  // 商家端角色方法
+  refreshUserRole: () => Promise<void>;
 }
 
 const initialUserState = {
   session: null,
   initialized: false,
+  role: 'guest' as UserRole,
   profile: null,
   addresses: [],
   favorites: [],
@@ -79,6 +88,7 @@ const initialUserState = {
   UserState,
   | 'session'
   | 'initialized'
+  | 'role'
   | 'profile'
   | 'addresses'
   | 'favorites'
@@ -97,4 +107,5 @@ export const useUserStore = create<UserState>()((set, get) => ({
   ...createUserStoreProfileActions(set, get),
   ...createUserStoreAddressActions(set, get),
   ...createUserStoreFavoriteActions(set, get),
+  ...createUserStoreRoleActions(set, get),
 }));
