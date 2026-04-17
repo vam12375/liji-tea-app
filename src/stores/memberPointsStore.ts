@@ -5,7 +5,8 @@ import {
   fetchPointLedger,
   fetchPointTasks,
   fetchUserTaskRecords,
-  isTaskCompletedToday,
+  hasDailyCheckInCompletedToday,
+  reconcileFirstPostReward,
   type GrantPointsResult,
   type PointLedgerEntry,
   type PointTask,
@@ -51,11 +52,26 @@ export const useMemberPointsStore = create<MemberPointsState>()((set, get) => ({
 
     try {
       set({ loading: true, error: null });
-      const [tasks, ledger, taskRecords] = await Promise.all([
+      let [tasks, ledger, taskRecords] = await Promise.all([
         fetchPointTasks(),
         fetchPointLedger(userId),
         fetchUserTaskRecords(userId),
       ]);
+
+      // 若历史环境漏发了首次发帖积分，则在拉取任务数据时自动补偿一次，并立即刷新状态。
+      const didRepairFirstPostReward = await reconcileFirstPostReward(
+        userId,
+        taskRecords,
+      );
+      if (didRepairFirstPostReward) {
+        [tasks, ledger, taskRecords] = await Promise.all([
+          fetchPointTasks(),
+          fetchPointLedger(userId),
+          fetchUserTaskRecords(userId),
+        ]);
+        await useUserStore.getState().fetchProfile();
+      }
+
       set({ tasks, ledger, taskRecords, loading: false });
     } catch (error) {
       const message = getErrorMessage(error, "加载会员积分数据失败");
@@ -90,8 +106,9 @@ export const useMemberPointsStore = create<MemberPointsState>()((set, get) => ({
     }
   },
 
-  /** 基于任务记录快速判断今日签到状态。 */
-  hasCheckedInToday: () => isTaskCompletedToday("daily_check_in", get().taskRecords),
+  /** 今日签到优先依赖任务记录，必要时回退到签到流水，避免重启后按钮状态丢失。 */
+  hasCheckedInToday: () =>
+    hasDailyCheckInCompletedToday(get().taskRecords, get().ledger),
 
   /** 截取最近若干条积分流水，供个人中心头部摘要卡片展示。 */
   getRecentLedgerEntries: (limit = 3) => get().ledger.slice(0, limit),

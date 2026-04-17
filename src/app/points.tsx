@@ -7,6 +7,21 @@ import { Colors } from "@/constants/Colors";
 import { useMemberPointsStore } from "@/stores/memberPointsStore";
 import { useUserStore } from "@/stores/userStore";
 
+// 积分来源展示文案仅在明细页做映射，保持后端 source_type 原值不变。
+const POINT_SOURCE_LABELS: Record<string, string> = {
+  check_in: "签到",
+  daily_check_in: "每日签到",
+  review: "评价",
+  post: "发帖",
+  order: "订单完成",
+};
+
+// 未知来源优先回退原始值，避免历史数据或新来源直接显示为空。
+function getPointSourceLabel(sourceType: string) {
+  const normalizedSourceType = sourceType.trim().toLowerCase();
+  return POINT_SOURCE_LABELS[normalizedSourceType] ?? sourceType;
+}
+
 export default function PointsScreen() {
   const session = useUserStore((state) => state.session);
   const ledger = useMemberPointsStore((state) => state.ledger);
@@ -83,7 +98,7 @@ export default function PointsScreen() {
               </View>
               <View className="flex-row justify-between">
                 <Text className="text-on-surface-variant text-xs">
-                  来源：{item.source_type}
+                  来源：{getPointSourceLabel(item.source_type)}
                 </Text>
                 <Text className="text-on-surface-variant text-xs">
                   当前积分：{item.balance_after}
