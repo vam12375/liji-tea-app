@@ -16,6 +16,7 @@ import { runRoutesTests } from "./routes.test";
 import { runReviewsNotificationsTests } from "./reviewsNotifications.test";
 import { runSearchNormalizeTests } from "./searchNormalize.test";
 import { runMemberPointsTests } from "./memberPoints.test";
+import { runMerchantErrorsTests } from "./merchantErrors.test";
 import { runTrackingUtilsTests } from "./trackingUtils.test";
 import { runUserMutationsTests } from "./userMutations.test";
 import { runUserRoleTests } from "./userRole.test";
@@ -46,6 +47,7 @@ async function main() {
     runReviewsNotificationsTests,
     runSearchNormalizeTests,
     runMemberPointsTests,
+    runMerchantErrorsTests,
     runUserMutationsTests,
     runUserRoleTests,
   ];
