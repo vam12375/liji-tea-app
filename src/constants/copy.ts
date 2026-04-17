@@ -161,11 +161,47 @@ export const trackingCopy = {
     confirmReceiveMessage: "确认已收到商品吗？",
     receiveConfirmedTitle: "已确认",
     receiveConfirmedMessage: "感谢您的购买。",
+    applyRefund: "申请退款",
+    viewAfterSale: "查看售后进度",
   },
   errors: {
     logisticsUpdateFailedTitle: "物流更新失败",
     logisticsUpdateFailedMessage: "更新模拟物流失败。",
     confirmReceiveFailedTitle: "确认失败",
     cancelFailedTitle: "取消失败",
+  },
+} as const;
+
+/** 售后 / 退款中心文案。 */
+export const afterSaleCopy = {
+  titles: {
+    apply: "申请退款",
+    detail: "售后进度",
+  },
+  actions: {
+    submit: "提交申请",
+    cancel: "撤销申请",
+    viewOrder: "查看订单",
+  },
+  messages: {
+    applySuccess: "退款申请已提交。",
+    cancelSuccess: "退款申请已撤销。",
+    needReason: "请选择退款原因。",
+    needDescription: "请补充问题说明，方便后续处理。",
+    duplicateRequest: "该订单已有进行中的售后申请。",
+    uploadPermissionDenied: "需要相册权限才能上传凭证。",
+    uploadFailed: "上传凭证失败，请稍后重试。",
+  },
+  labels: {
+    orderNumber: "订单号",
+    requestedAmount: "申请金额",
+    approvedAmount: "退款金额",
+    reason: "退款原因",
+    description: "问题说明",
+    status: "当前状态",
+    submittedAt: "申请时间",
+    reviewedAt: "审核时间",
+    refundedAt: "退款完成",
+    evidences: "凭证图片",
   },
 } as const;

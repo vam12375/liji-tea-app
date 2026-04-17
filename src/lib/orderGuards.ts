@@ -87,6 +87,34 @@ export function isOrderStatus(value: unknown): value is Order["status"] {
   );
 }
 
+export function isAfterSaleRequestStatus(
+  value: unknown,
+): value is Order["after_sale_status"] {
+  return (
+    value === undefined ||
+    value === null ||
+    value === "submitted" ||
+    value === "auto_approved" ||
+    value === "pending_review" ||
+    value === "approved" ||
+    value === "rejected" ||
+    value === "refunding" ||
+    value === "refunded" ||
+    value === "cancelled"
+  );
+}
+
+export function isRefundStatus(
+  value: unknown,
+): value is Order["refund_status"] {
+  return (
+    value === undefined ||
+    value === null ||
+    value === "refunding" ||
+    value === "refunded"
+  );
+}
+
 /** 商品风味画像是结构化数组，这里保证页面读取时字段完整。 */
 export function isTastingProfile(value: unknown): value is Product["tasting_profile"] {
   return (
@@ -198,6 +226,10 @@ export function isOrderRow(value: unknown): value is OrderRow {
     isOptionalNullableString(value.logistics_address) &&
     isOptionalNullableString(value.shipped_at) &&
     isOptionalNullableString(value.delivered_at) &&
+    isAfterSaleRequestStatus(value.after_sale_status) &&
+    isRefundStatus(value.refund_status) &&
+    isOptionalNullableNumber(value.refund_amount) &&
+    isOptionalNullableString(value.refunded_at) &&
     (typeof value.notes === "string" || value.notes === null) &&
     typeof value.gift_wrap === "boolean" &&
     typeof value.created_at === "string" &&

@@ -36,6 +36,16 @@ export const routes = {
     pathname: "/tracking",
     params: { orderId },
   }),
+  afterSaleApply: (orderId: string): Href =>
+    ({
+      pathname: "/after-sale/apply",
+      params: { orderId },
+    }) as Href,
+  afterSaleDetail: (requestId: string): Href =>
+    ({
+      pathname: "/after-sale/[id]",
+      params: { id: requestId },
+    }) as Href,
   search: "/search" as const,
   shop: (category?: string): Href =>
     category

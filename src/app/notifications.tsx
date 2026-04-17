@@ -40,6 +40,11 @@ function handleNotificationNavigation(item: NotificationRecord) {
     return;
   }
 
+  if (item.related_type === "after_sale_request" && item.related_id) {
+    router.push(routes.afterSaleDetail(item.related_id));
+    return;
+  }
+
   if (item.related_type === "product_review") {
     const productId =
       typeof item.metadata?.product_id === "string" ? item.metadata.product_id : null;

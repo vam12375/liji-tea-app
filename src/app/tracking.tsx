@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { TrackingActionsCard } from "@/components/tracking/TrackingActionsCard";
 import { TrackingAddressCard } from "@/components/tracking/TrackingAddressCard";
@@ -13,6 +13,11 @@ import { ScreenState } from "@/components/ui/ScreenState";
 import { screenStateCopy, trackingCopy } from "@/constants/copy";
 import { useTrackingEvents } from "@/hooks/useTrackingEvents";
 import { useNow } from "@/hooks/useNow";
+import {
+  canApplyAfterSale,
+  getAfterSaleStatusDescription,
+  getAfterSaleStatusLabel,
+} from "@/lib/afterSale";
 import { useTrackingSubscription } from "@/hooks/useTrackingSubscription";
 import { captureError } from "@/lib/logger";
 import { updateMockLogistics } from "@/lib/payment";
@@ -27,6 +32,7 @@ import {
   summarizeOrderItems,
 } from "@/lib/trackingUtils";
 import { showConfirm, showModal } from "@/stores/modalStore";
+import { useAfterSaleStore } from "@/stores/afterSaleStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
 import type { Order } from "@/types/database";
@@ -44,6 +50,12 @@ export default function TrackingScreen() {
   const updateOrder = useOrderStore((state) => state.updateOrder);
   const cancelOrder = useOrderStore((state) => state.cancelOrder);
   const confirmReceive = useOrderStore((state) => state.confirmReceive);
+  const fetchRequestByOrderId = useAfterSaleStore(
+    (state) => state.fetchRequestByOrderId,
+  );
+  const orderAfterSaleRequest = useAfterSaleStore((state) =>
+    orderId ? state.requestByOrderId[orderId] ?? null : null,
+  );
   const currentOrder = useOrderStore((state) =>
     orderId ? state.orderByIdMap[orderId] ?? null : null,
   );
@@ -71,7 +83,8 @@ export default function TrackingScreen() {
 
     setRequestedOrderId(orderId);
     void fetchOrderById(orderId);
-  }, [fetchOrderById, orderId]);
+    void fetchRequestByOrderId(orderId);
+  }, [fetchOrderById, fetchRequestByOrderId, orderId]);
 
   const { trackingEvents, eventsLoading, replaceTrackingEvents } =
     useTrackingEvents(orderId, userId, currentOrder?.updated_at);
@@ -102,6 +115,9 @@ export default function TrackingScreen() {
       )
     : "alipay";
   const hasRequestedCurrentOrder = requestedOrderId === orderId;
+  const canOpenAfterSaleApply = canApplyAfterSale(currentOrder);
+  const shouldShowAfterSaleCard =
+    Boolean(orderAfterSaleRequest) || canOpenAfterSaleApply;
 
   // 统一跳转支付页，避免按钮区域内重复拼接路由参数。
   const handlePayOrder = useCallback(() => {
@@ -212,6 +228,17 @@ export default function TrackingScreen() {
     );
   }, [confirmReceive, currentOrder]);
 
+  const handleOpenAfterSale = useCallback(() => {
+    if (orderAfterSaleRequest) {
+      router.push(routes.afterSaleDetail(orderAfterSaleRequest.id));
+      return;
+    }
+
+    if (orderId) {
+      router.push(routes.afterSaleApply(orderId));
+    }
+  }, [orderAfterSaleRequest, orderId, router]);
+
   // 在详情首次请求期间统一展示页面级 loading，避免先闪空态再切成 loading。
   if (orderId && (!hasRequestedCurrentOrder || (currentOrderLoading && !currentOrder))) {
     return (
@@ -273,6 +300,45 @@ export default function TrackingScreen() {
           onAdvanceLogistics={handleAdvanceLogistics}
           onConfirmReceive={handleConfirmReceive}
         />
+
+        {shouldShowAfterSaleCard ? (
+          <View className="gap-3 rounded-2xl bg-surface-container-low p-4">
+            <View className="gap-1">
+              <View className="flex-row items-center justify-between gap-3">
+                <View className="flex-1 gap-1">
+                  <View className="flex-row items-center gap-2">
+                    <Text className="text-base font-bold text-on-surface">
+                      售后服务
+                    </Text>
+                    {orderAfterSaleRequest ? (
+                      <View className="rounded-full bg-primary/10 px-2 py-1">
+                        <Text className="text-[10px] font-medium text-primary">
+                          {getAfterSaleStatusLabel(orderAfterSaleRequest.status)}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text className="text-xs leading-5 text-on-surface-variant">
+                    {orderAfterSaleRequest
+                      ? getAfterSaleStatusDescription(orderAfterSaleRequest.status)
+                      : "若订单存在质量、包装或配送异常，可从这里发起退款申请。"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <Pressable
+              onPress={handleOpenAfterSale}
+              className="items-center justify-center rounded-full border border-outline-variant py-3 active:opacity-70"
+            >
+              <Text className="font-medium text-on-surface">
+                {orderAfterSaleRequest
+                  ? trackingCopy.actions.viewAfterSale
+                  : trackingCopy.actions.applyRefund}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         <TrackingLatestEventsCard
           trackingEvents={trackingEvents}
