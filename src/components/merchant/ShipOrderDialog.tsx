@@ -48,14 +48,28 @@ export function ShipOrderDialog({ visible, onClose, onSubmit }: Props) {
             value={carrier}
             onChangeText={setCarrier}
             placeholder="承运商（如：顺丰、中通）"
-            className="border border-outline-variant rounded-lg px-3 py-2 text-on-surface"
+            style={{
+              borderWidth: 1,
+              borderColor: "#e6dfd1",
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              fontSize: 14,
+            }}
           />
           <TextInput
             value={trackingNo}
             onChangeText={setTrackingNo}
             placeholder="运单号"
             autoCapitalize="characters"
-            className="border border-outline-variant rounded-lg px-3 py-2 text-on-surface"
+            style={{
+              borderWidth: 1,
+              borderColor: "#e6dfd1",
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              fontSize: 14,
+            }}
           />
           <View className="flex-row justify-end gap-3 mt-2">
             <Pressable onPress={onClose} className="px-4 py-2">

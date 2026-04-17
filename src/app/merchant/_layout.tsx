@@ -1,12 +1,14 @@
 import { Redirect, Stack } from "expo-router";
+import { View } from "react-native";
 
+import { MerchantToast } from "@/components/merchant/MerchantToast";
 import { isMerchantStaff } from "@/lib/userRole";
 import { useUserStore } from "@/stores/userStore";
 
-// 商家后台路由根布局：集中完成权限守卫，子页面不再重复判定。
-// 未登录 → 登录页；已登录但非员工 → 回首页；员工态 → 渲染子 Stack。
-// 顶部「订单 / 售后 / 商品」切换由各列表页共享的 MerchantTopTabs 组件承载，
-// 此处只保留一个 Stack，避免与底部 Tab 的 Tabs 组件产生嵌套复杂度。
+// 商家后台路由根布局：
+// - 集中权限守卫（未登录 → login；非员工 → (tabs)）
+// - 外层 View 承载全局 Toast，保证所有 /merchant/* 子页面共用同一顶部提示
+// - 顶部「订单 / 售后 / 商品 / 员工」由各列表页自带的 MerchantTopTabs 承载
 export default function MerchantLayout() {
   const session = useUserStore((s) => s.session);
   const role = useUserStore((s) => s.role);
@@ -19,10 +21,9 @@ export default function MerchantLayout() {
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    />
+    <View style={{ flex: 1 }}>
+      <Stack screenOptions={{ headerShown: false }} />
+      <MerchantToast />
+    </View>
   );
 }
