@@ -56,7 +56,9 @@ export default function ARScanScreen() {
           </Pressable>
           <Pressable
             onPress={() => setIdentified(true)}
-            className="w-20 h-20 rounded-full border-4 border-tertiary-fixed items-center justify-center active:scale-95"
+            className="w-20 h-20 rounded-full border-4 border-tertiary-fixed items-center justify-center"
+            // 使用数值缩放反馈按压态，避免 NativeWind 把 active:scale-95 转成非法百分比。
+            style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.95 : 1 }] }]}
           >
             <View className="w-16 h-16 rounded-full bg-surface-bright" />
           </Pressable>

@@ -182,8 +182,9 @@ export default function CommunityScreen() {
 
       <Pressable
         onPress={() => openCreate()}
-        className="absolute bottom-24 right-6 h-14 px-5 bg-primary rounded-full flex-row items-center gap-2 active:scale-95"
-        style={{ elevation: 8 }}
+        className="absolute bottom-24 right-6 h-14 px-5 bg-primary rounded-full flex-row items-center gap-2"
+        // React Native 的 transform.scale 只能接收数字，不能使用 95% 这类 CSS 百分比。
+        style={({ pressed }) => [{ elevation: 8, transform: [{ scale: pressed ? 0.95 : 1 }] }]}
       >
         <MaterialIcons name="add" size={22} color="#fff" />
         <Text className="text-white text-sm font-medium">发帖</Text>
