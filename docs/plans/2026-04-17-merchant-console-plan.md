@@ -2861,7 +2861,10 @@ Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
 
 > 实施时在此追加每次回归结果，格式：`YYYY-MM-DD · 验收人 · 场景 · 结果`。
 
-- 待填
+- 2026-04-17 · 实施完成 · 代码层面 `npm run check`（typecheck + test + lint
+  新 case 6+6+9 全 PASS；仅 2 条既存 react-hooks/exhaustive-deps warning，
+  与本次改动无关）。SQL Task 1/2 两个 migration 待手工推 Dashboard 后再
+  做真机端到端验收（11 条清单见 Task 11 Step 3）。
 
 ---
 
