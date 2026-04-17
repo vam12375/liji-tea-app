@@ -1,11 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import Constants from "expo-constants";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import { router } from "expo-router";
 import { Platform } from "react-native";
 
-import { logWarn } from "@/lib/logger";
+import { logWarn, logInfo } from "@/lib/logger";
 import type { PushNavigationData } from "@/lib/pushTypes";
 import { routes } from "@/lib/routes";
 import { supabase } from "@/lib/supabase";
@@ -24,6 +24,15 @@ export {
 } from "@/lib/pushTypes";
 
 const PUSH_TOKEN_STORAGE_KEY = "push:expo-token";
+
+// 在 Expo Go 宿主里打一次提示，提醒开发者推送已整体跳过，真机测试请切到 dev build。
+// 只在 __DEV__ 下打日志，生产包不受影响；模块仅加载一次，避免重复噪音。
+if (__DEV__ && Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+  logInfo(
+    "pushNotifications",
+    "Expo Go 宿主已跳过推送注册，若需联调推送请使用 npm run android（dev build）",
+  );
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -53,6 +62,11 @@ function getProjectId() {
 }
 
 export function isPushPlatformSupported() {
+  // Expo SDK 53 起 Expo Go 移除了 Android 远程推送能力，这里识别到 Expo Go 宿主时视为不支持，
+  // 让 bootstrap 早退、getExpoPushTokenAsync 不被调用，避免直接抛 RemoteNotificationsDeprecated 错误。
+  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+    return false;
+  }
   return Platform.OS === "android";
 }
 
