@@ -19,7 +19,7 @@ export function MerchantEntryCard({ role }: Props) {
 
   return (
     <Pressable
-      onPress={() => router.push("/merchant/orders")}
+      onPress={() => router.push("/merchant/orders" as never)}
       className="mx-4 my-1 rounded-2xl bg-primary-container px-4 py-4"
       style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }] }]}
     >
