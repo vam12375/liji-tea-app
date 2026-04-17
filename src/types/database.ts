@@ -265,6 +265,7 @@ export interface AfterSaleRequest {
   currency: string;
   audit_note: string | null;
   refund_note: string | null;
+  refund_txn_id: string | null;
   snapshot: Record<string, unknown>;
   submitted_at: string;
   reviewed_at: string | null;
@@ -328,4 +329,23 @@ export interface AppNotification {
   is_read: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// 商家端角色与审计（见 supabase/migrations/202604170003_merchant_console_base.sql）。
+export interface UserRoleRow {
+  user_id: string;
+  role: "admin" | "staff";
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface MerchantAuditLog {
+  id: number;
+  actor_id: string;
+  actor_role: string;
+  action: string;
+  target_type: string;
+  target_id: string;
+  payload: Record<string, unknown> | null;
+  created_at: string;
 }

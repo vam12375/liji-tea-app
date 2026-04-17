@@ -40,6 +40,10 @@ export function createUserStoreAuthActions(
         session,
         ...deriveUserFields(session, state.profile),
       }));
+
+      // 登录 / 会话恢复时刷新一次商家角色，避免上一个账号的残留。
+      // 刻意不 await：refresh 失败也只是回退到 guest，不影响主流程。
+      void get().refreshUserRole();
     },
 
     setInitialized: () => set({ initialized: true }),

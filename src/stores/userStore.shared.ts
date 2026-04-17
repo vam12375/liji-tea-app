@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 
+import type { UserRole } from '@/lib/userRole';
 import type {
   Profile,
   Address as DBAddress,
@@ -84,11 +85,14 @@ export function deriveUserFields(
 }
 
 export function buildSignedOutState() {
+  // 登出时把商家角色一并复位为 guest，避免残留的 staff/admin 状态触发后台入口。
+  const role: UserRole = 'guest';
   return {
     session: null,
     profile: null,
     addresses: [],
     favorites: [],
+    role,
     ...deriveUserFields(null, null),
   };
 }
