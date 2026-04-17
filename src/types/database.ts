@@ -265,6 +265,7 @@ export interface AfterSaleRequest {
   currency: string;
   audit_note: string | null;
   refund_note: string | null;
+  refund_txn_id: string | null;
   snapshot: Record<string, unknown>;
   submitted_at: string;
   reviewed_at: string | null;
