@@ -9,11 +9,13 @@ import StatsGrid from "@/components/profile/StatsGrid";
 import OrderStatusRow from "@/components/profile/OrderStatusRow";
 import MenuList from "@/components/profile/MenuList";
 import MemberBenefitsCard from "@/components/profile/MemberBenefitsCard";
+import { MerchantEntryCard } from "@/components/merchant/MerchantEntryCard";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const session = useUserStore((s) => s.session);
+  const role = useUserStore((s) => s.role);
 
   // 未登录状态
   if (!session) {
@@ -42,6 +44,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <MemberHeader />
+        <MerchantEntryCard role={role} />
         <StatsGrid />
         <OrderStatusRow />
         <MenuList />
