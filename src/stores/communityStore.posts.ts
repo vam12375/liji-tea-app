@@ -24,7 +24,75 @@ import type {
   CommunityStoreGet,
   CommunityStoreSet,
 } from '@/stores/communityStore.types';
+import { useMemberPointsStore } from '@/stores/memberPointsStore';
 import { useUserStore } from '@/stores/userStore';
+// 兼容旧版 posts.author 冗余列：优先使用当前昵称，缺失时回退到稳定占位名。
+function buildLegacyPostAuthorName(userId: string) {
+  const displayName = useUserStore.getState().name.trim();
+  return displayName || `茶友${userId.slice(-4)}`;
+}
+
+function getSupabaseErrorMessage(error: unknown) {
+  if (
+    typeof error === 'object' &&
+    error !== null &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+
+  return '';
+}
+
+// 某些环境可能尚未执行 author 兼容迁移，此时回退到不带 author 的插入以兼容纯 author_id 结构。
+function isMissingLegacyAuthorColumnError(error: unknown) {
+  const message = getSupabaseErrorMessage(error).toLowerCase();
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes('author') &&
+    message.includes('posts') &&
+    (message.includes('schema cache') || message.includes('column'))
+  );
+}
+
+// 发帖成功后补一层幂等积分发放：若数据库触发器已执行，则这里会返回 already_completed。
+async function ensureFirstPostReward(userId: string, postId: string) {
+  const { data, error } = await supabase.rpc('grant_points_for_task', {
+    p_user_id: userId,
+    p_task_code: 'first_post',
+    p_source_type: 'post',
+    p_source_id: postId,
+    p_remark: '首次发帖奖励',
+  });
+
+  if (error) {
+    logWarn('communityStore', '首次发帖积分补偿失败', {
+      error: error.message,
+      userId,
+      postId,
+    });
+    return;
+  }
+
+  if (
+    data &&
+    typeof data === 'object' &&
+    'success' in data &&
+    data.success === false &&
+    'reason' in data &&
+    data.reason !== 'already_completed'
+  ) {
+    logWarn('communityStore', '首次发帖积分未发放', {
+      userId,
+      postId,
+      reason: String(data.reason),
+    });
+  }
+}
 
 // 帖子域动作：主 feed、我的帖子、分页、详情与发帖 / 删帖。
 export function createCommunityPostsActions(
@@ -252,26 +320,43 @@ export function createCommunityPostsActions(
       const userId = requireAuthenticatedCommunityUserId(
         useUserStore.getState().session?.user?.id,
       );
+      const authorName = buildLegacyPostAuthorName(userId);
+      const insertPayload = {
+        author_id: userId,
+        author: authorName,
+        type: input.type,
+        location: input.location ?? null,
+        image_url: input.image ?? null,
+        caption: input.caption ?? null,
+        tea_name: input.teaName ?? null,
+        brewing_data: input.brewingData ?? null,
+        brewing_images: input.brewingImages ?? [],
+        quote: input.quote ?? null,
+        title: input.title ?? null,
+        description: input.description ?? null,
+      };
 
       try {
         set({ submitting: true });
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from('posts')
-          .insert({
-            author_id: userId,
-            type: input.type,
-            location: input.location ?? null,
-            image_url: input.image ?? null,
-            caption: input.caption ?? null,
-            tea_name: input.teaName ?? null,
-            brewing_data: input.brewingData ?? null,
-            brewing_images: input.brewingImages ?? [],
-            quote: input.quote ?? null,
-            title: input.title ?? null,
-            description: input.description ?? null,
-          })
+          .insert(insertPayload)
           .select(POST_SELECT)
           .single();
+
+        if (error && isMissingLegacyAuthorColumnError(error)) {
+          logWarn('communityStore', 'posts.author 兼容列不存在，回退为仅写 author_id', {
+            error: error.message,
+          });
+          ({ data, error } = await supabase
+            .from('posts')
+            .insert({
+              ...insertPayload,
+              author: undefined,
+            })
+            .select(POST_SELECT)
+            .single());
+        }
 
         if (error) {
           throw error;
@@ -286,6 +371,13 @@ export function createCommunityPostsActions(
           posts: [post, ...state.posts],
           submitting: false,
         }));
+
+        // 发帖成功后主动补偿一次首次发帖积分，并刷新任务中心与个人积分展示。
+        await ensureFirstPostReward(userId, post.id);
+        await Promise.allSettled([
+          useMemberPointsStore.getState().fetchMemberPointsData(),
+          useUserStore.getState().fetchProfile(),
+        ]);
 
         return post;
       } catch (error) {
