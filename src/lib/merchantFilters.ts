@@ -1,3 +1,4 @@
+import type { MerchantStatusTone } from "@/components/merchant/MerchantStatusBadge";
 import type { AfterSaleRequest, Order, Product } from "@/types/database";
 
 // 商家端列表筛选纯函数：便于单测覆盖所有分支，store 层只做 state + IO。
@@ -90,4 +91,28 @@ export function filterMerchantProducts(
     if (!keyword) return true;
     return p.name?.toLowerCase().includes(keyword);
   });
+}
+
+// ========== 状态 → 徽标 tone 映射（UI 派生纯函数） ==========
+
+export function orderStatusToTone(status: string): MerchantStatusTone {
+  if (status === "paid") return "wait";
+  if (status === "shipping") return "go";
+  if (status === "delivered") return "done";
+  if (status === "cancelled") return "stop";
+  return "done";
+}
+
+export function afterSaleStatusToTone(status: string): MerchantStatusTone {
+  if (
+    status === "submitted" ||
+    status === "pending_review" ||
+    status === "auto_approved"
+  ) {
+    return "wait";
+  }
+  if (status === "approved" || status === "refunding") return "go";
+  if (status === "refunded") return "done";
+  if (status === "rejected" || status === "cancelled") return "stop";
+  return "done";
 }

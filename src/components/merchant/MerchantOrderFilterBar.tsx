@@ -1,18 +1,20 @@
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
+import { MerchantColors } from "@/constants/MerchantColors";
 import type {
   MerchantOrderFilter,
   MerchantOrderScope,
 } from "@/lib/merchantFilters";
 
-// 订单列表顶部筛选栏：chips 选状态 + 关键字模糊搜索（订单号 / 手机）。
+// 订单列表筛选栏：chips 选状态 + 独立一行关键字搜索。
+// Chips 激活用品牌主色填充；未激活改米线描边 + 透明底，降低视觉干扰。
 
 const SCOPES: { value: MerchantOrderScope; label: string }[] = [
   { value: "pending_ship", label: "待发货" },
-  { value: "shipping",     label: "已发货" },
-  { value: "delivered",    label: "已完成" },
-  { value: "cancelled",    label: "已取消" },
-  { value: "all",          label: "全部" },
+  { value: "shipping", label: "已发货" },
+  { value: "delivered", label: "已完成" },
+  { value: "cancelled", label: "已取消" },
+  { value: "all", label: "全部" },
 ];
 
 interface Props {
@@ -22,7 +24,15 @@ interface Props {
 
 export function MerchantOrderFilterBar({ filter, onChange }: Props) {
   return (
-    <View className="px-4 py-3 gap-2 border-b border-outline-variant bg-background">
+    <View
+      style={{
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        gap: 10,
+        borderBottomColor: MerchantColors.line,
+        borderBottomWidth: 1,
+      }}
+    >
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         {SCOPES.map((s) => {
           const active = filter.status === s.value;
@@ -30,14 +40,23 @@ export function MerchantOrderFilterBar({ filter, onChange }: Props) {
             <Pressable
               key={s.value}
               onPress={() => onChange({ status: s.value })}
-              className={`px-3 py-1.5 rounded-full mr-2 ${
-                active ? "bg-primary" : "bg-surface-variant"
-              }`}
+              style={{
+                height: 28,
+                paddingHorizontal: 14,
+                borderRadius: 999,
+                justifyContent: "center",
+                marginRight: 8,
+                backgroundColor: active ? "#435c3c" : "transparent",
+                borderWidth: 1,
+                borderColor: active ? "#435c3c" : MerchantColors.line,
+              }}
             >
               <Text
-                className={`text-xs ${
-                  active ? "text-on-primary" : "text-on-surface"
-                }`}
+                style={{
+                  fontSize: 12,
+                  fontWeight: active ? "600" : "500",
+                  color: active ? "#fff" : MerchantColors.ink500,
+                }}
               >
                 {s.label}
               </Text>
@@ -49,7 +68,17 @@ export function MerchantOrderFilterBar({ filter, onChange }: Props) {
         value={filter.keyword}
         onChangeText={(v) => onChange({ keyword: v })}
         placeholder="搜索订单号 / 收件人手机"
-        className="px-3 py-2 rounded-lg bg-surface-variant text-sm text-on-surface"
+        placeholderTextColor={MerchantColors.ink500}
+        style={{
+          borderRadius: 12,
+          paddingHorizontal: 14,
+          paddingVertical: 10,
+          backgroundColor: "#fff",
+          borderWidth: 1,
+          borderColor: MerchantColors.line,
+          fontSize: 13,
+          color: MerchantColors.ink900,
+        }}
       />
     </View>
   );
