@@ -24,3 +24,18 @@ verify_jwt = false
 
 [functions.cancel-order]
 verify_jwt = false
+
+[functions.create-after-sale-request]
+verify_jwt = false
+
+[functions.cancel-after-sale-request]
+verify_jwt = false
+
+[functions.register-push-device]
+verify_jwt = false
+
+[functions.unregister-push-device]
+verify_jwt = false
+
+[functions.dispatch-push-queue]
+verify_jwt = false

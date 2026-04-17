@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { logWarn } from '@/lib/logger';
+import { unregisterStoredPushDevice } from '@/lib/pushNotifications';
 import {
   buildSignedOutState,
   deriveUserFields,
@@ -86,6 +87,7 @@ export function createUserStoreAuthActions(
 
     signOut: async () => {
       try {
+        await unregisterStoredPushDevice();
         await supabase.auth.signOut();
       } catch (error) {
         logWarn('userStore', 'signOut 失败', {

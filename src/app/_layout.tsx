@@ -5,6 +5,7 @@ import { Stack, router } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
+import type { NotificationResponse } from "expo-notifications";
 import { NotoSerifSC_400Regular } from "@expo-google-fonts/noto-serif-sc/400Regular";
 import { NotoSerifSC_700Bold } from "@expo-google-fonts/noto-serif-sc/700Bold";
 import { Manrope_400Regular } from "@expo-google-fonts/manrope/400Regular";
@@ -14,9 +15,17 @@ import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
 import TeaModal from "@/components/ui/TeaModal";
 import { diagnoseAuthState } from "@/lib/authDiagnostics";
 import { captureError, logInfo } from "@/lib/logger";
+import {
+  addPushNotificationListeners,
+  extractPushNavigationData,
+  handleLastNotificationResponse,
+  navigateFromPushData,
+} from "@/lib/pushNotifications";
 import { logRuntimeDiagnostics } from "@/lib/runtimeDiagnostics";
 import { setupSupabaseAutoRefresh, supabase } from "@/lib/supabase";
 import { useCouponStore } from "@/stores/couponStore";
+import { useNotificationStore } from "@/stores/notificationStore";
+import { usePushStore } from "@/stores/pushStore";
 import { useUserStore } from "@/stores/userStore";
 
 // 防止启动屏在字体加载前消失，避免首屏闪烁未加载字体的内容。
@@ -40,6 +49,9 @@ export default function RootLayout() {
   const fetchPublicCoupons = useCouponStore((state) => state.fetchPublicCoupons);
   const fetchUserCoupons = useCouponStore((state) => state.fetchUserCoupons);
   const resetCoupons = useCouponStore((state) => state.reset);
+  const bootstrapPush = usePushStore((state) => state.bootstrap);
+  const resetPush = usePushStore((state) => state.reset);
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
 
   // 下面几个 ref 用来实现“同一用户只初始化一次”和“同一时刻只跑一条初始化链路”。
   const authBootstrapRequestIdRef = useRef(0);
@@ -99,6 +111,7 @@ export default function RootLayout() {
           fetchFavorites(),
           preloadPublicCoupons(`${source}:signed_in`),
           fetchUserCoupons(),
+          bootstrapPush(userId),
         ]);
 
         // 如果初始化结束时当前 session 已经切到别的用户，就不再把这次结果标记为有效。
@@ -192,6 +205,8 @@ export default function RootLayout() {
         resetCoupons();
       }
 
+      resetPush();
+
       await preloadPublicCoupons(`${source}:signed_out`, hadSession);
 
       // 被动登出（token 过期等）时跳转登录页，主动未登录启动则不打断当前路由。
@@ -203,6 +218,7 @@ export default function RootLayout() {
       bootstrapAuthenticatedUser,
       preloadPublicCoupons,
       resetCoupons,
+      resetPush,
       setInitialized,
       setSession,
     ],
@@ -215,6 +231,36 @@ export default function RootLayout() {
       void diagnoseAuthState();
     }
   }, []);
+
+  useEffect(() => {
+    const handleResponse = (response: NotificationResponse) => {
+      const data = extractPushNavigationData(
+        response.notification.request.content.data as Record<string, unknown> | undefined,
+      );
+      navigateFromPushData(data);
+    };
+
+    const cleanup = addPushNotificationListeners({
+      onReceive: () => {
+        const userId = useUserStore.getState().session?.user?.id;
+        if (!userId) {
+          return;
+        }
+
+        void fetchNotifications();
+      },
+      onResponse: handleResponse,
+    });
+
+    void handleLastNotificationResponse(handleResponse).catch((error) => {
+      captureError(error, {
+        scope: "layout",
+        message: "读取最近一次推送响应失败",
+      });
+    });
+
+    return cleanup;
+  }, [fetchNotifications]);
 
   useEffect(() => {
     let active = true;
