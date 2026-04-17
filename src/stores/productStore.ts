@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
 import { logWarn } from '@/lib/logger';
+import { expandQueryTerms } from '@/lib/searchNormalize';
 import { supabase } from '@/lib/supabase';
 import type { Product as DBProduct } from '@/types/database';
 
@@ -26,6 +27,8 @@ tagline?: string;
 originStory?: string;
   process?: string[];
   stock?: number;
+  /** 透传数据库 created_at，供搜索页"最新"排序使用，其他场景按需消费即可。 */
+  createdAt?: string;
 }
 
 /** 将数据库行映射为前端 Product 类型 */
@@ -43,9 +46,10 @@ description: row.description ?? undefined,
     tagline: row.tagline ?? undefined,
     tastingProfile: row.tasting_profile ?? undefined,
     brewingGuide: row.brewing_guide ?? undefined,
-originStory: row.origin_story ?? undefined,
+    originStory: row.origin_story ?? undefined,
     process: row.process ?? undefined,
     stock: row.stock,
+    createdAt: row.created_at,
   };
 }
 
@@ -177,12 +181,23 @@ return product;
 
   searchProducts: async (query) => {
     try {
-      const safe = query.replace(/[%_\\]/g, '\\$&');
-      const { data, error }= await supabase
+      // 先扩展出候选词（拼音 / 同义词 / 原词），再拼成 Supabase 的 or() 过滤串。
+      const terms = expandQueryTerms(query);
+      if (terms.length === 0) {
+        return [];
+      }
+
+      // 每个词分别做 name / origin 的 ilike 模糊匹配，合并到一次请求里。
+      const orFilter = terms
+        .map((term) => term.replace(/[%_\\]/g, '\\$&'))
+        .flatMap((term) => [`name.ilike.%${term}%`, `origin.ilike.%${term}%`])
+        .join(',');
+
+      const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('is_active', true)
-        .or(`name.ilike.%${safe}%,origin.ilike.%${safe}%`)
+        .or(orFilter)
         .limit(50);
 
       if (error) {
@@ -190,7 +205,7 @@ return product;
       }
       return (data ?? []).map(mapProduct);
     } catch (error) {
-logWarn('productStore', 'searchProducts 失败', {
+      logWarn('productStore', 'searchProducts 失败', {
         query,
         error: getErrorMessage(error, '搜索失败'),
       });

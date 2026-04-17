@@ -1,3 +1,4 @@
+import { runAfterSaleTests } from "./afterSale.test";
 import { runAliOneClickSupportTests } from "./aliOneClickSupport.test";
 import { runCollectionsTests } from "./collections.test";
 import { runCommunityFeedTests } from "./communityFeed.test";
@@ -10,8 +11,10 @@ import { runOrderRpcTests } from "./orderRpc.test";
 import { runOrderTimingTests } from "./orderTiming.test";
 import { runPaymentConfigTests } from "./paymentConfig.test";
 import { runPaymentFlowTests } from "./paymentFlow.test";
+import { runPushNotificationsTests } from "./pushNotifications.test";
 import { runRoutesTests } from "./routes.test";
 import { runReviewsNotificationsTests } from "./reviewsNotifications.test";
+import { runSearchNormalizeTests } from "./searchNormalize.test";
 import { runMemberPointsTests } from "./memberPoints.test";
 import { runTrackingUtilsTests } from "./trackingUtils.test";
 import { runUserMutationsTests } from "./userMutations.test";
@@ -23,6 +26,7 @@ import { runUserMutationsTests } from "./userMutations.test";
 async function main() {
   /** 按业务域分组后的测试套件列表，便于后续继续追加。 */
   const suites = [
+    runAfterSaleTests,
     runAliOneClickSupportTests,
     runCollectionsTests,
     runCommunityFeedTests,
@@ -36,8 +40,10 @@ async function main() {
     runTrackingUtilsTests,
     runPaymentConfigTests,
     runPaymentFlowTests,
+    runPushNotificationsTests,
     runRoutesTests,
     runReviewsNotificationsTests,
+    runSearchNormalizeTests,
     runMemberPointsTests,
     runUserMutationsTests,
   ];

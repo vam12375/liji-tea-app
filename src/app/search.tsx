@@ -6,11 +6,22 @@ import { Image } from "expo-image";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "@/constants/Colors";
+import { TEA_CATEGORIES, type TeaCategory } from "@/data/products";
 import { goBackOrReplace } from "@/lib/navigation";
-import { hotSearches } from "@/data/search";
+import {
+  FALLBACK_HOT_KEYWORDS,
+  fetchTopSearchKeywords,
+  recordSearchKeyword,
+} from "@/lib/searchKeywords";
 import { useProductStore, type Product } from "@/stores/productStore";
+import SearchFilters from "@/components/search/SearchFilters";
 import SearchHistoryChips from "@/components/search/SearchHistoryChips";
 import HotSearches from "@/components/search/HotSearches";
+import {
+  useSearchResults,
+  type SearchPriceBand,
+  type SearchSortMode,
+} from "@/hooks/useSearchResults";
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -20,6 +31,14 @@ export default function SearchScreen() {
   const [results, setResults] = useState<Product[]>([]);
   const [searching, setSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  // 筛选与排序状态全部放在页面内 useState，避免污染 store。
+  const [category, setCategory] = useState<TeaCategory>(TEA_CATEGORIES[0]);
+  const [priceBand, setPriceBand] = useState<SearchPriceBand>("all");
+  const [sortMode, setSortMode] = useState<SearchSortMode>("relevance");
+  // 热词列表走后端 RPC，初始值用静态兜底，保证首屏即可渲染。
+  const [hotKeywords, setHotKeywords] = useState<string[]>([
+    ...FALLBACK_HOT_KEYWORDS,
+  ]);
 
   // 从本地存储加载搜索历史
   useEffect(() => {
@@ -28,6 +47,19 @@ export default function SearchScreen() {
         try { setHistory(JSON.parse(raw)); } catch {}
       }
     });
+  }, []);
+
+  // 进入搜索页时异步刷新一次热词，失败直接沿用静态兜底。
+  useEffect(() => {
+    let cancelled = false;
+    fetchTopSearchKeywords(8).then((list) => {
+      if (!cancelled) {
+        setHotKeywords(list);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // 保存搜索历史到本地存储
@@ -55,10 +87,20 @@ export default function SearchScreen() {
 
     // 添加到历史（去重，最多 8 个）
     saveHistory([text.trim(), ...history.filter((h) => h !== text.trim())].slice(0, 8));
+    // 命中任意结果才写入热词，避免"搜了个空"也被记录。
+    if (found.length > 0) {
+      recordSearchKeyword(text.trim());
+    }
   }, [searchProducts, saveHistory, history]);
 
-  // 展示数据：搜索结果 或 猜你喜欢
-  const displayData = hasSearched ? results : products.slice(0, 4);
+  // 展示数据：搜索结果 或 猜你喜欢。搜索结果走 useSearchResults 做本地筛选 / 排序。
+  const filteredResults = useSearchResults({
+    baseResults: results,
+    category,
+    priceBand,
+    sortMode,
+  });
+  const displayData = hasSearched ? filteredResults : products.slice(0, 4);
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
@@ -102,11 +144,21 @@ export default function SearchScreen() {
             {!hasSearched && (
               <>
                 <SearchHistoryChips items={history} onClear={() => saveHistory([])} onSelect={handleSearch} />
-                <HotSearches items={hotSearches} onSelect={handleSearch} />
+                <HotSearches items={hotKeywords} onSelect={handleSearch} />
               </>
             )}
+            {hasSearched && (
+              <SearchFilters
+                category={category}
+                priceBand={priceBand}
+                sortMode={sortMode}
+                onCategoryChange={setCategory}
+                onPriceBandChange={setPriceBand}
+                onSortModeChange={setSortMode}
+              />
+            )}
             <Text className="text-on-surface font-medium text-sm">
-              {hasSearched ? `搜索结果 (${results.length})` : '猜你喜欢'}
+              {hasSearched ? `搜索结果 (${filteredResults.length})` : '猜你喜欢'}
             </Text>
             {searching && <ActivityIndicator color={Colors.primaryContainer} />}
           </View>
