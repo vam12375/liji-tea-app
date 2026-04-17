@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { Alert, Pressable, Text, TextInput, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
+
+import { pushMerchantToast } from "@/stores/merchantToastStore";
 
 // 商品库存调整面板：显示当前库存 + delta 输入（正加负减）+ 必填原因。
 // 父组件通过 onSubmit 得到新值，失败时组件不清空输入，便于用户修正。
@@ -28,9 +30,9 @@ export function StockAdjustPanel({ currentStock, onSubmit }: Props) {
       await onSubmit(deltaNum, reason.trim());
       setDelta("");
       setReason("");
-      Alert.alert("库存已更新");
+      pushMerchantToast({ kind: "success", title: "库存已更新" });
     } catch {
-      // 父层已 Alert，这里不清空输入，让用户可以修改后重试。
+      // 父层已 push 错误 Toast，这里不清空输入，让用户可以修改后重试。
     } finally {
       setLoading(false);
     }

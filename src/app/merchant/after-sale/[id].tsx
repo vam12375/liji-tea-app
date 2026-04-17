@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import {
   AfterSaleActionSheet,
@@ -8,6 +8,7 @@ import {
 } from "@/components/merchant/AfterSaleActionSheet";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { classifyMerchantError } from "@/lib/merchantErrors";
+import { pushMerchantToast } from "@/stores/merchantToastStore";
 import { useMerchantStore } from "@/stores/merchantStore";
 
 // 售后详情页：按当前 status 分支渲染可用操作。
@@ -49,9 +50,13 @@ export default function MerchantAfterSaleDetailScreen() {
       if (action === "approve") await approve(request.id, amount ?? 0, text);
       if (action === "reject") await reject(request.id, text);
       if (action === "complete") await complete(request.id, text);
-      Alert.alert("操作成功");
+      pushMerchantToast({ kind: "success", title: "操作成功" });
     } catch (err) {
-      Alert.alert("操作失败", classifyMerchantError(err).message);
+      pushMerchantToast({
+        kind: "error",
+        title: "操作失败",
+        detail: classifyMerchantError(err).message,
+      });
       throw err;
     }
   };

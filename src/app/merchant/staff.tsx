@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
 import { MerchantTopTabs } from "@/components/merchant/MerchantTopTabs";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { classifyMerchantError } from "@/lib/merchantErrors";
 import { merchantRpc } from "@/lib/merchantRpc";
+import { pushMerchantToast } from "@/stores/merchantToastStore";
 import { useUserStore } from "@/stores/userStore";
 import { Redirect } from "expo-router";
 
@@ -24,15 +25,22 @@ export default function MerchantStaffScreen() {
   const call = async (target: "admin" | "staff" | null) => {
     const trimmed = userId.trim();
     if (!trimmed) {
-      Alert.alert("请先输入 user_id");
+      pushMerchantToast({ kind: "error", title: "请先输入 user_id" });
       return;
     }
     setBusy(true);
     try {
       await merchantRpc.grantRole(trimmed, target);
-      Alert.alert(target ? `已设置为 ${target}` : "已撤销员工身份");
+      pushMerchantToast({
+        kind: "success",
+        title: target ? `已设置为 ${target}` : "已撤销员工身份",
+      });
     } catch (err) {
-      Alert.alert("操作失败", classifyMerchantError(err).message);
+      pushMerchantToast({
+        kind: "error",
+        title: "操作失败",
+        detail: classifyMerchantError(err).message,
+      });
     } finally {
       setBusy(false);
     }

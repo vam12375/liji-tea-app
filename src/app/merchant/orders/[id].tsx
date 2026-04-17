@@ -1,10 +1,11 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 
 import { ShipOrderDialog } from "@/components/merchant/ShipOrderDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { classifyMerchantError } from "@/lib/merchantErrors";
+import { pushMerchantToast } from "@/stores/merchantToastStore";
 import { showConfirm } from "@/stores/modalStore";
 import { useMerchantStore } from "@/stores/merchantStore";
 
@@ -38,9 +39,17 @@ export default function MerchantOrderDetailScreen() {
   const handleShip = async (carrier: string, no: string) => {
     try {
       await shipOrder(order.id, carrier, no);
-      Alert.alert("发货成功");
+      pushMerchantToast({
+        kind: "success",
+        title: "发货成功",
+        detail: order.order_no ?? order.id.slice(0, 8),
+      });
     } catch (err) {
-      Alert.alert("发货失败", classifyMerchantError(err).message);
+      pushMerchantToast({
+        kind: "error",
+        title: "发货失败",
+        detail: classifyMerchantError(err).message,
+      });
       throw err; // 让弹窗保持非 loading，不清空用户已输入的数据
     }
   };
@@ -54,7 +63,11 @@ export default function MerchantOrderDetailScreen() {
           await closeOrder(order.id, "商家关闭");
           router.back();
         } catch (err) {
-          Alert.alert("操作失败", classifyMerchantError(err).message);
+          pushMerchantToast({
+            kind: "error",
+            title: "操作失败",
+            detail: classifyMerchantError(err).message,
+          });
         }
       },
       { confirmStyle: "destructive" },

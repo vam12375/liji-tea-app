@@ -90,7 +90,14 @@ export function AfterSaleActionSheet({
               onChangeText={setAmount}
               keyboardType="decimal-pad"
               placeholder="实际退款金额"
-              className="border border-outline-variant rounded-lg px-3 py-2 text-on-surface"
+              style={{
+                borderWidth: 1,
+                borderColor: "#e6dfd1",
+                borderRadius: 12,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                fontSize: 14,
+              }}
             />
           ) : null}
 
@@ -99,7 +106,16 @@ export function AfterSaleActionSheet({
             onChangeText={setText}
             placeholder={placeholder}
             multiline={action !== "complete"}
-            className="border border-outline-variant rounded-lg px-3 py-2 text-on-surface"
+            style={{
+              borderWidth: 1,
+              borderColor: "#e6dfd1",
+              borderRadius: 12,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              fontSize: 14,
+              minHeight: action !== "complete" ? 72 : undefined,
+              textAlignVertical: "top",
+            }}
           />
 
           <View className="flex-row justify-end gap-3 mt-2">

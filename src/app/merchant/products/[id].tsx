@@ -1,10 +1,18 @@
 import { useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, Switch, Text, TextInput, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { StockAdjustPanel } from "@/components/merchant/StockAdjustPanel";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { classifyMerchantError } from "@/lib/merchantErrors";
+import { pushMerchantToast } from "@/stores/merchantToastStore";
 import { useMerchantStore } from "@/stores/merchantStore";
 
 // 商品详情/编辑页：
@@ -51,7 +59,10 @@ export default function MerchantProductDetailScreen() {
 
   const handleSave = async () => {
     if (!name.trim() || Number.isNaN(Number(price))) {
-      Alert.alert("请填写合法的名称与价格");
+      pushMerchantToast({
+        kind: "error",
+        title: "请填写合法的名称与价格",
+      });
       return;
     }
     setSaving(true);
@@ -62,9 +73,13 @@ export default function MerchantProductDetailScreen() {
         description,
         is_active: isActive,
       });
-      Alert.alert("保存成功");
+      pushMerchantToast({ kind: "success", title: "保存成功" });
     } catch (err) {
-      Alert.alert("保存失败", classifyMerchantError(err).message);
+      pushMerchantToast({
+        kind: "error",
+        title: "保存失败",
+        detail: classifyMerchantError(err).message,
+      });
     } finally {
       setSaving(false);
     }
@@ -74,7 +89,11 @@ export default function MerchantProductDetailScreen() {
     try {
       await updateStock(product.id, delta, reason);
     } catch (err) {
-      Alert.alert("调整失败", classifyMerchantError(err).message);
+      pushMerchantToast({
+        kind: "error",
+        title: "调整失败",
+        detail: classifyMerchantError(err).message,
+      });
       throw err;
     }
   };
