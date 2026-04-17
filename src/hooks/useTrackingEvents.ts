@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { track } from "@/lib/analytics";
 import { captureError } from "@/lib/logger";
@@ -80,14 +80,8 @@ export function useTrackingEvents(
   }, [orderId, updatedAt, userId]);
 
   // 允许页面在模拟物流成功后直接回填最新轨迹，减少一次无意义等待。
-  const replaceTrackingEvents = useCallback((events: TrackingEvent[]) => {
-    setTrackingEvents(events);
-    setEventsLoading(false);
-  }, []);
-
   return {
     trackingEvents,
     eventsLoading,
-    replaceTrackingEvents,
   };
 }

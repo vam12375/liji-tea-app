@@ -7,8 +7,6 @@ export type OrderPaymentStatus =
   | "failed"
   | "closed";
 
-export type MockLogisticsAction = "advance" | "ship" | "deliver";
-
 export interface TrackingEvent {
   status: string;
   title: string;
@@ -46,15 +44,6 @@ export interface MockPaymentConfirmResponse {
   tradeNo: string | null;
   logisticsCompany: string | null;
   logisticsTrackingNo: string | null;
-}
-
-export interface MockLogisticsUpdateResponse {
-  orderId: string;
-  status: string;
-  logisticsStatus: string | null;
-  shippedAt: string | null;
-  deliveredAt: string | null;
-  trackingEvents: TrackingEvent[];
 }
 
 export interface AlipayNativePayResult {

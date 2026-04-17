@@ -6,7 +6,6 @@ import type { Order } from "@/types/database";
 import type { PaymentChannel } from "@/types/payment";
 
 export interface TrackingActionFlags {
-  canAdvanceLogistics: boolean;
   canConfirmReceive: boolean;
   canRepay: boolean;
   remainingPaymentText: string | null;
@@ -39,14 +38,12 @@ export function getTrackingActionFlags(
 ): TrackingActionFlags {
   if (!order) {
     return {
-      canAdvanceLogistics: false,
       canConfirmReceive: false,
       canRepay: false,
       remainingPaymentText: null,
     };
   }
 
-  const canAdvanceLogistics = __DEV__ && order.status === "paid";
   const canConfirmReceive = order.status === "shipping";
   const paymentDeadline = getPendingPaymentDeadline(order.created_at);
   const remainingPaymentMs =
@@ -60,7 +57,6 @@ export function getTrackingActionFlags(
       : null;
 
   return {
-    canAdvanceLogistics,
     canConfirmReceive,
     canRepay,
     remainingPaymentText,

@@ -98,7 +98,7 @@ export function TrackingLatestEventsCard({
             {trackingCopy.fallback.trackingEmpty}
           </Text>
           <Text className="text-center text-xs leading-5 text-outline">
-            {trackingCopy.fallback.trackingEmptyDescription}
+            支付成功后，系统会初始化物流轨迹；后续履约进度会在这里继续同步展示。
           </Text>
         </View>
       )}

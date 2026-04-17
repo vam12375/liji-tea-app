@@ -11,16 +11,14 @@ import { TrackingTimelineCard } from "@/components/tracking/TrackingTimelineCard
 import { AppHeader } from "@/components/ui/AppHeader";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { screenStateCopy, trackingCopy } from "@/constants/copy";
-import { useTrackingEvents } from "@/hooks/useTrackingEvents";
 import { useNow } from "@/hooks/useNow";
+import { useTrackingEvents } from "@/hooks/useTrackingEvents";
+import { useTrackingSubscription } from "@/hooks/useTrackingSubscription";
 import {
   canApplyAfterSale,
   getAfterSaleStatusDescription,
   getAfterSaleStatusLabel,
 } from "@/lib/afterSale";
-import { useTrackingSubscription } from "@/hooks/useTrackingSubscription";
-import { captureError } from "@/lib/logger";
-import { updateMockLogistics } from "@/lib/payment";
 import { routes } from "@/lib/routes";
 import {
   getTrackingActionFlags,
@@ -31,23 +29,17 @@ import {
   getTrackingStatusMeta,
   summarizeOrderItems,
 } from "@/lib/trackingUtils";
-import { showConfirm, showModal } from "@/stores/modalStore";
 import { useAfterSaleStore } from "@/stores/afterSaleStore";
+import { showConfirm, showModal } from "@/stores/modalStore";
 import { useOrderStore } from "@/stores/orderStore";
 import { useUserStore } from "@/stores/userStore";
-import type { Order } from "@/types/database";
-import type { MockLogisticsAction } from "@/types/payment";
 
-/**
- * 物流追踪页经过拆分后，只负责组装 hooks、派生状态与展示组件。
- * 订单读取改为按 id 选择缓存，避免继续依赖单一 currentOrder 带来的全局污染。
- */
+// 物流页仅保留用户端需要的查看与确认能力，不再承载商家侧“模拟发货”操作。
 export default function TrackingScreen() {
   const router = useRouter();
   const { orderId } = useLocalSearchParams<{ orderId?: string }>();
   const userId = useUserStore((state) => state.session?.user?.id);
   const fetchOrderById = useOrderStore((state) => state.fetchOrderById);
-  const updateOrder = useOrderStore((state) => state.updateOrder);
   const cancelOrder = useOrderStore((state) => state.cancelOrder);
   const confirmReceive = useOrderStore((state) => state.confirmReceive);
   const fetchRequestByOrderId = useAfterSaleStore(
@@ -66,15 +58,10 @@ export default function TrackingScreen() {
     orderId ? state.detailErrorById[orderId] ?? null : null,
   );
   const now = useNow();
-  const [actionLoading, setActionLoading] = useState<MockLogisticsAction | null>(
-    null,
-  );
   const [requestedOrderId, setRequestedOrderId] = useState<string | null>(null);
 
-  // 单订单详情页优先使用更细粒度的实时订阅，减少无关订单更新带来的干扰。
   useTrackingSubscription(orderId, userId);
 
-  // 页面首次进入或切换订单号时，主动触发详情拉取并记录当前请求目标。
   useEffect(() => {
     if (!orderId) {
       setRequestedOrderId(null);
@@ -86,10 +73,12 @@ export default function TrackingScreen() {
     void fetchRequestByOrderId(orderId);
   }, [fetchOrderById, fetchRequestByOrderId, orderId]);
 
-  const { trackingEvents, eventsLoading, replaceTrackingEvents } =
-    useTrackingEvents(orderId, userId, currentOrder?.updated_at);
+  const { trackingEvents, eventsLoading } = useTrackingEvents(
+    orderId,
+    userId,
+    currentOrder?.updated_at,
+  );
 
-  // 这些派生数据全部下沉到 useMemo，避免 ScrollView 每次重渲染重复计算。
   const statusMeta = useMemo(
     () => (currentOrder ? getTrackingStatusMeta(currentOrder.status) : null),
     [currentOrder],
@@ -102,12 +91,10 @@ export default function TrackingScreen() {
     () => summarizeOrderItems(currentOrder?.order_items),
     [currentOrder?.order_items],
   );
-  const {
-    canAdvanceLogistics,
-    canConfirmReceive,
-    canRepay,
-    remainingPaymentText,
-  } = useMemo(() => getTrackingActionFlags(currentOrder, now), [currentOrder, now]);
+  const { canConfirmReceive, canRepay, remainingPaymentText } = useMemo(
+    () => getTrackingActionFlags(currentOrder, now),
+    [currentOrder, now],
+  );
   const paymentMethod = currentOrder
     ? normalizeTrackingPaymentChannel(
         currentOrder.payment_channel,
@@ -119,7 +106,6 @@ export default function TrackingScreen() {
   const shouldShowAfterSaleCard =
     Boolean(orderAfterSaleRequest) || canOpenAfterSaleApply;
 
-  // 统一跳转支付页，避免按钮区域内重复拼接路由参数。
   const handlePayOrder = useCallback(() => {
     if (!currentOrder) {
       return;
@@ -134,7 +120,6 @@ export default function TrackingScreen() {
     );
   }, [currentOrder, paymentMethod, router]);
 
-  // 取消订单动作继续复用 store action，但页面确认弹窗逻辑统一收口。
   const handleCancelOrder = useCallback(() => {
     if (!currentOrder) {
       return;
@@ -152,7 +137,7 @@ export default function TrackingScreen() {
 
         showModal(
           trackingCopy.actions.cancelTitle,
-          "订单已成功取消，库存已自动释放。",
+          "订单已成功取消，库存会自动释放。",
           "success",
         );
       },
@@ -164,45 +149,6 @@ export default function TrackingScreen() {
     );
   }, [cancelOrder, currentOrder]);
 
-  // 模拟物流推进成功后，立即回写订单状态和最新物流轨迹。
-  const handleAdvanceLogistics = useCallback(async () => {
-    if (!orderId || !currentOrder) {
-      return;
-    }
-
-    const action: MockLogisticsAction = "advance";
-
-    try {
-      setActionLoading(action);
-
-      const result = await updateMockLogistics(orderId, action);
-      updateOrder({
-        id: orderId,
-        status: result.status as Order["status"],
-        logistics_status: result.logisticsStatus,
-        shipped_at: result.shippedAt,
-        delivered_at: result.deliveredAt,
-        updated_at: new Date().toISOString(),
-      });
-      replaceTrackingEvents(result.trackingEvents);
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : trackingCopy.errors.logisticsUpdateFailedMessage;
-
-      captureError(error, {
-        scope: "tracking",
-        message: "handleAdvanceLogistics 失败",
-        orderId,
-      });
-      showModal(trackingCopy.errors.logisticsUpdateFailedTitle, message, "error");
-    } finally {
-      setActionLoading(null);
-    }
-  }, [currentOrder, orderId, replaceTrackingEvents, updateOrder]);
-
-  // 确认收货继续走 store action，页面只负责展示确认结果。
   const handleConfirmReceive = useCallback(() => {
     if (!currentOrder) {
       return;
@@ -239,8 +185,10 @@ export default function TrackingScreen() {
     }
   }, [orderAfterSaleRequest, orderId, router]);
 
-  // 在详情首次请求期间统一展示页面级 loading，避免先闪空态再切成 loading。
-  if (orderId && (!hasRequestedCurrentOrder || (currentOrderLoading && !currentOrder))) {
+  if (
+    orderId &&
+    (!hasRequestedCurrentOrder || (currentOrderLoading && !currentOrder))
+  ) {
     return (
       <View className="flex-1 bg-background">
         <AppHeader title={trackingCopy.screenTitle} />
@@ -253,7 +201,6 @@ export default function TrackingScreen() {
     );
   }
 
-  // 缺少订单号、详情加载失败或订单不存在时，统一落到标准状态页。
   if (!orderId || !currentOrder || !statusMeta) {
     const isError = Boolean(detailError);
 
@@ -264,7 +211,9 @@ export default function TrackingScreen() {
           variant={isError ? "error" : "empty"}
           icon="inventory"
           title={isError ? "订单加载失败" : screenStateCopy.trackingMissing.title}
-          description={detailError ?? screenStateCopy.trackingMissing.description}
+          description={
+            detailError ?? screenStateCopy.trackingMissing.description
+          }
           actionLabel={screenStateCopy.trackingMissing.actionLabel}
           onActionPress={() => router.replace(routes.orders)}
         />
@@ -294,10 +243,7 @@ export default function TrackingScreen() {
 
         <TrackingActionsCard
           order={currentOrder}
-          canAdvanceLogistics={canAdvanceLogistics}
           canConfirmReceive={canConfirmReceive}
-          actionLoading={actionLoading}
-          onAdvanceLogistics={handleAdvanceLogistics}
           onConfirmReceive={handleConfirmReceive}
         />
 
