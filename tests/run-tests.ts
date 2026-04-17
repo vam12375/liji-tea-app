@@ -18,6 +18,7 @@ import { runSearchNormalizeTests } from "./searchNormalize.test";
 import { runMemberPointsTests } from "./memberPoints.test";
 import { runMerchantErrorsTests } from "./merchantErrors.test";
 import { runMerchantFiltersTests } from "./merchantFilters.test";
+import { runMerchantHeroStatsTests } from "./merchantHeroStats.test";
 import { runMerchantToastTests } from "./merchantToast.test";
 import { runTrackingUtilsTests } from "./trackingUtils.test";
 import { runUserMutationsTests } from "./userMutations.test";
@@ -51,6 +52,7 @@ async function main() {
     runMemberPointsTests,
     runMerchantErrorsTests,
     runMerchantFiltersTests,
+    runMerchantHeroStatsTests,
     runMerchantToastTests,
     runUserMutationsTests,
     runUserRoleTests,
