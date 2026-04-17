@@ -2,16 +2,48 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 
+import { MerchantBentoBlock } from "@/components/merchant/MerchantBentoBlock";
+import { MerchantStatusBadge } from "@/components/merchant/MerchantStatusBadge";
+import { MerchantStickyActions } from "@/components/merchant/MerchantStickyActions";
+import {
+  MerchantTimeline,
+  type TimelineStep,
+} from "@/components/merchant/MerchantTimeline";
 import { ShipOrderDialog } from "@/components/merchant/ShipOrderDialog";
 import { AppHeader } from "@/components/ui/AppHeader";
+import { MerchantColors } from "@/constants/MerchantColors";
 import { classifyMerchantError } from "@/lib/merchantErrors";
+import { orderStatusToTone } from "@/lib/merchantFilters";
 import { pushMerchantToast } from "@/stores/merchantToastStore";
 import { showConfirm } from "@/stores/modalStore";
 import { useMerchantStore } from "@/stores/merchantStore";
 
-// 订单详情页：只读展示 + 底部操作条。
-// - paid 态才展示「发货」按钮；delivered/cancelled 不可关闭。
-// - 发货走 ShipOrderDialog；关闭走 showConfirm。
+// 订单详情（v4.4.0 Bento 重排）：
+// 身份段 + 收件 / 物流 / 商品 / 时间线 四块 Bento + 底部 sticky 操作条。
+// 时间线 4 节点直接派生自 orders.created_at/paid_at/shipped_at/delivered_at。
+const STATUS_LABEL: Record<string, string> = {
+  pending: "待支付",
+  paid: "待发货",
+  shipping: "已发货",
+  delivered: "已完成",
+  cancelled: "已取消",
+};
+
+function formatDateTime(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    return new Date(value).toLocaleString("zh-CN", {
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return value;
+  }
+}
+
 export default function MerchantOrderDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,17 +56,44 @@ export default function MerchantOrderDetailScreen() {
 
   if (!order) {
     return (
-      <View className="flex-1 bg-surface">
+      <View className="flex-1" style={{ backgroundColor: MerchantColors.paper }}>
         <AppHeader title="订单详情" showBackButton />
         <View className="flex-1 items-center justify-center">
-          <Text className="text-on-surface-variant">订单不存在或未加载</Text>
+          <Text style={{ color: MerchantColors.ink500 }}>订单不存在或未加载</Text>
         </View>
       </View>
     );
   }
 
+  const tone = orderStatusToTone(order.status);
+  const label = STATUS_LABEL[order.status] ?? order.status;
   const canShip = order.status === "paid";
   const canClose = !["delivered", "cancelled"].includes(order.status);
+  const hasAction = canShip || canClose;
+
+  // 时间线：已完成走实心茶青点；未到节点时间置空显示 "--"。
+  const timelineSteps: TimelineStep[] = [
+    {
+      time: formatDateTime(order.created_at),
+      label: "下单",
+      done: true,
+    },
+    {
+      time: formatDateTime(order.paid_at),
+      label: "已支付",
+      done: !!order.paid_at,
+    },
+    {
+      time: formatDateTime(order.shipped_at),
+      label: "已发货",
+      done: !!order.shipped_at,
+    },
+    {
+      time: formatDateTime(order.delivered_at),
+      label: "已签收",
+      done: !!order.delivered_at,
+    },
+  ];
 
   const handleShip = async (carrier: string, no: string) => {
     try {
@@ -50,7 +109,7 @@ export default function MerchantOrderDetailScreen() {
         title: "发货失败",
         detail: classifyMerchantError(err).message,
       });
-      throw err; // 让弹窗保持非 loading，不清空用户已输入的数据
+      throw err;
     }
   };
 
@@ -74,76 +133,183 @@ export default function MerchantOrderDetailScreen() {
     );
   };
 
+  const itemsCount =
+    order.order_items?.reduce((sum, it) => sum + (it.quantity ?? 0), 0) ?? 0;
+
   return (
-    <View className="flex-1 bg-surface">
+    <View className="flex-1" style={{ backgroundColor: MerchantColors.paper }}>
       <AppHeader title="订单详情" showBackButton />
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
-        <Text className="text-on-surface text-base font-semibold">
-          订单号：{order.order_no ?? order.id}
-        </Text>
-        <Text className="text-on-surface-variant text-sm">状态：{order.status}</Text>
-        <Text className="text-on-surface-variant text-sm">
-          下单时间：{new Date(order.created_at).toLocaleString("zh-CN")}
-        </Text>
-        <Text className="text-on-surface text-sm">金额：¥{order.total}</Text>
-
-        <View className="mt-2 p-3 rounded-xl bg-surface-bright gap-1">
-          <Text className="text-on-surface font-medium">收件信息</Text>
-          <Text className="text-on-surface-variant text-xs">
-            {order.logistics_receiver_name ?? "-"} · {order.logistics_receiver_phone ?? "-"}
+      <ScrollView
+        contentContainerStyle={{
+          padding: 16,
+          gap: 12,
+          // 预留 sticky 操作条高度（按钮 48 + 上下 padding 24 ≈ 72）+ SafeArea bottom。
+          // 无操作态不用预留。
+          paddingBottom: hasAction ? 96 : 24,
+        }}
+      >
+        {/* 身份段 */}
+        <View style={{ gap: 8 }}>
+          <Text
+            style={{
+              color: MerchantColors.ink500,
+              fontSize: 11,
+              letterSpacing: 0.8,
+            }}
+          >
+            订单号 · {order.order_no ?? order.id.slice(0, 8)}
           </Text>
-          <Text className="text-on-surface-variant text-xs">
-            {order.logistics_address ?? "-"}
-          </Text>
-        </View>
-
-        {order.logistics_company || order.logistics_tracking_no ? (
-          <View className="p-3 rounded-xl bg-surface-bright gap-1">
-            <Text className="text-on-surface font-medium">物流</Text>
-            <Text className="text-on-surface-variant text-xs">
-              承运商：{order.logistics_company ?? "-"}
-            </Text>
-            <Text className="text-on-surface-variant text-xs">
-              运单号：{order.logistics_tracking_no ?? "-"}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <MerchantStatusBadge tone={tone} label={label} size="md" />
+            <Text
+              style={{
+                color: MerchantColors.ink900,
+                fontFamily: "NotoSerifSC_700Bold",
+                fontSize: 28,
+                lineHeight: 34,
+              }}
+            >
+              {label}
             </Text>
           </View>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "baseline",
+              gap: 12,
+              marginTop: 2,
+            }}
+          >
+            <Text
+              style={{
+                color: MerchantColors.ink900,
+                fontSize: 20,
+                fontWeight: "700",
+                fontVariant: ["tabular-nums"],
+              }}
+            >
+              ¥{order.total ?? "-"}
+            </Text>
+            <Text style={{ color: MerchantColors.ink500, fontSize: 12 }}>
+              下单 {formatDateTime(order.created_at) ?? "-"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Bento：收件 */}
+        <MerchantBentoBlock title="收件">
+          <Text style={{ color: MerchantColors.ink900, fontSize: 14 }}>
+            {order.logistics_receiver_name ?? "-"}
+            {order.logistics_receiver_phone
+              ? ` · ${order.logistics_receiver_phone}`
+              : ""}
+          </Text>
+          <Text
+            style={{ color: MerchantColors.ink500, fontSize: 12, lineHeight: 18 }}
+          >
+            {order.logistics_address ?? "-"}
+          </Text>
+        </MerchantBentoBlock>
+
+        {/* Bento：物流（仅在有物流数据时展示） */}
+        {order.logistics_company || order.logistics_tracking_no ? (
+          <MerchantBentoBlock title="物流">
+            <View style={{ gap: 4 }}>
+              <Text style={{ color: MerchantColors.ink900, fontSize: 14 }}>
+                {order.logistics_company ?? "-"}
+              </Text>
+              <Text
+                style={{
+                  color: MerchantColors.ink500,
+                  fontSize: 12,
+                  fontVariant: ["tabular-nums"],
+                }}
+              >
+                运单 {order.logistics_tracking_no ?? "-"}
+              </Text>
+            </View>
+          </MerchantBentoBlock>
         ) : null}
 
+        {/* Bento：商品 */}
         {order.order_items?.length ? (
-          <View className="p-3 rounded-xl bg-surface-bright gap-2">
-            <Text className="text-on-surface font-medium">商品</Text>
+          <MerchantBentoBlock
+            title="商品"
+            summary={`${order.order_items.length} 项 · ${itemsCount} 件`}
+          >
             {order.order_items.map((item) => (
-              <View key={item.id} className="flex-row justify-between">
-                <Text className="text-on-surface-variant text-xs" numberOfLines={1}>
+              <View
+                key={item.id}
+                style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}
+              >
+                <Text
+                  style={{ color: MerchantColors.ink900, fontSize: 13, flex: 1 }}
+                  numberOfLines={1}
+                >
                   {item.product?.name ?? item.product_id} × {item.quantity}
                 </Text>
-                <Text className="text-on-surface-variant text-xs">
+                <Text
+                  style={{
+                    color: MerchantColors.ink500,
+                    fontSize: 13,
+                    fontVariant: ["tabular-nums"],
+                  }}
+                >
                   ¥{item.unit_price}
                 </Text>
               </View>
             ))}
-          </View>
+          </MerchantBentoBlock>
         ) : null}
 
-        <View className="flex-row gap-3 mt-4">
-          {canShip ? (
-            <Pressable
-              onPress={() => setShowShip(true)}
-              className="flex-1 bg-primary rounded-lg py-3 items-center"
-            >
-              <Text className="text-on-primary font-medium">发货</Text>
-            </Pressable>
-          ) : null}
+        {/* Bento：时间线 */}
+        <MerchantBentoBlock title="时间线">
+          <MerchantTimeline steps={timelineSteps} />
+        </MerchantBentoBlock>
+      </ScrollView>
+
+      {hasAction ? (
+        <MerchantStickyActions>
           {canClose ? (
             <Pressable
               onPress={handleClose}
-              className="flex-1 border border-outline rounded-lg py-3 items-center"
+              style={({ pressed }) => [
+                {
+                  flex: 1,
+                  borderWidth: 1,
+                  borderColor: MerchantColors.line,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                  backgroundColor: "transparent",
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
             >
-              <Text className="text-on-surface">关闭订单</Text>
+              <Text style={{ color: MerchantColors.ink900, fontWeight: "600" }}>
+                关闭订单
+              </Text>
             </Pressable>
           ) : null}
-        </View>
-      </ScrollView>
+          {canShip ? (
+            <Pressable
+              onPress={() => setShowShip(true)}
+              style={({ pressed }) => [
+                {
+                  flex: 1,
+                  backgroundColor: MerchantColors.statusGo,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600" }}>发货</Text>
+            </Pressable>
+          ) : null}
+        </MerchantStickyActions>
+      ) : null}
 
       <ShipOrderDialog
         visible={showShip}
