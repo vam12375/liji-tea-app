@@ -1,4 +1,5 @@
 import { runAfterSaleTests } from "./afterSale.test";
+import { runAfterSaleIdempotencyGuardsTests } from "./afterSaleIdempotencyGuards.test";
 import { runAliOneClickSupportTests } from "./aliOneClickSupport.test";
 import { runCollectionsTests } from "./collections.test";
 import { runCommunityFeedTests } from "./communityFeed.test";
@@ -19,6 +20,7 @@ import { runMemberPointsTests } from "./memberPoints.test";
 import { runMerchantErrorsTests } from "./merchantErrors.test";
 import { runMerchantFiltersTests } from "./merchantFilters.test";
 import { runMerchantHeroStatsTests } from "./merchantHeroStats.test";
+import { runMerchantRpcInvokeTests } from "./merchantRpcInvoke.test";
 import { runMerchantToastTests } from "./merchantToast.test";
 import { runTrackingUtilsTests } from "./trackingUtils.test";
 import { runUserMutationsTests } from "./userMutations.test";
@@ -32,6 +34,7 @@ async function main() {
   /** 按业务域分组后的测试套件列表，便于后续继续追加。 */
   const suites = [
     runAfterSaleTests,
+    runAfterSaleIdempotencyGuardsTests,
     runAliOneClickSupportTests,
     runCollectionsTests,
     runCommunityFeedTests,
@@ -53,6 +56,7 @@ async function main() {
     runMerchantErrorsTests,
     runMerchantFiltersTests,
     runMerchantHeroStatsTests,
+    runMerchantRpcInvokeTests,
     runMerchantToastTests,
     runUserMutationsTests,
     runUserRoleTests,

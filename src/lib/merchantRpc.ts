@@ -1,36 +1,14 @@
 import { supabase } from "@/lib/supabase";
-import {
-  classifyMerchantError,
-  isMerchantError,
-  type MerchantError,
-} from "@/lib/merchantErrors";
+import { type MerchantError } from "@/lib/merchantErrors";
+import { invoke, type RpcLike } from "@/lib/merchantRpcInvoke";
 import type { AfterSaleRequest, Order, Product, UserRoleRow } from "@/types/database";
 
 // 商家端 RPC 封装：页面层只需调 merchantRpc.xxx(...)，底层统一把 Supabase 错误
 // 归一化为 MerchantError 抛出；成功时直接返回 RPC payload（已是完整行）。
+// `invoke` 与类型定义迁移到 @/lib/merchantRpcInvoke，方便纯 Node 环境直接单测。
 
-// Supabase rpc() 返回的是 PostgrestFilterBuilder（thenable 但非 Promise），
-// 这里抹平差异：await 它得到 {data, error}，再进入错误归一化。
-interface RpcLike<T> {
-  then<U>(onfulfilled: (v: { data: T | null; error: unknown }) => U): unknown;
-}
-
-async function invoke<T>(fn: () => RpcLike<T>): Promise<T> {
-  try {
-    const { data, error } = (await fn()) as { data: T | null; error: unknown };
-    if (error) throw classifyMerchantError(error);
-    if (data === null || data === undefined) {
-      throw {
-        kind: "unknown",
-        message: "服务端未返回结果",
-      } satisfies MerchantError;
-    }
-    return data;
-  } catch (err) {
-    if (isMerchantError(err)) throw err;
-    throw classifyMerchantError(err);
-  }
-}
+export { invoke };
+export type { RpcLike, MerchantError };
 
 export const merchantRpc = {
   // ========== 订单履约 ==========
