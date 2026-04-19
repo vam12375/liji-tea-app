@@ -36,7 +36,7 @@ returns table (allowed boolean, retry_after_sec int)
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $rl_consume_body$
 declare
   v_window_start timestamptz;
   v_count        int;
@@ -72,8 +72,8 @@ begin
     );
   end if;
   return next;
-end;
-$$;
+end
+$rl_consume_body$;
 
 comment on function public.consume_rate_limit(uuid, text, int, int) is
   '递增 (user, bucket) 的固定窗口命中；返回 allowed 与建议 retry_after_sec。';
@@ -88,7 +88,7 @@ returns int
 language plpgsql
 security definer
 set search_path = public
-as $$
+as $rl_prune_body$
 declare
   v_deleted bigint;
 begin
@@ -98,8 +98,8 @@ begin
   get diagnostics v_deleted = row_count;
 
   return coalesce(v_deleted, 0)::int;
-end;
-$$;
+end
+$rl_prune_body$;
 
 comment on function public.prune_rate_limit_buckets() is
   '删除 24 小时前的限流窗口记录；建议每小时调度清理。';
@@ -109,7 +109,8 @@ revoke execute on function public.prune_rate_limit_buckets() from anon;
 revoke execute on function public.prune_rate_limit_buckets() from authenticated;
 
 -- pg_cron 可用时每小时注册一次清理任务；否则静默跳过，留给管理员手动调度。
-do $$
+-- 使用命名 dollar tag 以避免某些 SQL 执行器对匿名 $$ 的嵌套解析不稳定。
+do $ratelimit_cron$
 declare
   v_has_cron boolean;
   v_has_job  boolean;
@@ -132,4 +133,5 @@ begin
     '15 * * * *',
     $cmd$select public.prune_rate_limit_buckets();$cmd$
   );
-end $$;
+end
+$ratelimit_cron$;
