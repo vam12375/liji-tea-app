@@ -6,6 +6,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { TeaImage } from "@/components/ui/TeaImage";
 import { Colors } from "@/constants/Colors";
+import { track } from "@/lib/analytics";
 import { shareContent } from "@/lib/share";
 import { supabase } from "@/lib/supabase";
 import { useProductStore } from "@/stores/productStore";
@@ -136,6 +137,12 @@ export default function ProductDetailScreen() {
   // 商品切换时重置数量
   useEffect(() => {
     setQuantity(1);
+  }, [id]);
+
+  // 商品详情浏览埋点：按 id 触发，切商品会再埋一次，作为加购漏斗第 1 步。
+  useEffect(() => {
+    if (!id) return;
+    track("product_view", { productId: id });
   }, [id]);
 
   // 商品详情进入后拉取评价数据，供评价摘要和预览列表使用。

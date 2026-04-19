@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, KeyboardAvoidingView, Platform } from
 import { useRouter, Stack } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
+import { track } from '@/lib/analytics';
 import { goBackOrReplace } from '@/lib/navigation';
 import { useUserStore } from '@/stores/userStore';
 import { showModal } from '@/stores/modalStore';
@@ -36,6 +37,7 @@ export default function LoginScreen() {
   const handleOneClickLogin = async () => {
     const result = await doOneClickLogin();
     if (result.success) {
+      track('login_success', { method: 'one-click' });
       showModal('欢迎回来', '登录成功，祝您品茶愉快', 'success');
       setTimeout(() => goBackOrReplace(router), 800);
     } else if (result.error) {
@@ -75,6 +77,7 @@ export default function LoginScreen() {
     if (isSignUp) {
       error = await signUp(email.trim(), password, name.trim() || undefined);
       if (!error) {
+        track('register_success', { method: 'email' });
         showModal('注册成功', '请查收验证邮件后登录', 'success');
         setIsSignUp(false);
         setLoading(false);
@@ -83,6 +86,7 @@ export default function LoginScreen() {
     } else {
       error = await signIn(email.trim(), password);
       if (!error) {
+        track('login_success', { method: 'email' });
         // 登录成功 — 显示优雅提示后返回
         showModal('欢迎回来', '登录成功，祝您品茶愉快', 'success');
         setTimeout(() => goBackOrReplace(router), 800);

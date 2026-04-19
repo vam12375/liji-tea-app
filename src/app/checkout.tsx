@@ -17,6 +17,7 @@ import OrderItemCard from "@/components/checkout/OrderItemCard";
 import PaymentMethods from "@/components/checkout/PaymentMethods";
 import PriceBreakdown from "@/components/checkout/PriceBreakdown";
 import { Colors } from "@/constants/Colors";
+import { track } from "@/lib/analytics";
 import { findDefaultItem } from "@/lib/collections";
 import { getCouponScopeLabel } from "@/lib/couponSelection";
 import { getEnabledPaymentChannels, isPaymentChannelEnabled } from "@/lib/paymentConfig";
@@ -122,6 +123,14 @@ export default function CheckoutScreen() {
       setPayment(enabledChannels[0] ?? "alipay");
     }
   }, [enabledChannels, payment]);
+
+  // 结算页进入埋点：orderItems 首次非空时触发一次，作为加购漏斗第 3 步基线。
+  useEffect(() => {
+    if (orderItems.length === 0) return;
+    track("checkout_start", { itemsCount: orderItems.length });
+    // 仅首次非空触发：依赖长度不依赖内容，避免改数量重复上报。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderItems.length > 0]);
 
   const handleSubmit = useCheckoutSubmit({
     router,

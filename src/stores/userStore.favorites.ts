@@ -4,6 +4,7 @@ import {
   removeUserFavorite,
 } from '@/lib/userFavorites';
 import { logWarn } from '@/lib/logger';
+import { track } from '@/lib/analytics';
 import { toggleFavoriteIds } from '@/lib/userMutations';
 import type { UserState } from '@/stores/userStore';
 
@@ -46,6 +47,11 @@ export function createUserStoreFavoriteActions(
       );
 
       set({ favorites: nextFavorites });
+
+      // 只埋"新增收藏"这一侧：取消收藏是反向动作，后续需要时再补 favorite_removed。
+      if (!wasFavorite) {
+        track("favorite_added", { productId });
+      }
 
       if (!userId) {
         return;

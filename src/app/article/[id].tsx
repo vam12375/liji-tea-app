@@ -6,6 +6,7 @@ import { TeaImage } from "@/components/ui/TeaImage";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
+import { track } from '@/lib/analytics';
 import { shareContent } from '@/lib/share';
 import { useArticleStore, type ContentBlock } from '@/stores/articleStore';
 import { useUserStore } from '@/stores/userStore';
@@ -31,6 +32,12 @@ export default function ArticleDetailScreen() {
     if (!id) return;
     void fetchArticles();
   }, [fetchArticles, id, session?.user?.id]);
+
+  // 文章阅读埋点：切换 id 时触发，作为内容侧活跃度基线。
+  useEffect(() => {
+    if (!id) return;
+    track('article_view', { articleId: id });
+  }, [id]);
 
   const requireLogin = () => {
     if (session?.user?.id) return true;

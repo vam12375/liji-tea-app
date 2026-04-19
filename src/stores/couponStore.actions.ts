@@ -1,5 +1,6 @@
 import { fetchPaymentOrderStatus } from "@/lib/alipay";
 import { logWarn } from "@/lib/logger";
+import { track } from "@/lib/analytics";
 import { reconcileSelectedUserCouponId } from "@/lib/couponSelection";
 import { supabase } from "@/lib/supabase";
 import { invokeSupabaseFunctionStrict } from "@/lib/supabaseFunction";
@@ -239,6 +240,12 @@ export function createCouponStoreActions(
           get().fetchPublicCoupons({ force: true }),
           get().fetchUserCoupons({ force: true }),
         ]);
+
+        // 领券成功埋点：同时记录 userCouponId 便于和 claim 结果关联（couponId 在 input 里可能为空）。
+        track("coupon_claim", {
+          userCouponId: data.userCouponId,
+          byCode: Boolean(input.code),
+        });
 
         return {
           error: null,

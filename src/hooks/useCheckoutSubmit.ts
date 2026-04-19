@@ -1,6 +1,7 @@
-import {useCallback } from "react";
+import { useCallback } from "react";
 import type { Router } from "expo-router";
 
+import { track } from "@/lib/analytics";
 import { getEnabledPaymentChannels, isPaymentChannelEnabled } from "@/lib/paymentConfig";
 import { routes } from "@/lib/routes";
 import { showModal } from "@/stores/modalStore";
@@ -117,6 +118,20 @@ const enabledChannels = getEnabledPaymentChannels();
     if (error || !order) {
       showModal("订单失败", error ?? "创建订单失败", "error");
       return;
+    }
+
+    // 订单提交成功埋点：携带订单号、金额与支付渠道；若有券则并行记录 coupon_apply。
+    track("order_submit", {
+      orderId: order.orderId,
+      total: order.total,
+      payment,
+      itemsCount: requestItems.length,
+    });
+    if (selectedUserCouponId) {
+      track("coupon_apply", {
+        userCouponId: selectedUserCouponId,
+        orderId: order.orderId,
+      });
     }
 
     clearSelectedCoupon();

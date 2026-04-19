@@ -14,6 +14,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
+import { track } from '@/lib/analytics';
 import { uploadCommunityMedia } from '@/lib/communityMedia';
 import { showModal } from '@/stores/modalStore';
 import { useCommunityStore, type CreatePostInput, type Post } from '@/stores/communityStore';
@@ -199,6 +200,7 @@ export default function CreateCommunityPostScreen() {
       }
 
       const newPost = await createPost(payload);
+      track('post_publish', { postId: newPost.id, type });
       showModal('发布成功', '你的内容已经同步到社区。', 'success');
       router.replace({ pathname: "/post/[id]", params: { id: newPost.id } });
     } catch (error: any) {

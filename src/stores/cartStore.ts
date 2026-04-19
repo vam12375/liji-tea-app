@@ -3,6 +3,8 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { Product } from "@/data/products";
 
+import { track } from "@/lib/analytics";
+
 /** 购物车单项 */
 export interface CartItem {
   product: Product;
@@ -31,6 +33,8 @@ export const useCartStore = create<CartState>()(
       // 添加商品（已存在则数量增加，支持指定数量）
       addItem: (product, quantity = 1) =>
         set((state) => {
+          // 加购漏斗埋点：商品 id + 本次追加数量，首页/商城/详情三处调用都会上报。
+          track("add_to_cart", { productId: product.id, quantity });
           const existing = state.items.find(
             (item) => item.product.id === product.id
           );

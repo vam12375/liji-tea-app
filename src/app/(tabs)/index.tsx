@@ -9,6 +9,7 @@ import FeaturedProducts from "@/components/home/FeaturedProducts";
 import CultureBanner from "@/components/home/CultureBanner";
 import NewArrivals from "@/components/home/NewArrivals";
 import SeasonalStory from "@/components/home/SeasonalStory";
+import { track } from "@/lib/analytics";
 import { useProductStore } from "@/stores/productStore";
 import { useCartStore } from "@/stores/cartStore";
 import { Colors } from "@/constants/Colors";
@@ -26,6 +27,8 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
+    // 首页曝光埋点：冷启或 Tab 切回都会触发，作为 DAU / 跳失率基线。
+    track("home_impression");
     void fetchProducts();
   }, [fetchProducts]);
 

@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { View, Text, ScrollView, Pressable, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import ProductCard from "@/components/product/ProductCard";
+import { track } from "@/lib/analytics";
 import { useProductStore } from "@/stores/productStore";
 
 export default function FeaturedProducts() {
@@ -8,6 +10,16 @@ export default function FeaturedProducts() {
   const { products, loading } = useProductStore();
   // 取前 3 个作为推荐
   const featuredProducts = products.slice(0, 3);
+  const featuredIdsKey = featuredProducts.map((item) => item.id).join(",");
+
+  // 推荐位曝光埋点：ids 变化时触发（避免同一批次重复上报），作为 CTR 分析分母。
+  useEffect(() => {
+    if (!featuredIdsKey) return;
+    track("product_impression", {
+      productIds: featuredIdsKey.split(","),
+      slot: "home_featured",
+    });
+  }, [featuredIdsKey]);
 
   if (loading && products.length === 0) {
     return (

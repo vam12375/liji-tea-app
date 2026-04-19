@@ -7,6 +7,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "@/constants/Colors";
 import { TEA_CATEGORIES, type TeaCategory } from "@/data/products";
+import { track } from "@/lib/analytics";
 import { goBackOrReplace } from "@/lib/navigation";
 import {
   FALLBACK_HOT_KEYWORDS,
@@ -84,6 +85,12 @@ export default function SearchScreen() {
     const found = await searchProducts(text.trim());
     setResults(found);
     setSearching(false);
+
+    // 搜索提交埋点：关键词长度（防误打标签）+ 命中数，便于分析"搜不到"场景。
+    track("search_submit", {
+      keywordLength: text.trim().length,
+      resultCount: found.length,
+    });
 
     // 添加到历史（去重，最多 8 个）
     saveHistory([text.trim(), ...history.filter((h) => h !== text.trim())].slice(0, 8));
