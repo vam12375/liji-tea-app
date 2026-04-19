@@ -1,50 +1,43 @@
-import { create } from "zustand";
+// 向后兼容的薄 wrapper。真实状态已迁移到 src/stores/toastStore.ts。
+// 商家端既有调用点（pushMerchantToast / dismissMerchantToast / useMerchantToastStore）
+// 保持语义不变；scope 固定为 "merchant"，视觉由全局 Toast 组件按 scope 渲染。
+//
+// 保留这一层 wrapper 的原因：
+// 1. 不强制 8 处业务代码一次性改签名，降低此次重构风险；
+// 2. 单元测试（tests/merchantToast.test.ts）可以零改动继续跑；
+// 3. 未来如决定全面切到 pushToast，可先通过 grep 按需替换。
+import {
+  dismissToast,
+  getToastState,
+  pushToast,
+  resetToastStore,
+  useToastStore,
+  type Toast,
+  type ToastKind,
+} from "./toastStore";
 
-// 商家端 Toast 类型：success（茶青）/ error（朱砂）/ info（墨灰）。
-export type MerchantToastKind = "success" | "error" | "info";
+export type MerchantToastKind = ToastKind;
+export type MerchantToast = Toast;
 
-export interface MerchantToast {
-  id: number;
-  kind: MerchantToastKind;
+// Toast store 的底层实例即为新的全局 store，保留旧引用名兼容现有组件/测试。
+export const useMerchantToastStore = useToastStore;
+
+export function pushMerchantToast(payload: {
+  kind: ToastKind;
   title: string;
   detail?: string;
+}) {
+  pushToast({ scope: "merchant", ...payload });
 }
 
-interface State {
-  current: MerchantToast | null;
-  sequence: number;
-}
-
-interface Actions {
-  push: (payload: Omit<MerchantToast, "id">) => void;
-  dismiss: () => void;
-  _reset: () => void;
-}
-
-// 单 slot 策略：同一时刻只显示一条 Toast，避免堆栈干扰员工视线。
-// 新 push 直接替换旧的；id 自增便于视图层捕获变化重启定时器。
-export const useMerchantToastStore = create<State & Actions>((set) => ({
-  current: null,
-  sequence: 0,
-  push: (payload) =>
-    set((s) => ({
-      current: { id: s.sequence + 1, ...payload },
-      sequence: s.sequence + 1,
-    })),
-  dismiss: () => set({ current: null }),
-  _reset: () => set({ current: null, sequence: 0 }),
-}));
-
-// 便捷 API：页面里直接调用，避免每次拿 store.getState()。
-export function pushMerchantToast(payload: Omit<MerchantToast, "id">) {
-  useMerchantToastStore.getState().push(payload);
-}
 export function dismissMerchantToast() {
-  useMerchantToastStore.getState().dismiss();
+  dismissToast();
 }
+
 export function getMerchantToastState() {
-  return useMerchantToastStore.getState();
+  return getToastState();
 }
+
 export function resetMerchantToastStore() {
-  useMerchantToastStore.getState()._reset();
+  resetToastStore();
 }

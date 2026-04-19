@@ -13,6 +13,7 @@ import { Manrope_500Medium } from "@expo-google-fonts/manrope/500Medium";
 import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
 
 import TeaModal from "@/components/ui/TeaModal";
+import { Toast } from "@/components/ui/Toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { diagnoseAuthState } from "@/lib/authDiagnostics";
 import { captureError, logInfo, registerCaptureHandler } from "@/lib/logger";
@@ -337,6 +338,8 @@ export default function RootLayout() {
       </Stack>
       {/* 全局自定义弹窗保持挂载在根布局，便于任意页面直接调用。 */}
       <TeaModal />
+      {/* 全局 Toast 单 slot，商家端与 C 端共用；scope 字段决定视觉主题。 */}
+      <Toast />
     </ErrorBoundary>
   );
 }
