@@ -2,6 +2,25 @@ type Primitive = string | number | boolean | null | undefined;
 export type LoggerValue =Primitive | LoggerValue[] | Record<string, unknown>;
 export type LoggerContext = Record<string, unknown> | undefined;
 
+/**
+ * 外部 transport 注册接口：保持 logger 本身无运行时外部依赖，
+ * 便于在纯 Node 测试环境里使用。
+ */
+export interface CaptureReport {
+  scope: string;
+  message: string;
+  stack?: string;
+  context?: Record<string, LoggerValue> | undefined;
+}
+export type CaptureHandler = (report: CaptureReport) => void;
+
+let captureHandler: CaptureHandler | null = null;
+
+/** 由入口模块（如 _layout.tsx）调用，挂接远端上报器。 */
+export function registerCaptureHandler(handler: CaptureHandler | null): void {
+  captureHandler = handler;
+}
+
 const isDevelopment =
   typeof __DEV__ !== "undefined"
     ? __DEV__
@@ -141,4 +160,18 @@ const detail =
       : redactContext(context);
 
   console.error(...formatPayload(scope, message, detail));
+
+  // 如已挂接远端 transport（crashReporter），透传一份；handler 内部失败绝不抛回。
+  if (captureHandler) {
+    try {
+      captureHandler({
+        scope,
+        message,
+        stack: error instanceof Error ? error.stack : undefined,
+        context: redactContext(context),
+      });
+    } catch {
+      // 防御式兜底：transport 自身异常不能拖垮业务日志路径。
+    }
+  }
 }

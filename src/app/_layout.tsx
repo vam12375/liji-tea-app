@@ -13,8 +13,10 @@ import { Manrope_500Medium } from "@expo-google-fonts/manrope/500Medium";
 import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
 
 import TeaModal from "@/components/ui/TeaModal";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { diagnoseAuthState } from "@/lib/authDiagnostics";
-import { captureError, logInfo } from "@/lib/logger";
+import { captureError, logInfo, registerCaptureHandler } from "@/lib/logger";
+import { initCrashReporter, pushCrashReport } from "@/lib/crashReporter";
 import {
   addPushNotificationListeners,
   extractPushNavigationData,
@@ -225,6 +227,15 @@ export default function RootLayout() {
   );
 
   useEffect(() => {
+    // 挂接 logger.captureError → 远端上报器的 transport，然后启动队列与定时 flush。
+    registerCaptureHandler(pushCrashReport);
+    void initCrashReporter();
+    return () => {
+      registerCaptureHandler(null);
+    };
+  }, []);
+
+  useEffect(() => {
     // 启动时先输出运行环境和认证诊断，便于排查原生支付、Session 恢复等问题。
     logRuntimeDiagnostics();
     if (__DEV__) {
@@ -318,7 +329,7 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <ErrorBoundary>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -326,6 +337,6 @@ export default function RootLayout() {
       </Stack>
       {/* 全局自定义弹窗保持挂载在根布局，便于任意页面直接调用。 */}
       <TeaModal />
-    </>
+    </ErrorBoundary>
   );
 }
