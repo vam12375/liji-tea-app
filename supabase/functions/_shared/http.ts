@@ -2,14 +2,15 @@
 //
 // 配置来源优先级：
 // 1. `Deno.env.get("ALLOWED_ORIGINS")` — Supabase Dashboard → Edge Function Secrets，
-//    逗号分隔，例如："exp+liji-tea://,https://tea.example.com"。
-// 2. 未配置时回退到开发默认值（Expo Go / 本地 Web dev 三个常见 Origin）。
+//    逗号分隔，例如："https://liji-tea.netlify.app,http://localhost:8081"。
+// 2. 未配置时回退到 Web 开发默认值（本机 Expo web 启动端口）。
+//
+// 注意：React Native 原生端（iOS / Android 正式包、Expo Go）的 fetch 不携带 Origin 头，
+// 不触发 CORS，因此无需在此白名单中加任何 `exp+xxx://` / `lijiteaapp://` 等 deep link scheme。
 // 特殊值 "*" 仍然兼容（完全放开），但只在显式配置后生效，避免无意放通。
 
 const DEFAULT_DEV_ORIGINS = [
-  "exp+liji-tea://",
   "http://localhost:8081",
-  "http://localhost:8082",
   "http://localhost:19006",
 ];
 
