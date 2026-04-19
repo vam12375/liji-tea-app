@@ -1,0 +1,41 @@
+# 强制执行 lint + typecheck（应用 & Edge Functions）+ 测试。
+# 在 PR 与 push 到 master 时自动运行，任一环节失败即阻断合并。
+name: check
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+concurrency:
+  # 同一分支新推送会取消前一次运行，节省 CI 时长。
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: lint + typecheck + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        # 使用 npm ci 严格遵循 package-lock.json，保证可复现。
+        run: npm ci
+
+      - name: Run check (lint + typecheck:all + test)
+        # check 脚本已定义于 package.json，涵盖 eslint、tsc 应用端、tsc Edge Functions、tsx 测试。
+        run: npm run check
