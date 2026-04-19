@@ -209,11 +209,11 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   if (!isAuthorized(req)) {
-    return errorResponse("无权调用推送分发任务。", 401, "unauthorized");
+    return errorResponse(req, "无权调用推送分发任务。", 401, "unauthorized");
   }
 
   try {
@@ -233,7 +233,7 @@ Deno.serve(async (req: Request) => {
       .limit(limit);
 
     if (queueError) {
-      return errorResponse(
+      return errorResponse(req, 
         "读取推送队列失败。",
         500,
         "push_queue_read_failed",
@@ -280,14 +280,14 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    return jsonResponse({
+    return jsonResponse(req, {
       processed: items.length,
       sent: sentCount,
       skipped: skippedCount,
       failed: failedCount,
     });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "推送分发失败。",
       500,
       "internal_error",

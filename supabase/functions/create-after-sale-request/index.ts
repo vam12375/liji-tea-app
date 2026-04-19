@@ -97,13 +97,13 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
     const user = await getUserFromRequest(req);
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const body = (await req.json().catch(() => null)) as CreateAfterSaleRequestBody | null;
@@ -114,11 +114,11 @@ Deno.serve(async (req: Request) => {
       typeof body?.reasonText === "string" ? body.reasonText.trim() : null;
 
     if (!orderId) {
-      return errorResponse("缺少 orderId。", 400, "missing_order_id");
+      return errorResponse(req, "缺少 orderId。", 400, "missing_order_id");
     }
 
     if (!reasonCode) {
-      return errorResponse("请选择退款原因。", 400, "missing_reason_code");
+      return errorResponse(req, "请选择退款原因。", 400, "missing_reason_code");
     }
 
     const supabase = createServiceClient();
@@ -143,16 +143,16 @@ Deno.serve(async (req: Request) => {
       .single<OrderSummaryRow>();
 
     if (orderError || !order) {
-      return errorResponse("订单不存在。", 404, "order_not_found");
+      return errorResponse(req, "订单不存在。", 404, "order_not_found");
     }
 
     if (order.user_id !== user.id) {
-      return errorResponse("无权发起该订单的退款申请。", 403, "forbidden");
+      return errorResponse(req, "无权发起该订单的退款申请。", 403, "forbidden");
     }
 
     const initialStatus = resolveInitialStatus(order);
     if (!initialStatus) {
-      return errorResponse(
+      return errorResponse(req, 
         "当前订单状态不支持发起退款申请。",
         422,
         "order_status_not_supported",
@@ -173,7 +173,7 @@ Deno.serve(async (req: Request) => {
       .limit(1);
 
     if (activeRequestError) {
-      return errorResponse(
+      return errorResponse(req, 
         "校验售后申请状态失败。",
         500,
         "after_sale_check_failed",
@@ -182,7 +182,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (Array.isArray(activeRequests) && activeRequests.length > 0) {
-      return errorResponse(
+      return errorResponse(req, 
         "该订单已有进行中的售后申请。",
         422,
         "duplicate_after_sale_request",
@@ -224,7 +224,7 @@ Deno.serve(async (req: Request) => {
           ? "该订单已有进行中的售后申请。"
           : "创建退款申请失败。";
 
-      return errorResponse(message, 422, code, requestError?.message);
+      return errorResponse(req, message, 422, code, requestError?.message);
     }
 
     const notification = getNotificationPayload(initialStatus);
@@ -244,7 +244,7 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    return jsonResponse({
+    return jsonResponse(req, {
       requestId: request.id,
       orderId: request.order_id,
       status: request.status,
@@ -255,7 +255,7 @@ Deno.serve(async (req: Request) => {
           : Number(request.approved_amount),
     });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "创建退款申请失败。",
       500,
       "internal_error",

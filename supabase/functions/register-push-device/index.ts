@@ -25,13 +25,13 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
     const user = await getUserFromRequest(req);
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const body = (await req.json().catch(() => null)) as RegisterPushDeviceBody | null;
@@ -43,11 +43,11 @@ Deno.serve(async (req: Request) => {
         : null;
 
     if (!expoPushToken) {
-      return errorResponse("缺少 Expo push token。", 400, "missing_expo_push_token");
+      return errorResponse(req, "缺少 Expo push token。", 400, "missing_expo_push_token");
     }
 
     if (!platform) {
-      return errorResponse("缺少有效的平台信息。", 400, "invalid_platform");
+      return errorResponse(req, "缺少有效的平台信息。", 400, "invalid_platform");
     }
 
     const supabase = createServiceClient();
@@ -78,7 +78,7 @@ Deno.serve(async (req: Request) => {
       }>();
 
     if (deviceError || !device) {
-      return errorResponse(
+      return errorResponse(req, 
         "注册推送设备失败。",
         500,
         "register_push_device_failed",
@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
 
     const preference = await getOrCreatePushPreference(user.id);
 
-    return jsonResponse({
+    return jsonResponse(req, {
       deviceId: device.id,
       userId: device.user_id,
       platform: device.platform,
@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
       preference,
     });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "注册推送设备失败。",
       500,
       "internal_error",

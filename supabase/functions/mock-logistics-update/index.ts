@@ -64,14 +64,14 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
     const user = await getUserFromRequest(req);
 
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const requestBody = await req.json().catch(() => null);
@@ -85,7 +85,7 @@ Deno.serve(async (req: Request) => {
         : "advance";
 
     if (!orderId) {
-      return errorResponse("缺少 orderId。", 400, "missing_order_id");
+      return errorResponse(req, "缺少 orderId。", 400, "missing_order_id");
     }
 
     const supabase = createServiceClient();
@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
       .single<OrderLogisticsRow>();
 
     if (error || !order) {
-      return errorResponse(
+      return errorResponse(req, 
         "订单不存在。",
         404,
         "order_not_found",
@@ -107,11 +107,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (order.user_id !== user.id) {
-      return errorResponse("无权访问该订单。", 403, "forbidden");
+      return errorResponse(req, "无权访问该订单。", 403, "forbidden");
     }
 
     if (order.status === "pending" || order.status === "cancelled") {
-      return errorResponse(
+      return errorResponse(req, 
         "当前订单尚未进入物流流程。",
         409,
         "invalid_order_status",
@@ -127,7 +127,7 @@ Deno.serve(async (req: Request) => {
       .returns<TrackingEventRow[]>();
 
     if (eventError) {
-      return errorResponse(
+      return errorResponse(req, 
         "读取物流轨迹失败。",
         500,
         "tracking_events_failed",
@@ -174,7 +174,7 @@ Deno.serve(async (req: Request) => {
         eventsToInsert.push(buildDeliveredEvent(order, now));
       }
     } else {
-      return errorResponse("不支持的物流操作。", 400, "invalid_action");
+      return errorResponse(req, "不支持的物流操作。", 400, "invalid_action");
     }
 
     const { error: updateError } = await supabase
@@ -189,7 +189,7 @@ Deno.serve(async (req: Request) => {
       .eq("id", order.id);
 
     if (updateError) {
-      return errorResponse(
+      return errorResponse(req, 
         "更新物流状态失败。",
         500,
         "update_order_failed",
@@ -213,7 +213,7 @@ Deno.serve(async (req: Request) => {
         );
 
       if (insertError) {
-        return errorResponse(
+        return errorResponse(req, 
           "写入物流轨迹失败。",
           500,
           "insert_tracking_failed",
@@ -229,7 +229,7 @@ Deno.serve(async (req: Request) => {
       .order("sort_order", { ascending: true })
       .order("event_time", { ascending: true });
 
-    return jsonResponse({
+    return jsonResponse(req, {
       orderId: order.id,
       status: nextStatus,
       logisticsStatus: logisticsStatus,
@@ -238,7 +238,7 @@ Deno.serve(async (req: Request) => {
       trackingEvents: latestEvents ?? [],
     });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "更新模拟物流失败。",
       500,
       "internal_error",

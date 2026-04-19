@@ -18,14 +18,14 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
     const user = await getUserFromRequest(req);
 
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const body = (await req.json().catch(() => null)) as ClaimCouponRequestBody | null;
@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
     const code = typeof body?.code === "string" ? body.code.trim().toUpperCase() : "";
 
     if (!couponId && !code) {
-      return errorResponse("请选择优惠券或输入兑换码。", 400, "missing_coupon_input");
+      return errorResponse(req, "请选择优惠券或输入兑换码。", 400, "missing_coupon_input");
     }
 
     const result = await claimCouponForUser({
@@ -43,14 +43,14 @@ Deno.serve(async (req: Request) => {
     });
 
     if (result.error || !result.data || !result.data.coupon) {
-      return errorResponse(
+      return errorResponse(req, 
         result.error ?? "领取优惠券失败。",
         422,
         "claim_coupon_failed",
       );
     }
 
-    return jsonResponse({
+    return jsonResponse(req, {
       userCouponId: result.data.id,
       couponId: result.data.coupon.id,
       status: result.data.status,
@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
       },
     });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "领取优惠券失败。",
       500,
       "internal_error",

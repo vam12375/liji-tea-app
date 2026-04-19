@@ -57,14 +57,14 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
     const user = await getUserFromRequest(req);
 
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const requestBody = await req.json().catch(() => null);
@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
         : "";
 
     if (!orderId) {
-      return errorResponse("缺少 orderId。", 400, "missing_order_id");
+      return errorResponse(req, "缺少 orderId。", 400, "missing_order_id");
     }
 
     const supabase = createServiceClient();
@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
       .single<OrderRow>();
 
     if (orderError || !order) {
-      return errorResponse(
+      return errorResponse(req, 
         "订单不存在。",
         404,
         "order_not_found",
@@ -97,7 +97,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (order.user_id !== user.id) {
-      return errorResponse("无权访问该订单。", 403, "forbidden");
+      return errorResponse(req, "无权访问该订单。", 403, "forbidden");
     }
 
     // 拉起支付前先检查订单是否已经超时，避免用户继续支付失效订单。
@@ -106,7 +106,7 @@ Deno.serve(async (req: Request) => {
         !order.out_trade_no || order.payment_channel === "alipay";
 
       if (!canAttemptRemoteClose) {
-        return errorResponse(
+        return errorResponse(req, 
           "待付款订单已超过 5 分钟，系统已自动取消。",
           409,
           "order_expired",
@@ -125,7 +125,7 @@ Deno.serve(async (req: Request) => {
             });
           }
 
- return errorResponse(
+ return errorResponse(req, 
             "待付款订单已超过 5 分钟，系统已自动取消。",
             409,
             "order_expired",
@@ -142,7 +142,7 @@ Deno.serve(async (req: Request) => {
               : String(expireSyncError),
         });
 
-        return errorResponse(
+        return errorResponse(req, 
           "待付款订单已超过 5 分钟，系统已自动取消。",
           409,
           "order_expired",
@@ -151,7 +151,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (order.status !== "pending") {
-      return errorResponse(
+      return errorResponse(req, 
         "当前订单状态不允许再次发起支付。",
         409,
         "invalid_order_status",
@@ -160,7 +160,7 @@ Deno.serve(async (req: Request) => {
 
     const orderItems = order.order_items ?? [];
     if (orderItems.length === 0) {
-      return errorResponse(
+      return errorResponse(req, 
         "订单明细为空，无法发起支付。",
         422,
         "empty_order_items",
@@ -170,7 +170,7 @@ Deno.serve(async (req: Request) => {
     // 支付金额始终以服务端重算结果为准，不直接信任 orders.total 的历史值。
     const amount = calculateOrderAmount(order);
     if (amount <= 0) {
-      return errorResponse(
+      return errorResponse(req, 
         "订单金额异常，无法发起支付。",
         422,
         "invalid_amount",
@@ -203,7 +203,7 @@ p_out_trade_no: outTradeNo,
     });
 
     if (initError) {
-      return errorResponse(
+      return errorResponse(req, 
         "初始化支付流程失败。",
         500,
         "payment_init_failed",
@@ -212,13 +212,13 @@ p_out_trade_no: outTradeNo,
     }
 
     // 返回给客户端的只有支付串和展示字段，不暴露私钥与签名细节。
-    return jsonResponse({
+    return jsonResponse(req, {
       orderString,
       outTradeNo,
       amount: amountText,
     });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "创建支付宝支付单失败。",
       500,
       "internal_error",

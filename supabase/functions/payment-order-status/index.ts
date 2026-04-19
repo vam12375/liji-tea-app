@@ -40,7 +40,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "GET" && req.method !== "POST") {
-    return errorResponse(
+    return errorResponse(req, 
       "仅支持 GET 或 POST 请求。",
       405,
       "method_not_allowed",
@@ -62,7 +62,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     let orderId = req.url
@@ -78,7 +78,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!orderId) {
-      return errorResponse("缺少 orderId。", 400, "missing_order_id");
+      return errorResponse(req, "缺少 orderId。", 400, "missing_order_id");
     }
 
     const supabase = createServiceClient();
@@ -92,7 +92,7 @@ Deno.serve(async (req: Request) => {
       .single<OrderStatusRow & { payment_channel?: string | null }>();
 
     if (error || !order) {
-      return errorResponse(
+      return errorResponse(req, 
         "订单不存在。",
         404,
         "order_not_found",
@@ -101,7 +101,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (order.user_id !== user.id) {
-      return errorResponse("无权访问该订单。", 403, "forbidden");
+      return errorResponse(req, "无权访问该订单。", 403, "forbidden");
     }
 
     let currentOrder = order;
@@ -168,7 +168,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // 返回的是服务端确认口径，客户端据此展示最终支付结果。
-    return jsonResponse({
+    return jsonResponse(req, {
       orderId: currentOrder.id,
       status: currentOrder.status,
       paymentStatus: currentOrder.payment_status,
@@ -183,7 +183,7 @@ Deno.serve(async (req: Request) => {
       paymentErrorMessage: currentOrder.payment_error_message,
     });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "查询订单支付状态失败。",
       500,
       "internal_error",

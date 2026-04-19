@@ -21,13 +21,13 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
     const user = await getUserFromRequest(req);
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const body = (await req.json().catch(() => null)) as CancelAfterSaleRequestBody | null;
@@ -35,7 +35,7 @@ Deno.serve(async (req: Request) => {
       typeof body?.requestId === "string" ? body.requestId.trim() : "";
 
     if (!requestId) {
-      return errorResponse("缺少 requestId。", 400, "missing_request_id");
+      return errorResponse(req, "缺少 requestId。", 400, "missing_request_id");
     }
 
     const supabase = createServiceClient();
@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
       }>();
 
     if (requestError || !request) {
-      return errorResponse(
+      return errorResponse(req, 
         "售后申请不存在。",
         404,
         "after_sale_request_not_found",
@@ -59,14 +59,14 @@ Deno.serve(async (req: Request) => {
     }
 
     if (request.user_id !== user.id) {
-      return errorResponse("无权操作该售后申请。", 403, "forbidden");
+      return errorResponse(req, "无权操作该售后申请。", 403, "forbidden");
     }
 
     if (
       request.status !== "submitted" &&
       request.status !== "pending_review"
     ) {
-      return errorResponse(
+      return errorResponse(req, 
         "当前状态不允许撤销申请。",
         422,
         "after_sale_status_not_cancellable",
@@ -88,7 +88,7 @@ Deno.serve(async (req: Request) => {
       }>();
 
     if (updateError || !updatedRequest) {
-      return errorResponse(
+      return errorResponse(req, 
         "撤销售后申请失败。",
         500,
         "cancel_after_sale_request_failed",
@@ -96,13 +96,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    return jsonResponse({
+    return jsonResponse(req, {
       requestId: updatedRequest.id,
       orderId: updatedRequest.order_id,
       status: updatedRequest.status,
     });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "撤销售后申请失败。",
       500,
       "internal_error",

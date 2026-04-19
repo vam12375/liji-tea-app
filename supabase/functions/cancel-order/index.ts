@@ -28,7 +28,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const requestBody = await req.json().catch(() => null);
@@ -56,7 +56,7 @@ Deno.serve(async (req: Request) => {
         : "";
 
     if (!orderId) {
- return errorResponse("缺少 orderId。", 400, "missing_order_id");
+ return errorResponse(req, "缺少 orderId。", 400, "missing_order_id");
     }
 
     const supabase = createServiceClient();
@@ -72,7 +72,7 @@ Deno.serve(async (req: Request) => {
       }>();
 
     if (orderError || !order) {
-      return errorResponse(
+      return errorResponse(req, 
         "订单不存在。",
         404,
         "order_not_found",
@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (order.user_id !== user.id) {
-      return errorResponse("无权操作该订单。", 403, "forbidden");
+      return errorResponse(req, "无权操作该订单。", 403, "forbidden");
     }
 
     const { data, error } = await supabase.rpc(
@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
     );
 
     if (error) {
- return errorResponse(
+ return errorResponse(req, 
         "取消订单失败。",
         500,
         "cancel_order_failed",
@@ -107,21 +107,21 @@ Deno.serve(async (req: Request) => {
     const result = Array.isArray(data) ? data[0] : data;
 
     if (!isCancelOrderRpcRow(result)) {
-      return errorResponse(
+      return errorResponse(req, 
         "服务端未返回有效的取消订单结果。",
         500,
         "invalid_cancel_order_result",
       );
     }
 
-    return jsonResponse({
+    return jsonResponse(req, {
       orderId,
       released: result.released,
       status: result.order_status,
       paymentStatus: result.payment_status,
     });
   } catch (error) {
- return errorResponse(
+ return errorResponse(req, 
       error instanceof Error ? error.message : "取消订单失败。",
       500,
       "internal_error",

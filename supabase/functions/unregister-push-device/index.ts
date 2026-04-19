@@ -22,13 +22,13 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
     const user = await getUserFromRequest(req);
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const body = (await req.json().catch(() => null)) as UnregisterPushDeviceBody | null;
@@ -37,7 +37,7 @@ Deno.serve(async (req: Request) => {
     const deviceId = typeof body?.deviceId === "string" ? body.deviceId.trim() : "";
 
     if (!expoPushToken && !deviceId) {
-      return errorResponse(
+      return errorResponse(req, 
         "缺少设备标识。",
         400,
         "missing_push_device_identifier",
@@ -63,7 +63,7 @@ Deno.serve(async (req: Request) => {
 
     const { error } = await query;
     if (error) {
-      return errorResponse(
+      return errorResponse(req, 
         "停用推送设备失败。",
         500,
         "unregister_push_device_failed",
@@ -71,9 +71,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    return jsonResponse({ success: true });
+    return jsonResponse(req, { success: true });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "停用推送设备失败。",
       500,
       "internal_error",

@@ -223,20 +223,20 @@ Deno.serve(async (req: Request) => {
     if (req.method === "GET") {
       const url = new URL(req.url);
       if (url.searchParams.get("action") !== "getAuthToken") {
-        return errorResponse("不支持的 GET 请求", 400, "bad_request");
+        return errorResponse(req, "不支持的 GET 请求", 400, "bad_request");
       }
       const authToken = await getFusionAuthToken();
-      return jsonResponse({ authToken });
+      return jsonResponse(req, { authToken });
     }
 
     // POST — 验证 verifyToken，登录
     if (req.method === "POST") {
       let body: { verifyToken?: string };
-      try { body = await req.json(); } catch { return errorResponse("请求体格式错误", 400, "invalid_body"); }
+      try { body = await req.json(); } catch { return errorResponse(req, "请求体格式错误", 400, "invalid_body"); }
 
       const { verifyToken } = body;
       if (!verifyToken || typeof verifyToken !== "string" || verifyToken.trim() === "") {
-        return errorResponse("verifyToken 不能为空", 400, "missing_verify_token");
+        return errorResponse(req, "verifyToken 不能为空", 400, "missing_verify_token");
       }
 
       let phoneNumber: string;
@@ -244,18 +244,18 @@ Deno.serve(async (req: Request) => {
         phoneNumber = await verifyFusionToken(verifyToken.trim());
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "verifyToken 验证失败";
-        return errorResponse(msg, 401, "verify_failed");
+        return errorResponse(req, msg, 401, "verify_failed");
       }
 
       const session = await findOrCreateUserSession(phoneNumber);
-      return jsonResponse({ session });
+      return jsonResponse(req, { session });
     }
 
-    return errorResponse("仅支持 GET 和 POST 方法", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 GET 和 POST 方法", 405, "method_not_allowed");
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "未知错误";
     console.error("[ali-login] 异常:", msg);
-    return errorResponse("服务器内部错误: " + msg, 500, "internal_error");
+    return errorResponse(req, "服务器内部错误: " + msg, 500, "internal_error");
   }
 });

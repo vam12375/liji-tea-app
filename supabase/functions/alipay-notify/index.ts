@@ -54,20 +54,20 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return textResponse("failure", { status: 405 });
+    return textResponse(req, "failure", { status: 405 });
   }
 
   try {
     const rawBody = await req.text();
     if (!rawBody) {
-      return textResponse("failure", { status: 400 });
+      return textResponse(req, "failure", { status: 400 });
     }
 
     const params = parseFormBody(rawBody);
     const outTradeNo = params.out_trade_no ?? "";
 
     if (!outTradeNo) {
-      return textResponse("failure", { status: 400 });
+      return textResponse(req, "failure", { status: 400 });
     }
 
     const supabase = createServiceClient();
@@ -85,13 +85,13 @@ Deno.serve(async (req: Request) => {
       .maybeSingle<{ id: string }>();
 
     if (orderError || !matchedOrder) {
-      return textResponse("failure", { status: 404 });
+      return textResponse(req, "failure", { status: 404 });
     }
 
     const { data: order, error: paymentOrderError } = await fetchPaymentOrderById(matchedOrder.id);
 
     if (paymentOrderError || !order) {
-      return textResponse("failure", { status: 404 });
+      return textResponse(req, "failure", { status: 404 });
     }
 
     const tradeStatus = params.trade_status ?? "";
@@ -119,11 +119,11 @@ Deno.serve(async (req: Request) => {
 
     // 先验签，再做 app_id、seller_id、金额等业务校验。
     if (!verified) {
-      return textResponse("failure", { status: 400 });
+      return textResponse(req, "failure", { status: 400 });
     }
 
     if (params.app_id !== expectedAppId) {
-      return textResponse("failure", { status: 400 });
+      return textResponse(req, "failure", { status: 400 });
     }
 
     if (
@@ -131,7 +131,7 @@ Deno.serve(async (req: Request) => {
       params.seller_id &&
       params.seller_id !== expectedSellerId
     ) {
-      return textResponse("failure", { status: 400 });
+      return textResponse(req, "failure", { status: 400 });
     }
 
     if (formatAmount(totalAmount) !== formatAmount(formatAmountNumber(calculateOrderAmount(order)))) {
@@ -145,12 +145,12 @@ Deno.serve(async (req: Request) => {
         })
         .eq("id", order.id);
 
-      return textResponse("failure", { status: 400 });
+      return textResponse(req, "failure", { status: 400 });
     }
 
     // 已经成功入账的订单直接返回 success，保证 notify 幂等。
     if (order.status === "paid" && order.payment_status === "success") {
-      return textResponse("success");
+      return textResponse(req, "success");
     }
 
     if (normalizedTradeStatus === "success" && order.status !== "pending") {
@@ -169,7 +169,7 @@ Deno.serve(async (req: Request) => {
         .neq("status", "paid");
 
       if (abnormalOrderError) {
-        return textResponse("failure", { status: 500 });
+        return textResponse(req, "failure", { status: 500 });
       }
 
       await supabase
@@ -186,7 +186,7 @@ Deno.serve(async (req: Request) => {
         })
         .eq("out_trade_no", outTradeNo);
 
-      return textResponse("success");
+      return textResponse(req, "success");
     }
 
     if (normalizedTradeStatus === "success") {
@@ -204,10 +204,10 @@ Deno.serve(async (req: Request) => {
       });
 
       if (paidError) {
-        return textResponse("failure", { status: 500 });
+        return textResponse(req, "failure", { status: 500 });
       }
 
-      return textResponse("success");
+      return textResponse(req, "success");
     }
 
     const orderUpdate: Record<string, unknown> = {
@@ -228,12 +228,12 @@ Deno.serve(async (req: Request) => {
       .eq("id", order.id);
 
     if (updateError) {
-      return textResponse("failure", { status: 500 });
+      return textResponse(req, "failure", { status: 500 });
     }
 
     // 支付宝要求 notify 成功时返回纯文本 success。
-    return textResponse("success");
+    return textResponse(req, "success");
   } catch {
-    return textResponse("failure", { status: 500 });
+    return textResponse(req, "failure", { status: 500 });
   }
 });

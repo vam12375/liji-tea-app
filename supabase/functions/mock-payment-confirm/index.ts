@@ -20,14 +20,14 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
     const user = await getUserFromRequest(req);
 
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const requestBody = await req.json().catch(() => null);
@@ -41,13 +41,13 @@ Deno.serve(async (req: Request) => {
         : "";
 
     if (!orderId) {
-      return errorResponse("缺少 orderId。", 400, "missing_order_id");
+      return errorResponse(req, "缺少 orderId。", 400, "missing_order_id");
     }
 
     const { data: order, error } = await fetchPaymentOrderById(orderId);
 
     if (error || !order) {
-      return errorResponse(
+      return errorResponse(req, 
         "订单不存在。",
         404,
         "order_not_found",
@@ -56,11 +56,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (order.user_id !== user.id) {
-      return errorResponse("无权访问该订单。", 403, "forbidden");
+      return errorResponse(req, "无权访问该订单。", 403, "forbidden");
     }
 
     if (requestedChannel && !MOCK_CHANNELS.has(requestedChannel)) {
-      return errorResponse(
+      return errorResponse(req, 
         "当前支付渠道不支持模拟支付。",
         422,
         "channel_not_supported",
@@ -71,7 +71,7 @@ Deno.serve(async (req: Request) => {
       requestedChannel || order.payment_channel || order.payment_method || "";
 
     if (!MOCK_CHANNELS.has(channel)) {
-      return errorResponse(
+      return errorResponse(req, 
         "当前订单不支持模拟支付。",
         422,
         "channel_not_supported",
@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
     if (order.status === "pending") {
       const expiredResult = await closeExpiredPendingOrder(order);
       if (expiredResult.error) {
-        return errorResponse(
+        return errorResponse(req, 
           "检查待付款订单是否超时失败。",
           500,
           "pending_order_expire_check_failed",
@@ -90,7 +90,7 @@ Deno.serve(async (req: Request) => {
       }
 
       if (expiredResult.expired) {
-        return errorResponse(
+        return errorResponse(req, 
           "待付款订单已超过 5 分钟，系统已自动取消。",
           409,
           "order_expired",
@@ -100,7 +100,7 @@ Deno.serve(async (req: Request) => {
 
     if (order.status !== "pending") {
       if (order.status === "paid" && order.payment_status === "success") {
-        return jsonResponse({
+        return jsonResponse(req, {
           orderId: order.id,
           status: order.status,
           paymentStatus: order.payment_status,
@@ -110,7 +110,7 @@ Deno.serve(async (req: Request) => {
         });
       }
 
-      return errorResponse(
+      return errorResponse(req, 
         "当前订单状态不允许再次发起模拟支付。",
         409,
         "invalid_order_status",
@@ -152,7 +152,7 @@ Deno.serve(async (req: Request) => {
     });
 
     if (paidError) {
-      return errorResponse(
+      return errorResponse(req, 
         "模拟支付成功落库失败。",
         500,
         "mock_payment_failed",
@@ -160,7 +160,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    return jsonResponse({
+    return jsonResponse(req, {
       orderId: order.id,
       status: "paid",
       paymentStatus: "success",
@@ -173,7 +173,7 @@ Deno.serve(async (req: Request) => {
       logisticsTrackingNo,
     });
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "模拟支付失败。",
       500,
       "internal_error",

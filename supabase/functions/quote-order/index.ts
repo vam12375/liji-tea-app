@@ -83,7 +83,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (req.method !== "POST") {
-    return errorResponse("仅支持 POST 请求。", 405, "method_not_allowed");
+    return errorResponse(req, "仅支持 POST 请求。", 405, "method_not_allowed");
   }
 
   try {
@@ -96,16 +96,16 @@ Deno.serve(async (req: Request) => {
       typeof body?.userCouponId === "string" ? body.userCouponId.trim() : "";
 
     if (rawItems.length === 0) {
-      return errorResponse("订单商品不能为空。", 400, "empty_items");
+      return errorResponse(req, "订单商品不能为空。", 400, "empty_items");
     }
 
     if (!DELIVERY_TYPES.has(deliveryType)) {
-      return errorResponse("配送方式无效。", 400, "invalid_delivery_type");
+      return errorResponse(req, "配送方式无效。", 400, "invalid_delivery_type");
     }
 
     const normalized = normalizeItems(rawItems);
     if ("error" in normalized) {
-      return errorResponse(normalized.error, 400, "invalid_items");
+      return errorResponse(req, normalized.error, 400, "invalid_items");
     }
 
     const supabase = createServiceClient();
@@ -116,7 +116,7 @@ Deno.serve(async (req: Request) => {
       .in("id", productIds);
 
     if (productsError) {
-      return errorResponse(
+      return errorResponse(req, 
         "读取商品信息失败。",
         500,
         "products_query_failed",
@@ -141,11 +141,11 @@ Deno.serve(async (req: Request) => {
       const product = productMap.get(item.productId);
 
       if (!product) {
-        return errorResponse("部分商品不存在或已下架。", 422, "product_not_found");
+        return errorResponse(req, "部分商品不存在或已下架。", 422, "product_not_found");
       }
 
       if (product.is_active !== true) {
-        return errorResponse(
+        return errorResponse(req, 
           `商品 ${product.name ?? item.productId} 已下架，暂时无法下单。`,
           422,
           "product_inactive",
@@ -153,7 +153,7 @@ Deno.serve(async (req: Request) => {
       }
 
       if (typeof product.stock === "number" && product.stock < item.quantity) {
-        return errorResponse(
+        return errorResponse(req, 
           `商品 ${product.name ?? item.productId} 库存不足。`,
           422,
           "insufficient_stock",
@@ -177,13 +177,13 @@ Deno.serve(async (req: Request) => {
     const basePricing = calculateOrderPricing(pricingItems, deliveryType, giftWrap);
 
     if (!userCouponId) {
-      return jsonResponse(basePricing);
+      return jsonResponse(req, basePricing);
     }
 
     // 只有在用户尝试使用已领取优惠券时，才需要校验登录态和用户身份。
     const user = await getUserFromRequest(req);
     if (!user) {
-      return errorResponse("未登录或登录状态已失效。", 401, "unauthorized");
+      return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
     }
 
     const couponPricing = await resolveCouponPricingForUser({
@@ -199,7 +199,7 @@ subtotal: basePricing.subtotal,
     });
 
     if (couponPricing.error || !couponPricing.data) {
-      return errorResponse(
+      return errorResponse(req, 
         couponPricing.error ?? "优惠券校验失败。",
         422,
         "invalid_coupon",
@@ -207,14 +207,14 @@ subtotal: basePricing.subtotal,
     }
 
     // 将优惠券结果重新并入订单金额，返回给结算页实时展示。
-    return jsonResponse(
+    return jsonResponse(req, 
       calculateOrderPricing(pricingItems, deliveryType, giftWrap, {
         couponDiscount: couponPricing.data.couponDiscount,
         appliedCoupon: couponPricing.data.appliedCoupon,
       }),
     );
   } catch (error) {
-    return errorResponse(
+    return errorResponse(req, 
       error instanceof Error ? error.message : "计算订单金额失败。",
       500,
       "internal_error",
