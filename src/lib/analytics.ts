@@ -12,7 +12,9 @@ import { logInfo } from "@/lib/logger";
  */
 
 // 白名单事件名——既用于 TS 类型提示，也便于后台统一字段约束。
+// 分组约束：每个事件都应能直接支撑一个运营/转化分析问题，避免追加"投机事件"。
 export type AnalyticsEvent =
+  // ===== 支付 / 订单（原有，保持兼容） =====
   | "payment_started"
   | "payment_succeeded"
   | "payment_failed"
@@ -22,7 +24,26 @@ export type AnalyticsEvent =
   | "order_cancelled"
   | "order_confirmed"
   | "tracking_events_fetch_failed"
-  | "tracking_subscription_error";
+  | "tracking_subscription_error"
+  // ===== 曝光 / 发现 =====
+  | "home_impression"          // 首页冷启曝光（统计 DAU / 跳失率基线）
+  | "product_impression"       // 首页推荐位商品可见（CTR 分子基线）
+  | "product_view"             // 商品详情页进入（加购漏斗第 1 步）
+  | "article_view"             // 内容文章进入（内容侧活跃度）
+  | "search_submit"            // 搜索关键词提交（搜索词运营）
+  // ===== 购买漏斗 =====
+  | "add_to_cart"              // 加购（漏斗第 2 步）
+  | "checkout_start"           // 进入结算页（漏斗第 3 步）
+  | "coupon_apply"             // 结算页应用券（辅助漏斗侧支）
+  | "order_submit"             // 订单提交成功（漏斗第 4 步，与 payment_succeeded 组合看最终转化）
+  // ===== 留存 / 账户 =====
+  | "login_success"            // 登录成功（区分 email / one-click）
+  | "register_success"         // 注册成功
+  | "favorite_added"           // 收藏（意向型指标）
+  | "coupon_claim"             // 领券（运营活动效果）
+  // ===== 内容 / 分享 =====
+  | "post_publish"             // 社区发帖成功（UGC 健康度）
+  | "share_triggered";         // 分享触发（裂变传播基础）
 
 export interface AnalyticsPayload {
   event: AnalyticsEvent;
