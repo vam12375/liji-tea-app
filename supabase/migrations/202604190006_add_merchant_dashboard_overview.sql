@@ -25,9 +25,18 @@ security definer
 set search_path = public
 as $merchant_dashboard_body$
 declare
-  v_today_start timestamptz;
-  v_low_stock_threshold int := 10;
-  v_low_stock_limit     int := 5;
+  v_today_start            timestamptz;
+  v_low_stock_threshold    int := 10;
+  v_low_stock_limit        int := 5;
+  -- 用局部变量承接 SELECT 结果，避免 PL/pgSQL 把 RETURNS TABLE 的 OUT 列名
+  -- 在 SELECT ... INTO 子句里解析成 relation（PG 42P01）。
+  -- 参考 202604190003 的 consume_rate_limit：OUT 列当左值赋值是允许的，
+  -- 做 INTO 目标不允许。
+  v_today_order_count      int;
+  v_today_gmv              numeric;
+  v_pending_ship_count     int;
+  v_pending_after_sale     int;
+  v_low_stock_products     jsonb;
 begin
   -- 权限校验：仅允许 admin / staff 进入，和其它 merchant_*() RPC 保持一致。
   if not public.is_merchant_staff() then
@@ -38,19 +47,19 @@ begin
 
   select coalesce(count(*), 0)::int,
          coalesce(sum(o.total), 0)::numeric
-    into today_order_count, today_gmv
+    into v_today_order_count, v_today_gmv
     from public.orders o
    where o.created_at >= v_today_start
      and o.status <> 'cancelled';
 
   select coalesce(count(*), 0)::int
-    into pending_ship_count
+    into v_pending_ship_count
     from public.orders o
    where o.status = 'paid'
      and o.shipped_at is null;
 
   select coalesce(count(*), 0)::int
-    into pending_after_sale_count
+    into v_pending_after_sale
     from public.after_sale_requests r
    where r.status in ('submitted', 'pending_review');
 
@@ -65,7 +74,7 @@ begin
            ),
            '[]'::jsonb
          )
-    into low_stock_products
+    into v_low_stock_products
     from (
       select p.id, p.name, p.stock
         from public.products p
@@ -75,6 +84,13 @@ begin
        order by p.stock asc, p.name asc
        limit v_low_stock_limit
     ) sub;
+
+  -- 把局部变量投射到 OUT 列后 return next 发出单行。
+  today_order_count        := v_today_order_count;
+  today_gmv                := v_today_gmv;
+  pending_ship_count       := v_pending_ship_count;
+  pending_after_sale_count := v_pending_after_sale;
+  low_stock_products       := v_low_stock_products;
 
   return next;
 end
