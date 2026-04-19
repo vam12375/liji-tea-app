@@ -7,6 +7,10 @@ declare const Deno: {
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
 import { getOrCreatePushPreference } from "../_shared/push.ts";
 import {
+  enforceRateLimit,
+  rateLimitedResponse,
+} from "../_shared/rateLimit.ts";
+import {
   createServiceClient,
   getUserFromRequest,
 } from "../_shared/supabase.ts";
@@ -32,6 +36,16 @@ Deno.serve(async (req: Request) => {
     const user = await getUserFromRequest(req);
     if (!user) {
       return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
+    }
+
+    // 限流：60 秒内最多 5 次注册；正常冷启动仅需 1-2 次，高频注册大概率是脚本。
+    const rateLimit = await enforceRateLimit(user.id, {
+      bucket: "register-push-device",
+      max: 5,
+      windowSec: 60,
+    });
+    if (!rateLimit.allowed) {
+      return rateLimitedResponse(req, rateLimit.retryAfterSec);
     }
 
     const body = (await req.json().catch(() => null)) as RegisterPushDeviceBody | null;

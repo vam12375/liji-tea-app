@@ -4,6 +4,10 @@ declare const Deno: {
 
 import { claimCouponForUser } from "../_shared/coupon.ts";
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
+import {
+  enforceRateLimit,
+  rateLimitedResponse,
+} from "../_shared/rateLimit.ts";
 import { getUserFromRequest } from "../_shared/supabase.ts";
 
 interface ClaimCouponRequestBody {
@@ -26,6 +30,16 @@ Deno.serve(async (req: Request) => {
 
     if (!user) {
       return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
+    }
+
+    // 限流：60 秒内最多 20 次领取；允许用户短时连续领券但挡住脚本刷券。
+    const rateLimit = await enforceRateLimit(user.id, {
+      bucket: "claim-coupon",
+      max: 20,
+      windowSec: 60,
+    });
+    if (!rateLimit.allowed) {
+      return rateLimitedResponse(req, rateLimit.retryAfterSec);
     }
 
     const body = (await req.json().catch(() => null)) as ClaimCouponRequestBody | null;

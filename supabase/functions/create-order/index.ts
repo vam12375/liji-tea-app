@@ -8,6 +8,10 @@ import {
 } from "../_shared/coupon.ts";
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
 import {
+  enforceRateLimit,
+  rateLimitedResponse,
+} from "../_shared/rateLimit.ts";
+import {
   calculateOrderPricing,
   type OrderPricingLineItem,
 } from "../_shared/payment.ts";
@@ -142,6 +146,16 @@ Deno.serve(async (req: Request) => {
 
     if (!user) {
       return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
+    }
+
+    // 限流：同一用户 60 秒内最多 10 次创建订单；防止手抖/脚本刷单预留库存。
+    const rateLimit = await enforceRateLimit(user.id, {
+      bucket: "create-order",
+      max: 10,
+      windowSec: 60,
+    });
+    if (!rateLimit.allowed) {
+      return rateLimitedResponse(req, rateLimit.retryAfterSec);
     }
 
     const body = (await req.json().catch(() => null)) as CreateOrderRequestBody | null;
