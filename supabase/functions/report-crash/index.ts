@@ -7,6 +7,12 @@ declare const Deno: {
 
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
 import {
+  enforceAnonymousRateLimit,
+  enforceRateLimit,
+  rateLimitedResponse,
+  resolveClientIpKey,
+} from "../_shared/rateLimit.ts";
+import {
   createServiceClient,
   getUserFromRequest,
 } from "../_shared/supabase.ts";
@@ -99,6 +105,30 @@ Deno.serve(async (req: Request) => {
   try {
     // 允许未登录上报（冷启异常、登录前崩溃），但登录用户写入时绑定 user_id 以便后续自查。
     const user = await getUserFromRequest(req);
+
+    // 限流：登录态按用户分桶，匿名按 IP 分桶，两条独立通道防止匿名流量挤占登录额度。
+    if (user) {
+      const rateLimit = await enforceRateLimit(user.id, {
+        bucket: "report-crash",
+        max: 30,
+        windowSec: 60,
+      });
+      if (!rateLimit.allowed) {
+        return rateLimitedResponse(req, rateLimit.retryAfterSec);
+      }
+    } else {
+      const ipKey = await resolveClientIpKey(req);
+      if (ipKey) {
+        const rateLimit = await enforceAnonymousRateLimit(ipKey, {
+          bucket: "report-crash:anon",
+          max: 30,
+          windowSec: 60,
+        });
+        if (!rateLimit.allowed) {
+          return rateLimitedResponse(req, rateLimit.retryAfterSec);
+        }
+      }
+    }
 
     const body = (await req.json().catch(() => null)) as
       | { reports?: IncomingReport[] }

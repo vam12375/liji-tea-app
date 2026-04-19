@@ -13,6 +13,11 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 import { createServiceClient, getRequiredEnv } from "../_shared/supabase.ts";
 import { handleCors, jsonResponse, errorResponse } from "../_shared/http.ts";
+import {
+  enforceAnonymousRateLimit,
+  rateLimitedResponse,
+  resolveClientIpKey,
+} from "../_shared/rateLimit.ts";
 
 // ────────────────────────────────────────────────────────────
 // 阿里云签名工具
@@ -219,6 +224,24 @@ Deno.serve(async (req: Request) => {
   if (corsResp) return corsResp;
 
   try {
+    // 匿名限流（撞库 / 刷号防御）：按调用端 IP hash 划分桶。
+    // 无法提取 IP 时 resolveClientIpKey 返回 null，enforceAnonymousRateLimit 会 fail-open，不阻塞合法流量。
+    const ipKey = await resolveClientIpKey(req);
+    if (ipKey) {
+      const bucketName =
+        req.method === "GET" ? "ali-login:ip:token" : "ali-login:ip";
+      // GET 取 token 频率略高于 POST 验签；两桶独立避免互相挤占。
+      const max = req.method === "GET" ? 30 : 10;
+      const rateLimit = await enforceAnonymousRateLimit(ipKey, {
+        bucket: bucketName,
+        max,
+        windowSec: 60,
+      });
+      if (!rateLimit.allowed) {
+        return rateLimitedResponse(req, rateLimit.retryAfterSec);
+      }
+    }
+
     // GET ?action=getAuthToken — 返回融合认证鉴权 Token 给客户端
     if (req.method === "GET") {
       const url = new URL(req.url);

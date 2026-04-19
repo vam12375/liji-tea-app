@@ -2,6 +2,12 @@ import { resolveCouponPricingForUser } from "../_shared/coupon.ts";
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
 import { calculateOrderPricing } from "../_shared/payment.ts";
 import {
+  enforceAnonymousRateLimit,
+  enforceRateLimit,
+  rateLimitedResponse,
+  resolveClientIpKey,
+} from "../_shared/rateLimit.ts";
+import {
   createServiceClient,
   getUserFromRequest,
 } from "../_shared/supabase.ts";
@@ -87,6 +93,20 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
+    // 询价允许匿名（未登录也能看到基础金额），因此限流按 IP 维度防爆破；
+    // 后文若进入 userCouponId 分支还会再做一次 userId 维度限流，避免登录用户刷券计算。
+    const ipKey = await resolveClientIpKey(req);
+    if (ipKey) {
+      const rateLimit = await enforceAnonymousRateLimit(ipKey, {
+        bucket: "quote-order",
+        max: 30,
+        windowSec: 60,
+      });
+      if (!rateLimit.allowed) {
+        return rateLimitedResponse(req, rateLimit.retryAfterSec);
+      }
+    }
+
     const body = (await req.json().catch(() => null)) as QuoteOrderRequestBody | null;
     const rawItems = Array.isArray(body?.items) ? body.items : [];
     const deliveryType =
@@ -184,6 +204,16 @@ Deno.serve(async (req: Request) => {
     const user = await getUserFromRequest(req);
     if (!user) {
       return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
+    }
+
+    // 带券询价再叠加登录态维度限流：同一用户 60 秒内最多 60 次（结算页可能频繁刷新）。
+    const userRateLimit = await enforceRateLimit(user.id, {
+      bucket: "quote-order:coupon",
+      max: 60,
+      windowSec: 60,
+    });
+    if (!userRateLimit.allowed) {
+      return rateLimitedResponse(req, userRateLimit.retryAfterSec);
     }
 
     const couponPricing = await resolveCouponPricingForUser({
