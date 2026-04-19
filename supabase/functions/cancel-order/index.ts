@@ -3,6 +3,10 @@ declare const Deno: {
 };
 
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
+import {
+  enforceRateLimit,
+  rateLimitedResponse,
+} from "../_shared/rateLimit.ts";
 import { getUserFromRequest, createServiceClient } from "../_shared/supabase.ts";
 
 interface CancelOrderRpcRow {
@@ -47,6 +51,16 @@ Deno.serve(async (req: Request) => {
 
     if (!user) {
       return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
+    }
+
+    // 限流：同一用户 60 秒内最多 10 次取消；防止脚本连点 / 手抖重复触发状态翻动。
+    const rateLimit = await enforceRateLimit(user.id, {
+      bucket: "cancel-order",
+      max: 10,
+      windowSec: 60,
+    });
+    if (!rateLimit.allowed) {
+      return rateLimitedResponse(req, rateLimit.retryAfterSec);
     }
 
     const requestBody = await req.json().catch(() => null);

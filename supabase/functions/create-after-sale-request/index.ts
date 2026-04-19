@@ -6,6 +6,10 @@ declare const Deno: {
 
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
 import {
+  enforceRateLimit,
+  rateLimitedResponse,
+} from "../_shared/rateLimit.ts";
+import {
   createServiceClient,
   getUserFromRequest,
 } from "../_shared/supabase.ts";
@@ -104,6 +108,16 @@ Deno.serve(async (req: Request) => {
     const user = await getUserFromRequest(req);
     if (!user) {
       return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
+    }
+
+    // 限流：同一用户 10 分钟内最多 5 次发起售后；防止通过重复申请绕过风控。
+    const rateLimit = await enforceRateLimit(user.id, {
+      bucket: "create-after-sale",
+      max: 5,
+      windowSec: 600,
+    });
+    if (!rateLimit.allowed) {
+      return rateLimitedResponse(req, rateLimit.retryAfterSec);
     }
 
     const body = (await req.json().catch(() => null)) as CreateAfterSaleRequestBody | null;

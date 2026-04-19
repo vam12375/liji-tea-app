@@ -6,6 +6,10 @@ declare const Deno: {
 
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
 import {
+  enforceRateLimit,
+  rateLimitedResponse,
+} from "../_shared/rateLimit.ts";
+import {
   createServiceClient,
   getUserFromRequest,
 } from "../_shared/supabase.ts";
@@ -28,6 +32,16 @@ Deno.serve(async (req: Request) => {
     const user = await getUserFromRequest(req);
     if (!user) {
       return errorResponse(req, "未登录或登录状态已失效。", 401, "unauthorized");
+    }
+
+    // 限流：同一用户 60 秒内最多 10 次撤销；防止脚本反复翻动售后状态。
+    const rateLimit = await enforceRateLimit(user.id, {
+      bucket: "cancel-after-sale",
+      max: 10,
+      windowSec: 60,
+    });
+    if (!rateLimit.allowed) {
+      return rateLimitedResponse(req, rateLimit.retryAfterSec);
     }
 
     const body = (await req.json().catch(() => null)) as CancelAfterSaleRequestBody | null;
