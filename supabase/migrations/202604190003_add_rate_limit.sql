@@ -108,30 +108,18 @@ revoke execute on function public.prune_rate_limit_buckets() from public;
 revoke execute on function public.prune_rate_limit_buckets() from anon;
 revoke execute on function public.prune_rate_limit_buckets() from authenticated;
 
--- pg_cron 可用时每小时注册一次清理任务；否则静默跳过，留给管理员手动调度。
--- 使用命名 dollar tag 以避免某些 SQL 执行器对匿名 $$ 的嵌套解析不稳定。
-do $ratelimit_cron$
-declare
-  v_has_cron boolean;
-  v_has_job  boolean;
-begin
-  select exists(select 1 from pg_extension where extname = 'pg_cron') into v_has_cron;
-  if not v_has_cron then
-    raise notice 'pg_cron 未启用：prune_rate_limit_buckets 需手动调度。';
-    return;
-  end if;
-
-  select exists(
-    select 1 from cron.job where jobname = 'prune_rate_limit_buckets_hourly'
-  ) into v_has_job;
-  if v_has_job then
-    perform cron.unschedule('prune_rate_limit_buckets_hourly');
-  end if;
-
-  perform cron.schedule(
-    'prune_rate_limit_buckets_hourly',
-    '15 * * * *',
-    $cmd$select public.prune_rate_limit_buckets();$cmd$
-  );
-end
-$ratelimit_cron$;
+-- ========== pg_cron 调度（手动执行）==========
+-- 经验教训：部分 SQL 执行器（含某些版本的 Supabase Web SQL 编辑器复制粘贴路径）
+-- 不能正确解析 DO 块的 dollar quote，会把 `select ... into v_xxx` 误判为 SELECT INTO table。
+-- 因此本迁移不再在 DO 块里自动注册 cron job；迁移本身只负责创建清理函数。
+-- 如项目已启用 pg_cron，请由管理员在 Dashboard → SQL Editor 单独执行以下语句注册任务：
+--
+--   select cron.schedule(
+--     'prune_rate_limit_buckets_hourly',
+--     '15 * * * *',
+--     'select public.prune_rate_limit_buckets();'
+--   );
+--
+-- 需要取消或重注册时：
+--
+--   select cron.unschedule('prune_rate_limit_buckets_hourly');

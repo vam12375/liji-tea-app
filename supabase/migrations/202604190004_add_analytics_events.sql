@@ -72,30 +72,18 @@ revoke execute on function public.prune_analytics_events(int) from public;
 revoke execute on function public.prune_analytics_events(int) from anon;
 revoke execute on function public.prune_analytics_events(int) from authenticated;
 
--- 启用 pg_cron 时注册每日 03:15 UTC 清理；与 audit prune（02:30）错峰。
--- 使用命名 dollar tag 以避免某些 SQL 执行器对匿名 $$ 的嵌套解析不稳定。
-do $analytics_cron$
-declare
-  v_has_cron boolean;
-  v_has_job  boolean;
-begin
-  select exists(select 1 from pg_extension where extname = 'pg_cron') into v_has_cron;
-  if not v_has_cron then
-    raise notice 'pg_cron 未启用：prune_analytics_events 需手动调度。';
-    return;
-  end if;
-
-  select exists(
-    select 1 from cron.job where jobname = 'prune_analytics_events_daily'
-  ) into v_has_job;
-  if v_has_job then
-    perform cron.unschedule('prune_analytics_events_daily');
-  end if;
-
-  perform cron.schedule(
-    'prune_analytics_events_daily',
-    '15 3 * * *',
-    $cmd$select public.prune_analytics_events(365);$cmd$
-  );
-end
-$analytics_cron$;
+-- ========== pg_cron 调度（手动执行）==========
+-- 经验教训：部分 SQL 执行器（含某些版本的 Supabase Web SQL 编辑器复制粘贴路径）
+-- 不能正确解析 DO 块的 dollar quote，会把 `select ... into v_xxx` 误判为 SELECT INTO table。
+-- 因此本迁移不再在 DO 块里自动注册 cron job；迁移本身只负责创建清理函数。
+-- 如项目已启用 pg_cron，请由管理员在 Dashboard → SQL Editor 单独执行以下语句注册任务（与 audit prune 02:30 错峰到 03:15）：
+--
+--   select cron.schedule(
+--     'prune_analytics_events_daily',
+--     '15 3 * * *',
+--     'select public.prune_analytics_events(365);'
+--   );
+--
+-- 需要取消或重注册时：
+--
+--   select cron.unschedule('prune_analytics_events_daily');
