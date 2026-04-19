@@ -1,6 +1,7 @@
 import { runAfterSaleTests } from "./afterSale.test";
 import { runAfterSaleIdempotencyGuardsTests } from "./afterSaleIdempotencyGuards.test";
 import { runAliOneClickSupportTests } from "./aliOneClickSupport.test";
+import { runAnalyticsTests } from "./analytics.test";
 import { runCollectionsTests } from "./collections.test";
 import { runCommunityFeedTests } from "./communityFeed.test";
 import { runCouponSelectionTests } from "./couponSelection.test";
@@ -36,6 +37,7 @@ async function main() {
     runAfterSaleTests,
     runAfterSaleIdempotencyGuardsTests,
     runAliOneClickSupportTests,
+    runAnalyticsTests,
     runCollectionsTests,
     runCommunityFeedTests,
  runCouponSelectionTests,

@@ -15,6 +15,7 @@ import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
 import TeaModal from "@/components/ui/TeaModal";
 import { Toast } from "@/components/ui/Toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { initAnalyticsReporter } from "@/lib/analyticsReporter";
 import { diagnoseAuthState } from "@/lib/authDiagnostics";
 import { captureError, logInfo, registerCaptureHandler } from "@/lib/logger";
 import { initCrashReporter, pushCrashReport } from "@/lib/crashReporter";
@@ -231,6 +232,8 @@ export default function RootLayout() {
     // 挂接 logger.captureError → 远端上报器的 transport，然后启动队列与定时 flush。
     registerCaptureHandler(pushCrashReport);
     void initCrashReporter();
+    // 行为事件上报器：与崩溃上报同步启动，加载本地队列 + 每 30s 定时 flush。
+    void initAnalyticsReporter();
     return () => {
       registerCaptureHandler(null);
     };
