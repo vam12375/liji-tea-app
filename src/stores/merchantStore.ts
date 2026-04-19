@@ -9,7 +9,12 @@ import type {
 } from "@/lib/merchantFilters";
 import { merchantRpc } from "@/lib/merchantRpc";
 import { supabase } from "@/lib/supabase";
-import type { AfterSaleRequest, Order, Product } from "@/types/database";
+import type {
+  AfterSaleRequest,
+  MerchantDashboardOverview,
+  Order,
+  Product,
+} from "@/types/database";
 
 // 商家端数据源集中 store：
 // - 列表：fetch* 从 supabase 拉全量；视图层用 filter* 纯函数二次筛选。
@@ -28,6 +33,9 @@ interface MerchantState {
   productsLoading: boolean;
   productFilter: MerchantProductFilter;
 
+  dashboard: MerchantDashboardOverview | null;
+  dashboardLoading: boolean;
+
   setOrderFilter: (patch: Partial<MerchantOrderFilter>) => void;
   setAfterSaleFilter: (patch: Partial<{ status: MerchantAfterSaleScope }>) => void;
   setProductFilter: (patch: Partial<MerchantProductFilter>) => void;
@@ -35,6 +43,7 @@ interface MerchantState {
   fetchOrders: () => Promise<void>;
   fetchAfterSales: () => Promise<void>;
   fetchProducts: () => Promise<void>;
+  fetchDashboard: () => Promise<void>;
 
   shipOrder: (orderId: string, carrier: string, trackingNo: string) => Promise<void>;
   closeOrder: (orderId: string, reason: string) => Promise<void>;
@@ -63,6 +72,9 @@ export const useMerchantStore = create<MerchantState>((set, get) => ({
   products: [],
   productsLoading: false,
   productFilter: { scope: "all", keyword: "" },
+
+  dashboard: null,
+  dashboardLoading: false,
 
   setOrderFilter: (patch) =>
     set({ orderFilter: { ...get().orderFilter, ...patch } }),
@@ -113,6 +125,27 @@ export const useMerchantStore = create<MerchantState>((set, get) => ({
       products: (data as Product[] | null) ?? [],
       productsLoading: false,
     });
+  },
+
+  fetchDashboard: async () => {
+    set({ dashboardLoading: true });
+    try {
+      const overview = await merchantRpc.dashboardOverview();
+      // RPC 返回的 low_stock_products 是 jsonb，保险起见按数组兜底。
+      const normalized: MerchantDashboardOverview = {
+        ...overview,
+        today_gmv: Number(overview.today_gmv ?? 0),
+        low_stock_products: Array.isArray(overview.low_stock_products)
+          ? overview.low_stock_products
+          : [],
+      };
+      set({ dashboard: normalized, dashboardLoading: false });
+    } catch (err) {
+      // 失败不清空 dashboard：保留上次的可见 KPI，避免工作台闪空；
+      // 错误抛给页面层决定是否 Toast。
+      set({ dashboardLoading: false });
+      throw isMerchantError(err) ? err : classifyMerchantError(err);
+    }
   },
 
   shipOrder: async (orderId, carrier, trackingNo) => {

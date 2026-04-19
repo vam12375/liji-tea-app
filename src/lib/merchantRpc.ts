@@ -1,7 +1,13 @@
 import { supabase } from "@/lib/supabase";
 import { type MerchantError } from "@/lib/merchantErrors";
 import { invoke, type RpcLike } from "@/lib/merchantRpcInvoke";
-import type { AfterSaleRequest, Order, Product, UserRoleRow } from "@/types/database";
+import type {
+  AfterSaleRequest,
+  MerchantDashboardOverview,
+  Order,
+  Product,
+  UserRoleRow,
+} from "@/types/database";
 
 // 商家端 RPC 封装：页面层只需调 merchantRpc.xxx(...)，底层统一把 Supabase 错误
 // 归一化为 MerchantError 抛出；成功时直接返回 RPC payload（已是完整行）。
@@ -89,5 +95,11 @@ export const merchantRpc = {
         p_user_id: userId,
         p_role: role,
       }),
+    ),
+
+  // ========== 工作台 ==========
+  dashboardOverview: () =>
+    invoke<MerchantDashboardOverview>(() =>
+      supabase.rpc("merchant_dashboard_overview"),
     ),
 };

@@ -22,6 +22,7 @@ import { runMemberPointsTests } from "./memberPoints.test";
 import { runMerchantErrorsTests } from "./merchantErrors.test";
 import { runMerchantFiltersTests } from "./merchantFilters.test";
 import { runMerchantHeroStatsTests } from "./merchantHeroStats.test";
+import { runMerchantDashboardTests } from "./merchantDashboard.test";
 import { runMerchantRpcInvokeTests } from "./merchantRpcInvoke.test";
 import { runMerchantToastTests } from "./merchantToast.test";
 import { runTrackingUtilsTests } from "./trackingUtils.test";
@@ -60,6 +61,7 @@ async function main() {
     runMerchantErrorsTests,
     runMerchantFiltersTests,
     runMerchantHeroStatsTests,
+    runMerchantDashboardTests,
     runMerchantRpcInvokeTests,
     runMerchantToastTests,
     runUserMutationsTests,

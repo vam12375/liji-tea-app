@@ -349,3 +349,19 @@ export interface MerchantAuditLog {
   payload: Record<string, unknown> | null;
   created_at: string;
 }
+
+/** 商家工作台低库存商品条目（merchant_dashboard_overview RPC 返回）。 */
+export interface MerchantDashboardLowStockProduct {
+  id: string;
+  name: string;
+  stock: number;
+}
+
+/** 商家工作台聚合 KPI（merchant_dashboard_overview RPC 返回）。 */
+export interface MerchantDashboardOverview {
+  today_order_count: number;
+  today_gmv: number;
+  pending_ship_count: number;
+  pending_after_sale_count: number;
+  low_stock_products: MerchantDashboardLowStockProduct[];
+}
