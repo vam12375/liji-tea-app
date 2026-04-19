@@ -1,12 +1,12 @@
 import { View, Text, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import { router } from "expo-router";
 import type { Article } from "@/data/articles";
 
 export default function FeaturedArticle({ article }: { article: Article }) {
   return (
     <Pressable className="h-[220px] rounded-2xl overflow-hidden active:opacity-90" onPress={() => router.push({ pathname: "/article/[id]", params: { id: article.id } })}>
-      <Image source={{ uri: article.image }} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }} contentFit="cover" />
+      <TeaImage source={{ uri: article.image }} style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }} contentFit="cover" />
       <View className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
       <View className="absolute top-4 left-4">
         <View className="bg-tertiary px-2.5 py-0.5 rounded-full">

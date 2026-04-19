@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 export default function CultureBanner() {
@@ -12,7 +12,7 @@ export default function CultureBanner() {
       className="w-full h-32 rounded-xl overflow-hidden active:opacity-90"
     >
       <View className="absolute inset-0 bg-[#2C2C2C]">
-        <Image
+        <TeaImage
           source={{
             uri: "https://images.unsplash.com/photo-1545579133-99bb5ab189bd?w=800",
           }}

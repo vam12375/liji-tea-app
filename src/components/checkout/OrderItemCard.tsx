@@ -1,5 +1,5 @@
 import { View, Text } from "react-native";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import type { CartItem } from "@/stores/cartStore";
 
 interface OrderItemCardProps {
@@ -11,7 +11,7 @@ export default function OrderItemCard({ item }: OrderItemCardProps) {
 
   return (
     <View className="flex-row items-center gap-3 py-3">
-      <Image
+      <TeaImage
         source={{ uri: product.image }}
         style={{ width: 60, height: 60, borderRadius: 8 }}
         contentFit="cover"

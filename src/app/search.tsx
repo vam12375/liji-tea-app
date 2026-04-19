@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { View, Text, TextInput, Pressable, FlatList, ActivityIndicator } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "@/constants/Colors";
@@ -178,7 +178,7 @@ export default function SearchScreen() {
             }
           >
             <View className="aspect-[4/5] rounded-xl overflow-hidden mb-2">
-              <Image source={{ uri: item.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
+              <TeaImage source={{ uri: item.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
             </View>
             <Text className="font-headline text-on-surface text-sm font-bold" numberOfLines={1}>{item.name}</Text>
             <Text className="text-on-surface-variant text-xs">{item.origin}</Text>

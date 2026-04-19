@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { View, Text, Pressable, Dimensions } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { Image } from 'expo-image';
+import { TeaImage } from "@/components/ui/TeaImage";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useCommunityStore } from '@/stores/communityStore';
@@ -65,7 +65,7 @@ export default function StoryViewerScreen() {
         onPress={(e) => handleTap(e.nativeEvent.locationX)}
       >
         {story.image ? (
-          <Image
+          <TeaImage
             source={{ uri: story.image }}
             style={{ width: SCREEN_WIDTH, height: SCREEN_HEIGHT }}
             contentFit="cover"
@@ -88,7 +88,7 @@ export default function StoryViewerScreen() {
         {/* 用户信息和关闭按钮 */}
         <View className="flex-row items-center justify-between">
           <View className="flex-row items-center gap-2">
-            <Image source={{ uri: story.avatar }} style={{ width: 32, height: 32, borderRadius: 9999 }} />
+            <TeaImage source={{ uri: story.avatar }} style={{ width: 32, height: 32, borderRadius: 9999 }} />
             <Text className="text-white text-sm font-bold">{story.name}</Text>
           </View>
           <Pressable hitSlop={8} onPress={() => router.back()}>

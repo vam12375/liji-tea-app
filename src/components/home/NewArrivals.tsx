@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useProductStore } from "@/stores/productStore";
@@ -35,7 +35,7 @@ export default function NewArrivals() {
           >
             {/* 正方形图片 */}
             <View className="aspect-square overflow-hidden">
-              <Image
+              <TeaImage
                 source={{ uri: product.image }}
                 style={{ width: "100%", height: "100%" }}
                 contentFit="cover"

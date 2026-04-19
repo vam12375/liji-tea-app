@@ -1,5 +1,5 @@
 import { View, Text, Pressable } from 'react-native';
-import { Image } from 'expo-image';
+import { TeaImage } from "@/components/ui/TeaImage";
 import { router } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
@@ -68,7 +68,7 @@ function PostHeader({ post }: { post: Post }) {
   return (
     <View className="flex-row items-center justify-between">
       <View className="flex-row items-center gap-2.5">
-        <Image source={{ uri: post.avatar }} style={{ width: 40, height: 40, borderRadius: 9999 }} contentFit="cover" />
+        <TeaImage source={{ uri: post.avatar }} style={{ width: 40, height: 40, borderRadius: 9999 }} contentFit="cover" />
         <View>
           <Text className="text-on-surface text-sm font-bold">{post.author}</Text>
           <Text className="text-secondary/60 text-[11px]">
@@ -101,7 +101,7 @@ function PhotoPost({
 
       <PostHeader post={post} />
       {post.image ? (
-        <Image source={{ uri: post.image }} style={{ width: '100%', height: 288, borderRadius: 12 }} contentFit="cover" />
+        <TeaImage source={{ uri: post.image }} style={{ width: '100%', height: 288, borderRadius: 12 }} contentFit="cover" />
       ) : null}
       <Text className="text-on-surface text-[15px] leading-relaxed">{post.caption}</Text>
       <View className="flex-row justify-between items-center">
@@ -162,7 +162,7 @@ function BrewingPost({
       {post.brewingImages?.length ? (
         <View className="flex-row gap-2">
           {post.brewingImages.map((image, index) => (
-            <Image key={`${image}-${index}`} source={{ uri: image }} style={{ flex: 1, height: 128, borderRadius: 8 }} contentFit="cover" />
+            <TeaImage key={`${image}-${index}`} source={{ uri: image }} style={{ flex: 1, height: 128, borderRadius: 8 }} contentFit="cover" />
           ))}
         </View>
       ) : null}

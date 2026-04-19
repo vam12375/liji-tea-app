@@ -1,5 +1,5 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import { Text, View } from "react-native";
 
 import { Colors } from "@/constants/Colors";
@@ -34,7 +34,7 @@ export function TrackingPackageCard({
         <View className="flex-row items-center gap-2">
           {packageSummary.imageUrls.length > 0 ? (
             packageSummary.imageUrls.slice(0, 3).map((uri) => (
-              <Image
+              <TeaImage
                 key={uri}
                 source={{ uri }}
                 contentFit="cover"

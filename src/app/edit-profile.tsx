@@ -9,7 +9,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as ImagePicker from "expo-image-picker";
 import { Colors } from "@/constants/Colors";
@@ -119,7 +119,7 @@ export default function EditProfileScreen() {
           <View className="items-center mb-8">
             <Pressable onPress={handlePickAvatar} className="relative">
               {profile?.avatar_url ? (
-                <Image
+                <TeaImage
                   source={{ uri: profile.avatar_url }}
                   style={{ width: 96, height: 96, borderRadius: 48 }}
                   contentFit="cover"

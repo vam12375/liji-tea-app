@@ -1,5 +1,5 @@
 import { View, Text, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
@@ -9,7 +9,7 @@ export default function ArticleCard({ article, large = false }: { article: Artic
   return (
     <Pressable className={`${large ? "" : "flex-1"} active:opacity-80`} onPress={() => router.push({ pathname: "/article/[id]", params: { id: article.id } })}>
       <View className={`${large ? "aspect-video" : "aspect-square"} rounded-xl overflow-hidden mb-2`}>
-        <Image source={{ uri: article.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
+        <TeaImage source={{ uri: article.image }} style={{ width: "100%", height: "100%" }} contentFit="cover" transition={200} />
       </View>
       <Text className={`font-headline text-on-surface ${large ? "text-xl" : "text-sm"} font-bold`} numberOfLines={2}>
         {article.title}

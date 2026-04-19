@@ -1,5 +1,5 @@
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { Image } from 'expo-image';
+import { TeaImage } from "@/components/ui/TeaImage";
 import { router } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
@@ -25,7 +25,7 @@ export default function StoryRow() {
           router.push({ pathname: '/story-viewer', params: { storyId: story.id } });
         }}>
           <View className={`p-[2px] rounded-full border-2 ${story.isViewed ? 'border-outline-variant/30' : 'border-tertiary-fixed'}`}>
-            <Image source={{ uri: story.avatar }} style={{ width: 48, height: 48, borderRadius: 9999 }} contentFit="cover" />
+            <TeaImage source={{ uri: story.avatar }} style={{ width: 48, height: 48, borderRadius: 9999 }} contentFit="cover" />
           </View>
           <Text className="text-on-surface text-[10px] font-medium" numberOfLines={1}>{story.name}</Text>
         </Pressable>

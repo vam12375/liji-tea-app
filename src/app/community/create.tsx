@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Image } from 'expo-image';
+import { TeaImage } from "@/components/ui/TeaImage";
 import * as ImagePicker from 'expo-image-picker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -455,7 +455,7 @@ function ImagePickerField({
         <View className="flex-row gap-3 flex-wrap">
           {assets.map((asset, index) => (
             <View key={`${asset.uri}-${index}`} className="relative">
-              <Image source={{ uri: asset.uri }} style={{ width: 104, height: 104, borderRadius: 16 }} contentFit="cover" />
+              <TeaImage source={{ uri: asset.uri }} style={{ width: 104, height: 104, borderRadius: 16 }} contentFit="cover" />
               <Pressable
                 onPress={() => onRemove(index)}
                 className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-black/70 items-center justify-center"

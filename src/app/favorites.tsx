@@ -1,6 +1,6 @@
 import { View, Text, FlatList, Pressable } from "react-native";
 import { useRouter, Stack } from "expo-router";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useUserStore } from "@/stores/userStore";
@@ -67,7 +67,7 @@ export default function FavoritesScreen() {
             >
               {/* 产品图片 - 4:5 比例 */}
               <View className="aspect-[4/5] overflow-hidden">
-                <Image
+                <TeaImage
                   source={{ uri: item.image }}
                   style={{ width: "100%", height: "100%" }}
                   contentFit="cover"

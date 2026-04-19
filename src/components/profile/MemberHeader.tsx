@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -132,7 +132,7 @@ export default function MemberHeader() {
     <View className="bg-primary/5 px-6 pt-8 pb-6 gap-4">
       <View className="flex-row items-center gap-4">
         <Pressable onPress={handlePickAvatar} disabled={uploading} className="relative active:opacity-70">
-          <Image
+          <TeaImage
             source={avatar ? { uri: avatar } : require("@/assets/images/icon.png")}
             style={{ width: 80, height: 80, borderRadius: 9999, borderWidth: 2, borderColor: Colors.tertiary }}
             contentFit="cover"

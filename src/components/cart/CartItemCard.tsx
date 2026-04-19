@@ -1,5 +1,5 @@
 import { View, Text, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import type { CartItem } from "@/stores/cartStore";
@@ -20,7 +20,7 @@ export default function CartItemCard({
   return (
     <View className="flex-row bg-surface-container-low rounded-xl p-3 gap-3 active:scale-[0.98]">
       {/* 产品图片 */}
-      <Image
+      <TeaImage
         source={{ uri: product.image }}
         style={{ width: 80, height: 80, borderRadius: 8 }}
         contentFit="cover"

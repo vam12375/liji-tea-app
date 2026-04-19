@@ -1,7 +1,7 @@
 // 售后申请发起页：承载"选择原因 + 补充说明 + 上传凭证 + 提交"四步表单。
 // 表单状态全部放在页面内，提交成功后由 afterSaleStore 统一拉回详情再跳转到售后详情页。
 import * as ImagePicker from "expo-image-picker";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -307,7 +307,7 @@ export default function AfterSaleApplyScreen() {
           <View className="flex-row flex-wrap gap-3">
             {evidences.map((item, index) => (
               <View key={`${item.uri}-${index}`} className="relative">
-                <Image
+                <TeaImage
                   source={{ uri: item.uri }}
                   style={{ width: 88, height: 88, borderRadius: 16 }}
                   contentFit="cover"

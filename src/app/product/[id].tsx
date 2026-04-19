@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { View, Text, ScrollView, Pressable, Animated } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { routes } from "@/lib/routes";
@@ -310,7 +310,7 @@ export default function ProductDetailScreen() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* Hero 图片 */}
         <View className="h-[360px] relative">
-          <Image
+          <TeaImage
             source={{ uri: product.image }}
             style={{ width: "100%", height: "100%" }}
             contentFit="cover"
@@ -434,7 +434,7 @@ export default function ProductDetailScreen() {
               </Text>
               {/* 产地配图 */}
               <View className="rounded-2xl overflow-hidden aspect-[16/10]">
-                <Image
+                <TeaImage
                   source={{ uri: product.image }}
                   style={{ width: "100%", height: "100%" }}
                   contentFit="cover"

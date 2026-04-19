@@ -1,6 +1,6 @@
 // 售后详情页：展示单条售后工单的状态、金额、原因与凭证，并承载"撤销申请"入口。
 // 读写路径均通过 afterSaleStore，不直接调用 Supabase，避免重复拉取与状态漂移。
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
@@ -208,7 +208,7 @@ export default function AfterSaleDetailScreen() {
               {currentRequest.evidences.map((item) => (
                 <View key={item.id} className="gap-1">
                   {item.display_url ? (
-                    <Image
+                    <TeaImage
                       source={{ uri: item.display_url }}
                       style={{ width: 88, height: 88, borderRadius: 16 }}
                       contentFit="cover"

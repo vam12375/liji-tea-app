@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 
-import { Image } from 'expo-image';
+import { TeaImage } from "@/components/ui/TeaImage";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '@/constants/Colors';
@@ -160,7 +160,7 @@ export default function PostDetailScreen() {
             <MaterialIcons name="arrow-back" size={22} color={Colors.onSurface} />
           </Pressable>
           <View className="flex-1 flex-row items-center gap-2.5 ml-2">
-            <Image source={{ uri: post.avatar }} style={{ width: 32, height: 32, borderRadius: 9999 }} contentFit="cover" />
+            <TeaImage source={{ uri: post.avatar }} style={{ width: 32, height: 32, borderRadius: 9999 }} contentFit="cover" />
             <View>
               <Text className="text-on-surface text-sm font-bold">{post.author}</Text>
               <Text className="text-outline text-[10px]">{post.time}</Text>
@@ -261,7 +261,7 @@ function PostContent({ post }: { post: Post }) {
     return (
       <View className="gap-3">
         {post.image ? (
-          <Image source={{ uri: post.image }} style={{ width: '100%', height: 300, borderRadius: 16 }} contentFit="cover" transition={200} />
+          <TeaImage source={{ uri: post.image }} style={{ width: '100%', height: 300, borderRadius: 16 }} contentFit="cover" transition={200} />
         ) : null}
         <Text className="text-on-surface text-[15px] leading-7">{post.caption}</Text>
         {post.location ? (
@@ -286,7 +286,7 @@ function PostContent({ post }: { post: Post }) {
         {post.brewingImages?.length ? (
           <View className="flex-row gap-2">
             {post.brewingImages.map((image, index) => (
-              <Image key={`${image}-${index}`} source={{ uri: image }} style={{ flex: 1, height: 160, borderRadius: 12 }} contentFit="cover" transition={200} />
+              <TeaImage key={`${image}-${index}`} source={{ uri: image }} style={{ flex: 1, height: 160, borderRadius: 12 }} contentFit="cover" transition={200} />
             ))}
           </View>
         ) : null}
@@ -334,7 +334,7 @@ function PostContent({ post }: { post: Post }) {
 function CommentItem({ comment, isLiked, onToggleLike }: { comment: Comment; isLiked: boolean; onToggleLike: () => void }) {
   return (
     <View className="flex-row gap-3 mb-5">
-      <Image source={{ uri: comment.avatar }} style={{ width: 36, height: 36, borderRadius: 9999 }} contentFit="cover" />
+      <TeaImage source={{ uri: comment.avatar }} style={{ width: 36, height: 36, borderRadius: 9999 }} contentFit="cover" />
       <View className="flex-1">
         <View className="flex-row items-center justify-between">
           <Text className="text-on-surface text-sm font-bold">{comment.author}</Text>

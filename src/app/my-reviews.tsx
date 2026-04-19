@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import * as ImagePicker from "expo-image-picker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useLocalSearchParams } from "expo-router";
@@ -192,7 +192,7 @@ export default function MyReviewsScreen() {
             return (
               <View className="bg-surface-container-low rounded-3xl p-4 gap-4">
                 <View className="flex-row gap-3">
-                  <Image
+                  <TeaImage
                     source={{ uri: item.productImage ?? undefined }}
                     style={{ width: 72, height: 72, borderRadius: 16, backgroundColor: Colors.surfaceContainer }}
                     contentFit="cover"
@@ -336,7 +336,7 @@ export default function MyReviewsScreen() {
                     <View className="flex-row flex-wrap gap-3">
                       {draft.images.map((image, index) => (
                         <View key={`${image.uri}-${index}`} className="relative">
-                          <Image
+                          <TeaImage
                             source={{ uri: image.uri }}
                             style={{ width: 84, height: 84, borderRadius: 16 }}
                             contentFit="cover"
@@ -456,7 +456,7 @@ export default function MyReviewsScreen() {
             return (
               <View className="bg-surface-container-low rounded-3xl p-4 gap-3">
                 <View className="flex-row gap-3 items-start">
-                  <Image
+                  <TeaImage
                     source={{ uri: item.product?.image_url ?? undefined }}
                     style={{ width: 64, height: 64, borderRadius: 16, backgroundColor: Colors.surfaceContainer }}
                     contentFit="cover"
@@ -647,7 +647,7 @@ export default function MyReviewsScreen() {
                     {item.images.length > 0 ? (
                       <View className="flex-row flex-wrap gap-3">
                         {item.images.map((image, index) => (
-                          <Image
+                          <TeaImage
                             key={`${image}-${index}`}
                             source={{ uri: image }}
                             style={{ width: 84, height: 84, borderRadius: 16 }}

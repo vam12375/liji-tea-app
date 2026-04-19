@@ -1,6 +1,6 @@
 import { useRef, useCallback } from "react";
 import { View, Text, Pressable, Animated } from "react-native";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import type { Product } from "@/data/products";
@@ -52,7 +52,7 @@ export default function ShopProductCard({
     >
       {/* 产品图片 - 4:5 比例 */}
       <View className="aspect-[4/5] overflow-hidden">
-        <Image
+        <TeaImage
           source={{ uri: product.image }}
           style={{ width: "100%", height: "100%" }}
           contentFit="cover"

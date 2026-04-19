@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 
 export default function SeasonalStory() {
   const router = useRouter();
@@ -10,7 +10,7 @@ export default function SeasonalStory() {
       onPress={() => router.push("/(tabs)/community")}
       className="w-full aspect-video rounded-xl overflow-hidden"
     >
-      <Image
+      <TeaImage
         source={{
           uri: "https://images.unsplash.com/photo-1563822249366-3efb23b8e0c9?w=800",
         }}

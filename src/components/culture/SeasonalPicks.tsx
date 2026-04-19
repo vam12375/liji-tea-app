@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { View, Text, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 import { useArticleStore } from "@/stores/articleStore";
@@ -26,7 +26,7 @@ export default function SeasonalPicks() {
       <View className="gap-3">
         {seasonalPicks.map((pick) => (
           <Pressable key={pick.name} className="flex-row items-center gap-3 active:opacity-80">
-            <Image source={{ uri: pick.image }} style={{ width: 64, height: 64, borderRadius: 12 }} contentFit="cover" />
+            <TeaImage source={{ uri: pick.image }} style={{ width: 64, height: 64, borderRadius: 12 }} contentFit="cover" />
             <View className="flex-1 gap-0.5">
               <Text className="text-on-surface text-sm font-bold">{pick.name}</Text>
               <Text className="text-on-surface-variant text-xs">{pick.desc}</Text>

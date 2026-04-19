@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Text, Pressable } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Colors } from "@/constants/Colors";
 
@@ -16,7 +16,7 @@ export default function ARScanScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* 模拟相机背景 */}
-      <Image
+      <TeaImage
         source={{ uri: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?w=800" }}
         style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%", opacity: 0.6 }}
         contentFit="cover"

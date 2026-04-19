@@ -1,5 +1,5 @@
 import { View, Text, Pressable } from "react-native";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 import type { Product } from "@/data/products";
 
 interface ProductCardProps {
@@ -15,7 +15,7 @@ export default function ProductCard({ product, onPress }: ProductCardProps) {
     >
       {/* 产品图片 */}
       <View className="h-40 overflow-hidden">
-        <Image
+        <TeaImage
           source={{ uri: product.image }}
           style={{ width: "100%", height: "100%" }}
           contentFit="cover"

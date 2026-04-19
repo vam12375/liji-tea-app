@@ -1,13 +1,13 @@
 import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
-import { Image } from "expo-image";
+import { TeaImage } from "@/components/ui/TeaImage";
 
 export default function HeroBanner() {
   const router = useRouter();
 
   return (
     <View className="w-full h-[200px] rounded-xl overflow-hidden">
-      <Image
+      <TeaImage
         source={{
           uri: "https://images.unsplash.com/photo-1556881286-fc6915169721?w=800",
         }}

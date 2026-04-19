@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useLocalSearchParams, router } from 'expo-router';
 import { View, Text, ScrollView, Pressable } from 'react-native';
-import { Image } from 'expo-image';
+import { TeaImage } from "@/components/ui/TeaImage";
 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -100,7 +100,7 @@ export default function ArticleDetailScreen() {
     <View className="flex-1 bg-background">
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         <View style={{ height: 280 }} className="relative">
-          <Image
+          <TeaImage
             source={{ uri: article.image }}
             style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
             contentFit="cover"
@@ -205,7 +205,7 @@ function ContentBlockView({ block }: { block: ContentBlock }) {
     case 'image':
       return (
         <View className="gap-2 my-1">
-          <Image
+          <TeaImage
             source={{ uri: block.image }}
             style={{ width: '100%', height: 200, borderRadius: 12 }}
             contentFit="cover"
