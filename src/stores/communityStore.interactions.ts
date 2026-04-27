@@ -1,18 +1,51 @@
-import { requireAuthenticatedCommunityUserId } from '@/lib/communityInteractions';
+import { requireAuthenticatedCommunityUserId } from "@/lib/communityInteractions";
 import {
   COMMENT_SELECT,
   mapComment,
   type Comment,
   type CommentRow,
   type Post,
-} from '@/lib/communityModels';
-import { supabase } from '@/lib/supabase';
+} from "@/lib/communityModels";
+import { supabase } from "@/lib/supabase";
 import type {
   CommunityState,
   CommunityStoreGet,
   CommunityStoreSet,
-} from '@/stores/communityStore.types';
-import { useUserStore } from '@/stores/userStore';
+} from "@/stores/communityStore.types";
+import { useUserStore } from "@/stores/userStore";
+
+// 回复新增后只更新命中的评论分支，避免详情页的整棵评论树重建。
+function appendReplyToCommentTree(
+  comments: Comment[] | undefined,
+  parentCommentId: string,
+  nextComment: Comment,
+): Comment[] {
+  if (!comments?.length) {
+    return [nextComment];
+  }
+
+  return comments.map((comment) => {
+    if (comment.id === parentCommentId) {
+      return {
+        ...comment,
+        replies: [...(comment.replies ?? []), nextComment],
+      };
+    }
+
+    if (!comment.replies?.length) {
+      return comment;
+    }
+
+    return {
+      ...comment,
+      replies: appendReplyToCommentTree(
+        comment.replies,
+        parentCommentId,
+        nextComment,
+      ),
+    };
+  });
+}
 
 // 点赞 / 收藏 / 评论 / 评论点赞：改变帖子衍生计数与本地集合。
 export function createCommunityInteractionsActions(
@@ -20,7 +53,7 @@ export function createCommunityInteractionsActions(
   get: CommunityStoreGet,
 ): Pick<
   CommunityState,
-  'togglePostLike' | 'togglePostBookmark' | 'addComment' | 'toggleCommentLike'
+  "togglePostLike" | "togglePostBookmark" | "addComment" | "toggleCommentLike"
 > {
   return {
     togglePostLike: async (postId) => {
@@ -32,16 +65,16 @@ export function createCommunityInteractionsActions(
 
       if (isLiked) {
         const { error } = await supabase
-          .from('post_likes')
+          .from("post_likes")
           .delete()
-          .eq('post_id', postId)
-          .eq('user_id', userId);
+          .eq("post_id", postId)
+          .eq("user_id", userId);
 
         if (error) {
           throw error;
         }
       } else {
-        const { error } = await supabase.from('post_likes').insert({
+        const { error } = await supabase.from("post_likes").insert({
           post_id: postId,
           user_id: userId,
         });
@@ -88,16 +121,16 @@ export function createCommunityInteractionsActions(
 
       if (isBookmarked) {
         const { error } = await supabase
-          .from('post_bookmarks')
+          .from("post_bookmarks")
           .delete()
-          .eq('post_id', postId)
-          .eq('user_id', userId);
+          .eq("post_id", postId)
+          .eq("user_id", userId);
 
         if (error) {
           throw error;
         }
       } else {
-        const { error } = await supabase.from('post_bookmarks').insert({
+        const { error } = await supabase.from("post_bookmarks").insert({
           post_id: postId,
           user_id: userId,
         });
@@ -134,16 +167,18 @@ export function createCommunityInteractionsActions(
       });
     },
 
-    addComment: async (postId, content) => {
+    addComment: async (postId, content, parentCommentId) => {
       const userId = requireAuthenticatedCommunityUserId(
         useUserStore.getState().session?.user?.id,
       );
 
+      // 统一走一条评论写入路径，普通评论和回复只差一个 parent_id。
       const { data, error } = await supabase
-        .from('post_comments')
+        .from("post_comments")
         .insert({
           post_id: postId,
           author_id: userId,
+          parent_id: parentCommentId ?? null,
           content,
         })
         .select(COMMENT_SELECT)
@@ -160,12 +195,20 @@ export function createCommunityInteractionsActions(
           post.id === postId ? { ...post, comments: post.comments + 1 } : post,
         );
 
+        const nextCommentList = parentCommentId
+          ? appendReplyToCommentTree(
+              state.activePost?.commentList,
+              parentCommentId,
+              comment,
+            )
+          : [...(state.activePost?.commentList ?? []), comment];
+
         const activePost =
           state.activePost?.id === postId
             ? {
                 ...state.activePost,
                 comments: state.activePost.comments + 1,
-                commentList: [...(state.activePost.commentList ?? []), comment],
+                commentList: nextCommentList,
               }
             : state.activePost;
 
@@ -183,16 +226,16 @@ export function createCommunityInteractionsActions(
 
       if (isLiked) {
         const { error } = await supabase
-          .from('comment_likes')
+          .from("comment_likes")
           .delete()
-          .eq('comment_id', commentId)
-          .eq('user_id', userId);
+          .eq("comment_id", commentId)
+          .eq("user_id", userId);
 
         if (error) {
           throw error;
         }
       } else {
-        const { error } = await supabase.from('comment_likes').insert({
+        const { error } = await supabase.from("comment_likes").insert({
           comment_id: commentId,
           user_id: userId,
         });
@@ -210,14 +253,21 @@ export function createCommunityInteractionsActions(
           likedCommentIds.add(commentId);
         }
 
-        const updateComment = (comment: Comment) =>
-          comment.id === commentId
+        const updateComment = (comment: Comment): Comment => ({
+          ...comment,
+          ...(comment.id === commentId
             ? {
-                ...comment,
                 isLiked: !isLiked,
                 likes: Math.max(0, comment.likes + (isLiked ? -1 : 1)),
               }
-            : comment;
+            : {}),
+          // 评论点赞也需要递归进入回复，保证楼中楼和一级评论行为一致。
+          ...(comment.replies?.length
+            ? {
+                replies: comment.replies.map(updateComment),
+              }
+            : {}),
+        });
 
         const activePost =
           state.activePost?.id === postId

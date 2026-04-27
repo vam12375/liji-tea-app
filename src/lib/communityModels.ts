@@ -34,6 +34,7 @@ export const COMMENT_SELECT = `
   id,
   post_id,
   author_id,
+  parent_id,
   content,
   created_at,
   like_count,
@@ -85,6 +86,7 @@ export type CommentRow = {
   id: string;
   post_id: string;
   author_id: string;
+  parent_id?: string | null;
   content: string;
   created_at: string;
   like_count?: number | null;
@@ -107,11 +109,13 @@ export interface Comment {
   authorId: string;
   author: string;
   avatar: string;
+  parentId?: string;
   content: string;
   time: string;
   createdAt: string;
   likes: number;
   isLiked: boolean;
+  replies?: Comment[];
 }
 
 export interface Post {
@@ -225,12 +229,52 @@ export function mapComment(
     authorId: row.author_id,
     author: name,
     avatar: buildAvatar(name, author?.avatar_url),
+    parentId: row.parent_id ?? undefined,
     content: row.content,
     time: formatRelativeTime(row.created_at),
     createdAt: row.created_at,
     likes: row.like_count ?? 0,
     isLiked: likedCommentIds.has(row.id),
   };
+}
+
+// 评论详情页需要树形结构，这里统一把平铺评论组装成“根评论 + 回复”的线程模型。
+export function buildCommentThreads(
+  rows: CommentRow[],
+  likedCommentIds: Set<string>,
+): Comment[] {
+  const commentMap = new Map<string, Comment>();
+  const rootComments: Comment[] = [];
+
+  rows.forEach((row) => {
+    commentMap.set(row.id, {
+      ...mapComment(row, likedCommentIds),
+      replies: [],
+    });
+  });
+
+  rows.forEach((row) => {
+    const current = commentMap.get(row.id);
+    if (!current) {
+      return;
+    }
+
+    const parentId = row.parent_id ?? undefined;
+    if (!parentId) {
+      rootComments.push(current);
+      return;
+    }
+
+    const parent = commentMap.get(parentId);
+    if (!parent) {
+      rootComments.push(current);
+      return;
+    }
+
+    parent.replies = [...(parent.replies ?? []), current];
+  });
+
+  return rootComments;
 }
 
 export function mapPost(

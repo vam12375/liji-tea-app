@@ -41,7 +41,11 @@ export interface CommunityState {
   createPost: (input: CreatePostInput) => Promise<Post>;
   togglePostLike: (postId: string) => Promise<void>;
   togglePostBookmark: (postId: string) => Promise<void>;
-  addComment: (postId: string, content: string) => Promise<Comment | null>;
+  addComment: (
+    postId: string,
+    content: string,
+    parentCommentId?: string,
+  ) => Promise<Comment | null>;
   toggleCommentLike: (postId: string, commentId: string) => Promise<void>;
   deletePost: (postId: string) => Promise<void>;
   markStoryViewed: (storyId: string) => Promise<void>;

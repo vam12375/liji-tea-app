@@ -1,16 +1,38 @@
-import { useEffect, useState } from 'react';
-import { useLocalSearchParams, router } from 'expo-router';
-import { View, Text, ScrollView, Pressable, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
+import { useEffect, useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
+} from "react-native";
+import { useLocalSearchParams, router } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
+import RelatedProducts from "@/components/community/RelatedProducts";
 import { TeaImage } from "@/components/ui/TeaImage";
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Colors } from '@/constants/Colors';
-import { shareContent } from '@/lib/share';
-import { useCommunityStore, type Post, type Comment } from '@/stores/communityStore';
-import { useUserStore } from '@/stores/userStore';
-import { showModal, showConfirm } from '@/stores/modalStore';
+import { Colors } from "@/constants/Colors";
+import { findRelatedProducts } from "@/lib/communityDiscovery";
+import { shareContent } from "@/lib/share";
+import { showConfirm, showModal } from "@/stores/modalStore";
+import { useCommunityStore, type Comment, type Post } from "@/stores/communityStore";
+import { useProductStore } from "@/stores/productStore";
+import { useUserStore } from "@/stores/userStore";
 
+function countCommentsInThread(comments?: Comment[]): number {
+  if (!comments?.length) {
+    return 0;
+  }
+
+  return comments.reduce(
+    (total, comment) => total + 1 + countCommentsInThread(comment.replies),
+    0,
+  );
+}
 
 export default function PostDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,79 +41,125 @@ export default function PostDetailScreen() {
   const activePost = useCommunityStore((state) => state.activePost);
   const likedPostIds = useCommunityStore((state) => state.likedPostIds);
   const likedCommentIds = useCommunityStore((state) => state.likedCommentIds);
-  const bookmarkedPostIds = useCommunityStore((state) => state.bookmarkedPostIds);
+  const bookmarkedPostIds = useCommunityStore(
+    (state) => state.bookmarkedPostIds,
+  );
   const detailLoading = useCommunityStore((state) => state.detailLoading);
   const fetchPostDetail = useCommunityStore((state) => state.fetchPostDetail);
   const togglePostLike = useCommunityStore((state) => state.togglePostLike);
-  const togglePostBookmark = useCommunityStore((state) => state.togglePostBookmark);
+  const togglePostBookmark = useCommunityStore(
+    (state) => state.togglePostBookmark,
+  );
   const addComment = useCommunityStore((state) => state.addComment);
-  const toggleCommentLike = useCommunityStore((state) => state.toggleCommentLike);
+  const toggleCommentLike = useCommunityStore(
+    (state) => state.toggleCommentLike,
+  );
+  const deletePost = useCommunityStore((state) => state.deletePost);
+  const products = useProductStore((state) => state.products);
+  const fetchProducts = useProductStore((state) => state.fetchProducts);
   const session = useUserStore((state) => state.session);
-  const post = activePost?.id === id ? activePost : posts.find((item) => item.id === id);
-  const [commentText, setCommentText] = useState('');
+  const post =
+    activePost?.id === id ? activePost : posts.find((item) => item.id === id);
+  const [commentText, setCommentText] = useState("");
   const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [replyTarget, setReplyTarget] = useState<Comment | null>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      return;
+    }
+
     void fetchPostDetail(id);
   }, [fetchPostDetail, id]);
 
+  useEffect(() => {
+    if (products.length === 0) {
+      void fetchProducts();
+    }
+  }, [fetchProducts, products.length]);
+
+  // 内容详情先按正文和茶名做轻量商品匹配，后续再切到真实挂品字段。
+  const relatedProducts = useMemo(
+    () => (post ? findRelatedProducts(post, products, 3) : []),
+    [post, products],
+  );
+  const commentCount = useMemo(
+    () => (post ? countCommentsInThread(post.commentList) : 0),
+    [post],
+  );
+
   const requireLogin = () => {
-    if (session?.user?.id) return true;
-    showModal('请先登录', '登录后才可以点赞、收藏或评论。', 'info');
-    router.push('/login');
+    if (session?.user?.id) {
+      return true;
+    }
+
+    showModal("请先登录", "登录后才可以点赞、收藏或评论。", "info");
+    router.push("/login");
     return false;
   };
 
   const handleSendComment = async () => {
     const text = commentText.trim();
-    if (!text || !post) return;
-    if (!requireLogin()) return;
+    if (!text || !post) {
+      return;
+    }
+    if (!requireLogin()) {
+      return;
+    }
 
     try {
       setCommentSubmitting(true);
-      await addComment(post.id, text);
-      setCommentText('');
+      await addComment(post.id, text, replyTarget?.id);
+      setCommentText("");
+      setReplyTarget(null);
       Keyboard.dismiss();
     } catch (error: any) {
-      showModal('评论失败', error?.message ?? '请稍后重试。', 'error');
+      showModal("评论失败", error?.message ?? "请稍后重试。", "error");
     } finally {
       setCommentSubmitting(false);
     }
   };
 
   const handleTogglePostLike = async () => {
-    if (!post || !requireLogin()) return;
+    if (!post || !requireLogin()) {
+      return;
+    }
 
     try {
       await togglePostLike(post.id);
     } catch (error: any) {
-      showModal('操作失败', error?.message ?? '请稍后重试。', 'error');
+      showModal("操作失败", error?.message ?? "请稍后重试。", "error");
     }
   };
 
   const handleToggleBookmark = async () => {
-    if (!post || !requireLogin()) return;
+    if (!post || !requireLogin()) {
+      return;
+    }
 
     try {
       await togglePostBookmark(post.id);
     } catch (error: any) {
-      showModal('收藏失败', error?.message ?? '请稍后重试。', 'error');
+      showModal("收藏失败", error?.message ?? "请稍后重试。", "error");
     }
   };
 
   const handleToggleCommentLike = async (commentId: string) => {
-    if (!post || !requireLogin()) return;
+    if (!post || !requireLogin()) {
+      return;
+    }
 
     try {
       await toggleCommentLike(post.id, commentId);
     } catch (error: any) {
-      showModal('操作失败', error?.message ?? '请稍后重试。', 'error');
+      showModal("操作失败", error?.message ?? "请稍后重试。", "error");
     }
   };
 
   const handleShare = async () => {
-    if (!post) return;
+    if (!post) {
+      return;
+    }
 
     const text = post.caption ?? post.title ?? post.quote ?? post.description;
 
@@ -102,31 +170,32 @@ export default function PostDetailScreen() {
         lines: [`【李记茶铺社区】${post.author}`, text],
       });
     } catch {
-      // 用户取消分享
+      // 用户取消分享时不需要额外提示。
     }
   };
 
-
-
-  const deletePost = useCommunityStore((state) => state.deletePost);
-
-  /** 帖子菜单：作者可删除，其他用户可举报 */
   const handleMenu = () => {
     const isOwner = session?.user?.id === post?.authorId;
 
     if (isOwner) {
-      showConfirm('删除帖子', '确定要删除这篇帖子吗？此操作不可恢复。', async () => {
-        try {
-          await deletePost(post!.id);
-          showModal('已删除', '帖子已成功删除。', 'success');
-          router.back();
-        } catch (error: any) {
-          showModal('删除失败', error?.message ?? '请稍后重试。', 'error');
-        }
-      }, { icon: 'delete', confirmText: '删除', confirmStyle: 'destructive' });
-    } else {
-      showModal('举报', '感谢您的反馈，我们会尽快审核该帖子。', 'info');
+      showConfirm(
+        "删除帖子",
+        "确定要删除这篇帖子吗？此操作不可恢复。",
+        async () => {
+          try {
+            await deletePost(post!.id);
+            showModal("已删除", "帖子已成功删除。", "success");
+            router.back();
+          } catch (error: any) {
+            showModal("删除失败", error?.message ?? "请稍后重试。", "error");
+          }
+        },
+        { icon: "delete", confirmText: "删除", confirmStyle: "destructive" },
+      );
+      return;
     }
+
+    showModal("举报", "感谢你的反馈，我们会尽快审核该帖子。", "info");
   };
 
   if (!post && detailLoading) {
@@ -140,10 +209,13 @@ export default function PostDetailScreen() {
 
   if (!post) {
     return (
-      <View className="flex-1 bg-background items-center justify-center">
+      <View className="flex-1 bg-background items-center justify-center gap-4">
         <Text className="text-on-surface-variant text-base">帖子未找到</Text>
-        <Pressable onPress={() => router.back()} className="mt-4 px-6 py-2 bg-primary rounded-full">
-          <Text className="text-on-primary text-sm">返回</Text>
+        <Pressable
+          onPress={() => router.back()}
+          className="px-6 py-2 bg-primary rounded-full"
+        >
+          <Text className="text-white text-sm font-medium">返回</Text>
         </Pressable>
       </View>
     );
@@ -152,17 +224,33 @@ export default function PostDetailScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-background"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <View style={{ paddingTop: insets.top }} className="px-4 pb-3 bg-background border-b border-outline-variant/10">
+      <View
+        style={{ paddingTop: insets.top }}
+        className="px-4 pb-3 bg-background border-b border-outline-variant/10"
+      >
         <View className="flex-row items-center h-12">
-          <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center active:opacity-60">
-            <MaterialIcons name="arrow-back" size={22} color={Colors.onSurface} />
+          <Pressable
+            onPress={() => router.back()}
+            className="w-10 h-10 items-center justify-center active:opacity-60"
+          >
+            <MaterialIcons
+              name="arrow-back"
+              size={22}
+              color={Colors.onSurface}
+            />
           </Pressable>
           <View className="flex-1 flex-row items-center gap-2.5 ml-2">
-            <TeaImage source={{ uri: post.avatar }} style={{ width: 32, height: 32, borderRadius: 9999 }} contentFit="cover" />
+            <TeaImage
+              source={{ uri: post.avatar }}
+              style={{ width: 32, height: 32, borderRadius: 9999 }}
+              contentFit="cover"
+            />
             <View>
-              <Text className="text-on-surface text-sm font-bold">{post.author}</Text>
+              <Text className="text-on-surface text-sm font-bold">
+                {post.author}
+              </Text>
               <Text className="text-outline text-[10px]">{post.time}</Text>
             </View>
           </View>
@@ -177,27 +265,50 @@ export default function PostDetailScreen() {
           <PostContent post={post} />
         </View>
 
+        {relatedProducts.length > 0 ? (
+          <View className="px-5 pb-4">
+            <RelatedProducts title="相关茶品" products={relatedProducts} />
+          </View>
+        ) : null}
+
         <View className="px-5 pb-4 flex-row justify-between items-center border-b border-outline-variant/10">
           <View className="flex-row gap-5">
-            <Pressable onPress={handleTogglePostLike} className="flex-row items-center gap-1.5">
+            <Pressable
+              onPress={handleTogglePostLike}
+              className="flex-row items-center gap-1.5"
+            >
               <MaterialIcons
-                name={likedPostIds.has(post.id) ? 'favorite' : 'favorite-border'}
+                name={likedPostIds.has(post.id) ? "favorite" : "favorite-border"}
                 size={22}
-                color={likedPostIds.has(post.id) ? Colors.error : Colors.secondary}
+                color={
+                  likedPostIds.has(post.id) ? Colors.error : Colors.secondary
+                }
               />
               <Text className="text-secondary text-sm">{post.likes}</Text>
             </Pressable>
             <View className="flex-row items-center gap-1.5">
-              <MaterialIcons name="chat-bubble-outline" size={22} color={Colors.secondary} />
-              <Text className="text-secondary text-sm">{post.commentList?.length ?? post.comments}</Text>
+              <MaterialIcons
+                name="chat-bubble-outline"
+                size={22}
+                color={Colors.secondary}
+              />
+              <Text className="text-secondary text-sm">
+                {commentCount || post.comments}
+              </Text>
             </View>
           </View>
           <View className="flex-row gap-4">
             <Pressable hitSlop={8} onPress={handleToggleBookmark}>
               <MaterialIcons
-                name={bookmarkedPostIds.has(post.id) ? 'bookmark' : 'bookmark-border'}
+                name={
+                  bookmarkedPostIds.has(post.id) ? "bookmark" : "bookmark-border"
+                }
                 size={22}
-                color={bookmarkedPostIds.has(post.id) ? Colors.primary : Colors.secondary}
+                color={
+                  bookmarkedPostIds.has(post.id)
+                    ? Colors.primary
+                    : Colors.secondary
+                }
               />
             </Pressable>
             <Pressable hitSlop={8} onPress={handleShare}>
@@ -206,46 +317,63 @@ export default function PostDetailScreen() {
           </View>
         </View>
 
-        <View className="px-5 pt-4 pb-2">
-          <Text className="text-on-surface font-bold text-base mb-4">
-            评论 ({post.commentList?.length ?? 0})
+        <View className="px-5 pt-4 pb-2 gap-4">
+          <Text className="text-on-surface font-bold text-base">
+            评论 ({commentCount || post.comments})
           </Text>
+
           {post.commentList?.length ? (
             post.commentList.map((comment) => (
-              <CommentItem
+              <CommentThreadItem
                 key={comment.id}
                 comment={comment}
-                isLiked={likedCommentIds.has(comment.id)}
-                onToggleLike={() => handleToggleCommentLike(comment.id)}
+                likedCommentIds={likedCommentIds}
+                onReply={setReplyTarget}
+                onToggleLike={handleToggleCommentLike}
               />
             ))
           ) : (
             <View className="rounded-2xl bg-surface-container-low px-4 py-5 items-center gap-2">
               <MaterialIcons name="forum" size={22} color={Colors.outline} />
-              <Text className="text-on-surface-variant text-sm">还没有评论，来抢沙发吧。</Text>
+              <Text className="text-on-surface-variant text-sm">
+                还没有评论，来抢个沙发吧。
+              </Text>
             </View>
           )}
         </View>
 
-        <View style={{ height: 80 + insets.bottom }} />
+        <View style={{ height: 110 + insets.bottom }} />
       </ScrollView>
 
       <View
         style={{ paddingBottom: insets.bottom || 12 }}
-        className="absolute bottom-0 left-0 right-0 bg-background border-t border-outline-variant/10 px-4 pt-3"
+        className="absolute bottom-0 left-0 right-0 bg-background border-t border-outline-variant/10 px-4 pt-3 gap-2"
       >
+        {replyTarget ? (
+          <View className="flex-row items-center justify-between rounded-full bg-surface-container-low px-4 py-2">
+            <Text className="text-on-surface-variant text-xs">
+              正在回复 {replyTarget.author}
+            </Text>
+            <Pressable hitSlop={8} onPress={() => setReplyTarget(null)}>
+              <MaterialIcons name="close" size={16} color={Colors.outline} />
+            </Pressable>
+          </View>
+        ) : null}
+
         <View className="flex-row items-center gap-3">
           <TextInput
             value={commentText}
             onChangeText={setCommentText}
-            placeholder="写下你的评论..."
+            placeholder={replyTarget ? `回复 ${replyTarget.author}...` : "写下你的评论..."}
             placeholderTextColor={Colors.outline}
             editable={!commentSubmitting}
             className="flex-1 bg-surface-container-low rounded-full px-4 py-2.5 text-on-surface text-sm"
           />
           <Pressable
             onPress={handleSendComment}
-            className={`w-10 h-10 rounded-full items-center justify-center ${commentSubmitting ? 'bg-primary/50' : 'bg-primary'} active:opacity-80`}
+            className={`w-10 h-10 rounded-full items-center justify-center ${
+              commentSubmitting ? "bg-primary/50" : "bg-primary"
+            } active:opacity-80`}
             disabled={!commentText.trim() || commentSubmitting}
           >
             <MaterialIcons name="send" size={18} color="#fff" />
@@ -257,13 +385,20 @@ export default function PostDetailScreen() {
 }
 
 function PostContent({ post }: { post: Post }) {
-  if (post.type === 'photo') {
+  if (post.type === "photo") {
     return (
       <View className="gap-3">
         {post.image ? (
-          <TeaImage source={{ uri: post.image }} style={{ width: '100%', height: 300, borderRadius: 16 }} contentFit="cover" transition={200} />
+          <TeaImage
+            source={{ uri: post.image }}
+            style={{ width: "100%", height: 300, borderRadius: 16 }}
+            contentFit="cover"
+            transition={200}
+          />
         ) : null}
-        <Text className="text-on-surface text-[15px] leading-7">{post.caption}</Text>
+        <Text className="text-on-surface text-[15px] leading-7">
+          {post.caption}
+        </Text>
         {post.location ? (
           <View className="flex-row items-center gap-1 mt-1">
             <MaterialIcons name="place" size={14} color={Colors.outline} />
@@ -274,19 +409,25 @@ function PostContent({ post }: { post: Post }) {
     );
   }
 
-  if (post.type === 'brewing') {
+  if (post.type === "brewing") {
     return (
       <View className="gap-4">
         <View className="flex-row items-center gap-2">
           <View className="bg-primary-container/20 px-2.5 py-1 rounded">
-            <Text className="text-primary text-xs font-bold">冲泡分享</Text>
+            <Text className="text-primary text-xs font-bold">冲泡记录</Text>
           </View>
           <Text className="text-on-surface-variant text-sm">{post.teaName}</Text>
         </View>
         {post.brewingImages?.length ? (
           <View className="flex-row gap-2">
             {post.brewingImages.map((image, index) => (
-              <TeaImage key={`${image}-${index}`} source={{ uri: image }} style={{ flex: 1, height: 160, borderRadius: 12 }} contentFit="cover" transition={200} />
+              <TeaImage
+                key={`${image}-${index}`}
+                source={{ uri: image }}
+                style={{ flex: 1, height: 160, borderRadius: 12 }}
+                contentFit="cover"
+                transition={200}
+              />
             ))}
           </View>
         ) : null}
@@ -296,24 +437,28 @@ function PostContent({ post }: { post: Post }) {
             <View className="flex-row gap-6">
               <View className="flex-row items-center gap-1.5">
                 <MaterialIcons name="thermostat" size={18} color={Colors.primary} />
-                <Text className="text-on-surface text-sm">{post.brewingData.temp}</Text>
+                <Text className="text-on-surface text-sm">
+                  {post.brewingData.temp}
+                </Text>
               </View>
               <View className="flex-row items-center gap-1.5">
                 <MaterialIcons name="schedule" size={18} color={Colors.primary} />
-                <Text className="text-on-surface text-sm">{post.brewingData.time}</Text>
+                <Text className="text-on-surface text-sm">
+                  {post.brewingData.time}
+                </Text>
               </View>
               <View className="flex-row items-center gap-1.5">
                 <MaterialIcons name="scale" size={18} color={Colors.primary} />
-                <Text className="text-on-surface text-sm">{post.brewingData.amount}</Text>
+                <Text className="text-on-surface text-sm">
+                  {post.brewingData.amount}
+                </Text>
               </View>
             </View>
           </View>
         ) : null}
         {post.quote ? (
           <Text className="text-secondary italic text-[15px] leading-7 px-1">
-            {"“"}
-            {post.quote}
-            {"”"}
+            “{post.quote}”
           </Text>
         ) : null}
       </View>
@@ -323,31 +468,90 @@ function PostContent({ post }: { post: Post }) {
   return (
     <View className="gap-4">
       <View className="bg-tertiary-fixed self-start px-3 py-1 rounded-full">
-        <Text className="text-on-surface text-xs font-bold">求助</Text>
+        <Text className="text-on-surface text-xs font-bold">问答</Text>
       </View>
-      <Text className="font-headline text-xl text-on-surface font-bold">{post.title}</Text>
-      <Text className="text-on-surface/80 text-[15px] leading-7">{post.description}</Text>
+      <Text className="font-headline text-xl text-on-surface font-bold">
+        {post.title}
+      </Text>
+      <Text className="text-on-surface/80 text-[15px] leading-7">
+        {post.description}
+      </Text>
     </View>
   );
 }
 
-function CommentItem({ comment, isLiked, onToggleLike }: { comment: Comment; isLiked: boolean; onToggleLike: () => void }) {
+function CommentThreadItem({
+  comment,
+  likedCommentIds,
+  onReply,
+  onToggleLike,
+  depth = 0,
+}: {
+  comment: Comment;
+  likedCommentIds: Set<string>;
+  onReply: (comment: Comment) => void;
+  onToggleLike: (commentId: string) => void;
+  depth?: number;
+}) {
   return (
-    <View className="flex-row gap-3 mb-5">
-      <TeaImage source={{ uri: comment.avatar }} style={{ width: 36, height: 36, borderRadius: 9999 }} contentFit="cover" />
-      <View className="flex-1">
-        <View className="flex-row items-center justify-between">
-          <Text className="text-on-surface text-sm font-bold">{comment.author}</Text>
-          <Text className="text-outline text-[10px]">{comment.time}</Text>
-        </View>
-        <Text className="text-on-surface/90 text-sm leading-6 mt-1">{comment.content}</Text>
-        <View className="flex-row items-center gap-1 mt-2">
-          <Pressable onPress={onToggleLike} className="flex-row items-center gap-0.5" hitSlop={8}>
-            <MaterialIcons name={isLiked ? 'favorite' : 'favorite-border'} size={14} color={isLiked ? Colors.error : Colors.outline} />
-            <Text className="text-outline text-[11px]">{comment.likes}</Text>
-          </Pressable>
+    <View
+      className="gap-3"
+      style={{ marginLeft: depth > 0 ? 20 : 0, marginBottom: 16 }}
+    >
+      <View className="flex-row gap-3">
+        <TeaImage
+          source={{ uri: comment.avatar }}
+          style={{ width: 36, height: 36, borderRadius: 9999 }}
+          contentFit="cover"
+        />
+        <View className="flex-1">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-on-surface text-sm font-bold">
+              {comment.author}
+            </Text>
+            <Text className="text-outline text-[10px]">{comment.time}</Text>
+          </View>
+          <Text className="text-on-surface/90 text-sm leading-6 mt-1">
+            {comment.content}
+          </Text>
+          <View className="flex-row items-center gap-4 mt-2">
+            <Pressable
+              onPress={() => onToggleLike(comment.id)}
+              className="flex-row items-center gap-1"
+              hitSlop={8}
+            >
+              <MaterialIcons
+                name={
+                  likedCommentIds.has(comment.id) ? "favorite" : "favorite-border"
+                }
+                size={14}
+                color={
+                  likedCommentIds.has(comment.id)
+                    ? Colors.error
+                    : Colors.outline
+                }
+              />
+              <Text className="text-outline text-[11px]">{comment.likes}</Text>
+            </Pressable>
+            <Pressable onPress={() => onReply(comment)} hitSlop={8}>
+              <Text className="text-primary text-[11px] font-medium">回复</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
+
+      {comment.replies?.length
+        ? comment.replies.map((reply) => (
+            <CommentThreadItem
+              key={reply.id}
+              comment={reply}
+              likedCommentIds={likedCommentIds}
+              onReply={onReply}
+              onToggleLike={onToggleLike}
+              depth={depth + 1}
+            />
+          ))
+        : null}
     </View>
   );
 }

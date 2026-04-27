@@ -8,10 +8,10 @@ import {
   requireAuthenticatedCommunityUserId,
 } from '@/lib/communityInteractions';
 import {
+  buildCommentThreads,
   COMMENT_SELECT,
   POST_PAGE_SIZE,
   POST_SELECT,
-  mapComment,
   mapPost,
   upsertCommunityPost,
   type CommentRow,
@@ -271,9 +271,8 @@ export function createCommunityPostsActions(
           loadCommentLikedSet(commentIds, userId),
         ]);
 
-        const commentList = commentRows.map((comment) =>
-          mapComment(comment, likedCommentIds),
-        );
+        // 详情页统一使用线程化评论结构，便于后续直接展示回复关系。
+        const commentList = buildCommentThreads(commentRows, likedCommentIds);
         const detailedPost = mapPost(postRow, {
           likedPostIds: postInteractions.likedPostIds,
           bookmarkedPostIds: postInteractions.bookmarkedPostIds,

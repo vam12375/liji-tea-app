@@ -52,16 +52,26 @@ export const routes = {
       ? { pathname: "/(tabs)/shop", params: { category } }
       : "/(tabs)/shop",
   community: "/(tabs)/community" as const,
+  // 社区域后续会继续扩页，这里统一收口相关路由，避免页面里散落字符串。
   communityCreate: (type?: CommunityPostType): Href =>
     type
       ? { pathname: "/community/create", params: { type } }
       : "/community/create",
+  communityTag: (tag: string): Href => ({
+    pathname: "/community/tag/[tag]",
+    params: { tag },
+  }),
+  communitySaved: "/community/saved" as const,
   product: (id: string): Href => ({
     pathname: "/product/[id]",
     params: { id },
   }),
   post: (id: string): Href => ({
     pathname: "/post/[id]",
+    params: { id },
+  }),
+  communityQuestion: (id: string): Href => ({
+    pathname: "/community/question/[id]",
     params: { id },
   }),
   article: (id: string): Href => ({
