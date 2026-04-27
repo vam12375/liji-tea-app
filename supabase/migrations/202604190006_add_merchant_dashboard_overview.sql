@@ -28,10 +28,12 @@ declare
   v_today_start            timestamptz;
   v_low_stock_threshold    int := 10;
   v_low_stock_limit        int := 5;
-  -- 用局部变量承接 SELECT 结果，避免 PL/pgSQL 把 RETURNS TABLE 的 OUT 列名
-  -- 在 SELECT ... INTO 子句里解析成 relation（PG 42P01）。
-  -- 参考 202604190003 的 consume_rate_limit：OUT 列当左值赋值是允许的，
-  -- 做 INTO 目标不允许。
+  -- 全程避开 SELECT ... INTO 子句：部分 Supabase SQL 执行器（含 Studio 的
+  -- migration up 路径）识别 dollar quote 边界时，会把函数体里的
+  -- SELECT ... INTO var 误判为 SQL 顶层的 SELECT INTO <new_table>，
+  -- 无论 var 是 OUT 列还是 DECLARE 变量都会抛 42P01。
+  -- 这里用 PL/pgSQL 的赋值语法 `v_xxx := (select ...)`，右侧是纯 expression，
+  -- 不出现 INTO 关键字，执行器不会切分。
   v_today_order_count      int;
   v_today_gmv              numeric;
   v_pending_ship_count     int;
@@ -45,45 +47,52 @@ begin
 
   v_today_start := date_trunc('day', now());
 
-  select coalesce(count(*), 0)::int,
-         coalesce(sum(o.total), 0)::numeric
-    into v_today_order_count, v_today_gmv
-    from public.orders o
-   where o.created_at >= v_today_start
-     and o.status <> 'cancelled';
+  v_today_order_count := coalesce((
+    select count(*)::int
+      from public.orders o
+     where o.created_at >= v_today_start
+       and o.status <> 'cancelled'
+  ), 0);
 
-  select coalesce(count(*), 0)::int
-    into v_pending_ship_count
-    from public.orders o
-   where o.status = 'paid'
-     and o.shipped_at is null;
+  v_today_gmv := coalesce((
+    select sum(o.total)
+      from public.orders o
+     where o.created_at >= v_today_start
+       and o.status <> 'cancelled'
+  ), 0);
 
-  select coalesce(count(*), 0)::int
-    into v_pending_after_sale
-    from public.after_sale_requests r
-   where r.status in ('submitted', 'pending_review');
+  v_pending_ship_count := coalesce((
+    select count(*)::int
+      from public.orders o
+     where o.status = 'paid'
+       and o.shipped_at is null
+  ), 0);
 
-  select coalesce(
-           jsonb_agg(
+  v_pending_after_sale := coalesce((
+    select count(*)::int
+      from public.after_sale_requests r
+     where r.status in ('submitted', 'pending_review')
+  ), 0);
+
+  v_low_stock_products := coalesce((
+    select jsonb_agg(
              jsonb_build_object(
                'id', sub.id,
                'name', sub.name,
                'stock', sub.stock
              )
              order by sub.stock asc, sub.name asc
-           ),
-           '[]'::jsonb
-         )
-    into v_low_stock_products
-    from (
-      select p.id, p.name, p.stock
-        from public.products p
-       where p.is_active = true
-         and p.stock is not null
-         and p.stock < v_low_stock_threshold
-       order by p.stock asc, p.name asc
-       limit v_low_stock_limit
-    ) sub;
+           )
+      from (
+        select p.id, p.name, p.stock
+          from public.products p
+         where p.is_active = true
+           and p.stock is not null
+           and p.stock < v_low_stock_threshold
+         order by p.stock asc, p.name asc
+         limit v_low_stock_limit
+      ) sub
+  ), '[]'::jsonb);
 
   -- 把局部变量投射到 OUT 列后 return next 发出单行。
   today_order_count        := v_today_order_count;
