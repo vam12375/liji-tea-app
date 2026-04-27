@@ -1,6 +1,7 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { Stack, useRouter } from "expo-router";
-import { Pressable } from "react-native";
+import { Pressable, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Colors } from "@/constants/Colors";
 import { goBackOrReplace } from "@/lib/navigation";
@@ -12,7 +13,6 @@ interface AppHeaderProps {
   onBackPress?: () => void;
 }
 
-/**统一内页头部配置，避免每个页面重复拼装 Stack.Screen。 */
 export function AppHeader({
   title,
   shown = true,
@@ -20,32 +20,65 @@ export function AppHeader({
   onBackPress,
 }: AppHeaderProps) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   return (
-<Stack.Screen
-      options={{
-        headerShown: shown,
-        headerTitle: title,
-        headerTitleStyle: { fontFamily: "Manrope_500Medium", fontSize: 16 },
-        headerStyle: {backgroundColor: Colors.background },
-        headerShadowVisible: false,
-        headerLeft:
-          shown && showBackButton
-            ? () => (
-                <Pressable
-                  onPress={onBackPress ?? (() =>goBackOrReplace(router))}
-                  hitSlop={8}
-                >
-                  <MaterialIcons
-                    name="arrow-back"
-                    size={24}
-                    color={Colors.onSurface}
-                  />
-                </Pressable>
-              )
-            : undefined,
-      }}
-    />
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: false,
+        }}
+      />
+      {shown ? (
+        <View
+          style={{
+            paddingTop: insets.top,
+            paddingHorizontal: 12,
+            paddingBottom: 6,
+            backgroundColor: Colors.background,
+          }}
+        >
+          <View
+            style={{
+              height: 44,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text
+              style={{
+                color: Colors.onSurface,
+                fontFamily: "Manrope_500Medium",
+                fontSize: 16,
+              }}
+              numberOfLines={1}
+            >
+              {title}
+            </Text>
+            {showBackButton ? (
+              <Pressable
+                onPress={onBackPress ?? (() => goBackOrReplace(router))}
+                hitSlop={10}
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  width: 44,
+                  height: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <MaterialIcons
+                  name="arrow-back"
+                  size={24}
+                  color={Colors.onSurface}
+                />
+              </Pressable>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
+    </>
   );
 }
 
