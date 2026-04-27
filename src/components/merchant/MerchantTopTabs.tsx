@@ -4,9 +4,9 @@ import { Pressable, Text, View } from "react-native";
 
 import { MerchantColors } from "@/constants/MerchantColors";
 
-// 商家端顶部 Tab：订单 / 售后 / 商品 / 员工（admin）。
+// 商家端顶部 Tab：工作台 / 订单 / 售后 / 商品 / 员工（admin）。
 // pill 高度 28pt；激活主色填充，未激活米线描边 + 透明底。
-type MerchantTab = "orders" | "after-sale" | "products" | "staff";
+type MerchantTab = "home" | "orders" | "after-sale" | "products" | "staff";
 
 interface Props {
   active: MerchantTab;
@@ -18,6 +18,7 @@ const TABS: {
   label: string;
   icon: keyof typeof MaterialIcons.glyphMap;
 }[] = [
+  { value: "home", label: "工作台", icon: "dashboard" },
   { value: "orders", label: "订单", icon: "receipt-long" },
   { value: "after-sale", label: "售后", icon: "assignment-return" },
   { value: "products", label: "商品", icon: "inventory-2" },
@@ -47,7 +48,9 @@ export function MerchantTopTabs({ active, showStaff = false }: Props) {
             onPress={() => {
               if (isActive) return;
               const href =
-                tab.value === "staff"
+                tab.value === "home"
+                  ? "/merchant"
+                  : tab.value === "staff"
                   ? "/merchant/staff"
                   : `/merchant/${tab.value}`;
               router.replace(href as never);

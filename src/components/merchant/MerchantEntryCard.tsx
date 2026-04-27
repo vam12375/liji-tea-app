@@ -11,7 +11,7 @@ interface Props {
 
 // 「我的」页商家后台入口卡片。
 // - 仅当 role ∈ {admin, staff} 时渲染，顾客态直接返回 null 保持原布局不变。
-// - 点击跳转 /merchant/orders（商家端默认落地页，履约优先级最高）。
+// - 点击跳转 /merchant，让用户先进入工作台首页，再分流到订单/售后/商品。
 export function MerchantEntryCard({ role }: Props) {
   if (!isMerchantStaff(role)) return null;
 
@@ -19,7 +19,7 @@ export function MerchantEntryCard({ role }: Props) {
 
   return (
     <Pressable
-      onPress={() => router.push("/merchant/orders" as never)}
+      onPress={() => router.push("/merchant" as never)}
       className="mx-4 my-1 rounded-2xl bg-primary-container px-4 py-4"
       style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.98 : 1 }] }]}
     >

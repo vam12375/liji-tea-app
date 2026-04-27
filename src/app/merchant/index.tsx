@@ -7,12 +7,14 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { MerchantBentoBlock } from "@/components/merchant/MerchantBentoBlock";
 import { MerchantHeroStats } from "@/components/merchant/MerchantHeroStats";
 import { MerchantScreenHeader } from "@/components/merchant/MerchantScreenHeader";
+import { MerchantTopTabs } from "@/components/merchant/MerchantTopTabs";
 import { AppHeader } from "@/components/ui/AppHeader";
 import { ScreenState } from "@/components/ui/ScreenState";
 import { MerchantColors } from "@/constants/MerchantColors";
 import { isMerchantError } from "@/lib/merchantErrors";
 import { pushToast } from "@/stores/toastStore";
 import { useMerchantStore } from "@/stores/merchantStore";
+import { useUserStore } from "@/stores/userStore";
 
 // 商家工作台首页（v4.4.0 扩展）：
 // - 头部衬线大标题 + 刷新
@@ -45,6 +47,7 @@ function formatGmv(value: number): string {
 }
 
 export default function MerchantHomeScreen() {
+  const role = useUserStore((s) => s.role);
   const dashboard = useMerchantStore((s) => s.dashboard);
   const loading = useMerchantStore((s) => s.dashboardLoading);
   const fetchDashboard = useMerchantStore((s) => s.fetchDashboard);
@@ -88,6 +91,7 @@ export default function MerchantHomeScreen() {
   return (
     <View className="flex-1" style={{ backgroundColor: MerchantColors.paper }}>
       <AppHeader title="商家后台" showBackButton />
+      <MerchantTopTabs active="home" showStaff={role === "admin"} />
       <MerchantScreenHeader
         title="工作台"
         actionIcon="refresh"
