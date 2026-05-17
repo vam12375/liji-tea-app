@@ -1,0 +1,72 @@
+# Supabase migrations 校验。
+# PR 阶段对 migration 文件做 lint 和 dry-run 验证，防止有语法错误或遗漏的 migration 合入 master。
+# merge 到 master 后自动推送到 staging 数据库。
+name: migrations
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/config.toml"
+  push:
+    branches: [master]
+    paths:
+      - "supabase/migrations/**"
+      - "supabase/config.toml"
+
+concurrency:
+  group: migrations-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+jobs:
+  lint:
+    name: lint migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # 仅在 PR 阶段运行 lint
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project (staging)
+        run: supabase link --project-ref ${{ secrets.SUPABASE_STAGING_PROJECT_REF }}
+
+      - name: Validate migrations (dry-run)
+        # db push --dry-run 会检查 migration 语法和顺序，但不实际执行。
+        run: supabase db push --dry-run
+
+  push-staging:
+    name: push migrations to staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # 仅在 merge 到 master 后执行
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project (staging)
+        run: supabase link --project-ref ${{ secrets.SUPABASE_STAGING_PROJECT_REF }}
+
+      - name: Push migrations to staging
+        run: supabase db push
