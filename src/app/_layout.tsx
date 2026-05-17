@@ -75,7 +75,7 @@ export default function RootLayout() {
   );
 
   /**
-   * 登录用户初始化链路：个人资料、地址、收藏、公开券、用户券一起并发拉取。
+   * 登录用户初始化链路：资料和地址是关键任务；收藏、优惠券、推送和通知为可降级任务。
    * 同一个 userId 已初始化或正在初始化时直接跳过，避免 getSession 与 onAuthStateChange 双触发。
    */
   const bootstrapAuthenticatedUser = useCallback(
@@ -108,22 +108,20 @@ export default function RootLayout() {
       });
 
       try {
-        // 登录成功后一次性补齐用户域与优惠券域数据，避免各页面挂载后再次各自发请求。
-        await Promise.all([
-          fetchProfile(),
-          fetchAddresses(),
-          fetchFavorites(),
-          preloadPublicCoupons(`${source}:signed_in`),
-          fetchUserCoupons(),
-          bootstrapPush(userId),
-        ]);
+        // 每个异步阶段都校验当前用户和请求序号，避免旧 session 的结果覆盖新 session。
+        const isCurrentBootstrap = () => {
+          const currentUserId = useUserStore.getState().session?.user?.id ?? null;
+          return (
+            currentUserId === userId &&
+            authBootstrapRequestIdRef.current === requestId
+          );
+        };
 
-        // 如果初始化结束时当前 session 已经切到别的用户，就不再把这次结果标记为有效。
-        const currentUserId = useUserStore.getState().session?.user?.id ?? null;
-        if (
-          currentUserId !== userId ||
-          authBootstrapRequestIdRef.current !== requestId
-        ) {
+        // 关键任务：资料和地址失败会影响登录态页面的基础可用性，因此仍然阻断初始化完成标记。
+        await Promise.all([fetchProfile(), fetchAddresses()]);
+
+        if (!isCurrentBootstrap()) {
+          const currentUserId = useUserStore.getState().session?.user?.id ?? null;
           logInfo("layout", "忽略过期登录态初始化结果", {
             userId,
             currentUserId,
@@ -134,15 +132,72 @@ export default function RootLayout() {
         }
 
         lastInitializedUserIdRef.current = userId;
-        logInfo("layout", "登录态数据初始化完成", {
+        logInfo("layout", "登录态关键数据初始化完成", {
           userId,
           source,
           requestId,
         });
+
+        // 可降级任务失败只影响局部体验，不影响资料/地址这些关键登录态数据完成。
+        const degradableTasks: { name: string; run: () => Promise<unknown> }[] = [
+          { name: "favorites", run: fetchFavorites },
+          {
+            name: "public_coupons",
+            run: () => preloadPublicCoupons(`${source}:signed_in`),
+          },
+          { name: "user_coupons", run: fetchUserCoupons },
+          { name: "notifications", run: fetchNotifications },
+          { name: "push", run: () => bootstrapPush(userId) },
+        ];
+
+        // 每个可降级任务独立捕获异常，保证一个外围服务失败不会连带阻断其它预加载。
+        const runDegradableTask = async (
+          task: { name: string; run: () => Promise<unknown> },
+        ) => {
+          if (!isCurrentBootstrap()) {
+            logInfo("layout", "跳过过期登录态可降级任务", {
+              userId,
+              source,
+              requestId,
+              taskName: task.name,
+            });
+            return;
+          }
+
+          try {
+            await task.run();
+            logInfo("layout", "登录态可降级任务完成", {
+              userId,
+              source,
+              requestId,
+              taskName: task.name,
+            });
+          } catch (error: unknown) {
+            captureError(error, {
+              scope: "layout",
+              message: "登录态可降级任务失败",
+              userId,
+              source,
+              requestId,
+              taskName: task.name,
+            });
+          }
+        };
+
+        // 可降级任务后台执行；关键任务已完成，因此这里不 await，避免拖慢登录首屏。
+        void Promise.all(degradableTasks.map(runDegradableTask)).then(() => {
+          if (isCurrentBootstrap()) {
+            logInfo("layout", "登录态可降级任务处理完成", {
+              userId,
+              source,
+              requestId,
+            });
+          }
+        });
       } catch (error: unknown) {
         captureError(error, {
           scope: "layout",
-          message: "初始化登录态数据失败",
+          message: "初始化登录态关键数据失败",
           userId,
           source,
           requestId,
@@ -159,8 +214,10 @@ export default function RootLayout() {
       }
     },
     [
+      bootstrapPush,
       fetchAddresses,
       fetchFavorites,
+      fetchNotifications,
       fetchProfile,
       fetchUserCoupons,
       preloadPublicCoupons,
