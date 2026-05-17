@@ -28,7 +28,7 @@ export default function MemberHeader() {
   const fetchMemberPointsData = useMemberPointsStore((state) => state.fetchMemberPointsData);
   const claimDailyCheckIn = useMemberPointsStore((state) => state.claimDailyCheckIn);
   const hasCheckedInToday = useMemberPointsStore((state) => state.hasCheckedInToday);
-  const getRecentLedgerEntries = useMemberPointsStore((state) => state.getRecentLedgerEntries);
+  const ledger = useMemberPointsStore((state) => state.ledger);
   const claiming = useMemberPointsStore((state) => state.claiming);
   const router = useRouter();
   const displayName = name || "茶友";
@@ -61,8 +61,8 @@ export default function MemberHeader() {
     };
   }, [memberTier, points]);
 
-  /** 只展示最近 3 条积分流水，用于个人中心头部摘要。 */
-  const recentLedgerEntries = useMemo(() => getRecentLedgerEntries(3), [getRecentLedgerEntries, points]);
+  /** 只展示最近 3 条积分流水；直接订阅 ledger，避免用积分值间接触发重算导致 hook 依赖噪音。 */
+  const recentLedgerEntries = useMemo(() => ledger.slice(0, 3), [ledger]);
 
   /** 选择并上传头像，前置做权限与体积校验。 */
   const handlePickAvatar = async () => {
