@@ -8,13 +8,17 @@ import {
 } from "../_shared/coupon.ts";
 import { errorResponse, handleCors, jsonResponse } from "../_shared/http.ts";
 import {
+  resolveOrderPricingContext,
+  type OrderItemInput,
+} from "../_shared/orderPricingContext.ts";
+import {
+  calculateOrderPricing,
+  formatAmountNumber,
+} from "../_shared/payment.ts";
+import {
   enforceRateLimit,
   rateLimitedResponse,
 } from "../_shared/rateLimit.ts";
-import {
-  calculateOrderPricing,
-  type OrderPricingLineItem,
-} from "../_shared/payment.ts";
 import {
   createServiceClient,
   getUserFromRequest,
@@ -24,28 +28,14 @@ import {
 const PAYMENT_CHANNELS = new Set(["alipay", "wechat", "card"]);
 const DELIVERY_TYPES = new Set(["standard", "express"]);
 
-interface CreateOrderItemInput {
-  productId: string;
-  quantity: number;
-}
-
 interface CreateOrderRequestBody {
-  items?: CreateOrderItemInput[];
+  items?: OrderItemInput[];
   addressId?: string;
   deliveryType?: string;
   paymentMethod?: string;
   notes?: string;
   giftWrap?: boolean;
   userCouponId?: string;
-}
-
-interface ProductRow {
-  id: string;
-  name: string | null;
-  price: number | string | null;
-  category: string | null;
-  stock: number | null;
-  is_active: boolean | null;
 }
 
 interface CreateOrderRpcRow {
@@ -58,47 +48,6 @@ interface CreateOrderRpcRow {
   coupon_discount: number | string;
   gift_wrap_fee: number | string;
   total: number | string;
-}
-
-type NormalizeItemsResult =
-  | {
-      items: CreateOrderItemInput[];
-    }
-  | {
-      error: string;
-    };
-
-// 兼容 Supabase numeric / text 字段，统一转成 number 做金额计算。
-function toNumber(value: number | string | null | undefined) {
-  const parsed = Number(value ?? 0);
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-// 合并重复商品并校验数量，避免同一商品被多次传入影响库存预留。
-function normalizeItems(items: CreateOrderItemInput[]): NormalizeItemsResult {
-  const merged = new Map<string, number>();
-
-  for (const item of items) {
-    const productId = item.productId?.trim();
-    const quantity = Number(item.quantity);
-
-    if (!productId) {
-      return { error: "商品标识无效。" };
-    }
-
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      return { error: "商品数量必须为大于 0 的整数。" };
-    }
-
-    merged.set(productId, (merged.get(productId) ?? 0) + quantity);
-  }
-
-  return {
-    items: Array.from(merged.entries()).map(([productId, quantity]) => ({
-      productId,
-      quantity,
-    })),
-  };
 }
 
 // 锁券失败时回滚刚创建的订单，并释放此前预留的库存。
@@ -187,79 +136,19 @@ Deno.serve(async (req: Request) => {
       return errorResponse(req, "支付方式无效。", 400, "invalid_payment_method");
     }
 
-    const normalized = normalizeItems(rawItems);
-    if ("error" in normalized) {
-      return errorResponse(req, normalized.error, 400, "invalid_items");
-    }
-
-    const supabase = createServiceClient();
-    const productIds = normalized.items.map((item) => item.productId);
-    const { data: products, error: productsError } = await supabase
-      .from("products")
-      .select("id, name, price, category, stock, is_active")
-      .in("id", productIds);
-
-    if (productsError) {
-      return errorResponse(req, 
-        "读取商品信息失败。",
-        500,
-        "products_query_failed",
-        productsError.message,
+    // 复用询价链路同一套商品规整和校验，确保“可询价”的商品规则与“可下单”一致。
+    const orderContext = await resolveOrderPricingContext(rawItems);
+    if (orderContext.error) {
+      return errorResponse(
+        req,
+        orderContext.error.message,
+        orderContext.error.status,
+        orderContext.error.code,
+        orderContext.error.details,
       );
     }
 
-    const typedProducts = (products ?? []) as ProductRow[];
-    const productMap = new Map<string, ProductRow>(
-      typedProducts.map((product) => [product.id, product]),
-    );
-
-    const pricingItems: OrderPricingLineItem[] = [];
-    const couponItems: {
-      productId: string;
-      category: string;
-      quantity: number;
-      unitPrice: number;
-    }[] = [];
-
-    for (const item of normalized.items) {
-      const product = productMap.get(item.productId);
-
-      if (!product) {
-        return errorResponse(req, 
-          "部分商品不存在或已下架。",
-          422,
-          "product_not_found",
-        );
-      }
-
-      if (product.is_active !== true) {
-        return errorResponse(req, 
-          `商品 ${product.name ?? item.productId} 已下架，暂时无法下单。`,
-          422,
-          "product_inactive",
-        );
-      }
-
-      if (typeof product.stock === "number" && product.stock < item.quantity) {
-        return errorResponse(req, 
-          `商品 ${product.name ?? item.productId} 库存不足。`,
-          422,
-          "insufficient_stock",
-        );
-      }
-
- const unitPrice = toNumber(product.price);
-      pricingItems.push({
-        quantity: item.quantity,
-        unit_price: unitPrice,
-      });
- couponItems.push({
- productId: item.productId,
-        category: product.category ?? "",
-        quantity: item.quantity,
- unitPrice,
-      });
-    }
+    const { items, pricingItems, couponItems } = orderContext.data;
 
     // 先基于商品、配送和礼盒选项计算基础价格，再按需叠加优惠券结果。
     const basePricing = calculateOrderPricing(
@@ -276,7 +165,7 @@ Deno.serve(async (req: Request) => {
         userCouponId,
         context: {
           subtotal: basePricing.subtotal,
- shipping: basePricing.shipping,
+          shipping: basePricing.shipping,
           autoDiscount: basePricing.autoDiscount,
           giftWrapFee: basePricing.giftWrapFee,
           items: couponItems,
@@ -284,7 +173,8 @@ Deno.serve(async (req: Request) => {
       });
 
       if (couponPricing.error || !couponPricing.data) {
-        return errorResponse(req, 
+        return errorResponse(
+          req,
           couponPricing.error ?? "优惠券校验失败。",
           422,
           "invalid_coupon",
@@ -301,6 +191,9 @@ Deno.serve(async (req: Request) => {
       return errorResponse(req, "订单金额异常，无法创建订单。", 422, "invalid_total");
     }
 
+    // 商品与优惠券校验完成后再进入库存预留 RPC，减少无效事务和库存锁竞争。
+    const supabase = createServiceClient();
+
     // 通过数据库 RPC 原子创建订单并预留库存，避免并发超卖。
     const { data, error } = await supabase.rpc(
       "create_order_with_reserved_stock",
@@ -316,7 +209,7 @@ Deno.serve(async (req: Request) => {
         p_coupon_code: pricing.appliedCoupon?.code ?? null,
         p_coupon_title: pricing.appliedCoupon?.title ?? null,
         p_coupon_discount: pricing.couponDiscount,
-        p_items: normalized.items.map((item) => ({
+        p_items: items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
         })),
@@ -324,20 +217,23 @@ Deno.serve(async (req: Request) => {
     );
 
     if (error) {
-      return errorResponse(req, 
+      return errorResponse(
+        req,
         error.message || "创建订单失败。",
         422,
         "create_order_with_reserved_stock_failed",
       );
     }
 
+    // Supabase RPC 可能按函数返回类型表现为单对象或数组，这里统一兼容首行结果。
     const order = (Array.isArray(data) ? data[0] : data) as
       | CreateOrderRpcRow
       | null
       | undefined;
 
     if (!order?.order_id) {
-      return errorResponse(req, 
+      return errorResponse(
+        req,
         "服务端未返回完整的订单结果。",
         500,
         "invalid_order_result",
@@ -356,7 +252,8 @@ Deno.serve(async (req: Request) => {
         const rollbackResult = await rollbackCreatedOrder(order.order_id, user.id);
 
         if (rollbackResult.error) {
-          return errorResponse(req, 
+          return errorResponse(
+            req,
             "优惠券锁定失败，且订单回滚失败。",
             500,
             "order_rollback_failed",
@@ -372,17 +269,18 @@ Deno.serve(async (req: Request) => {
     return jsonResponse(req, {
       orderId: order.order_id,
       orderNo: order.order_no,
-      subtotal: toNumber(order.subtotal),
-      shipping: toNumber(order.shipping),
-      discount: toNumber(order.discount),
-      autoDiscount: toNumber(order.auto_discount),
-      couponDiscount: toNumber(order.coupon_discount),
-      giftWrapFee: toNumber(order.gift_wrap_fee),
-      total: toNumber(order.total),
+      subtotal: formatAmountNumber(order.subtotal),
+      shipping: formatAmountNumber(order.shipping),
+      discount: formatAmountNumber(order.discount),
+      autoDiscount: formatAmountNumber(order.auto_discount),
+      couponDiscount: formatAmountNumber(order.coupon_discount),
+      giftWrapFee: formatAmountNumber(order.gift_wrap_fee),
+      total: formatAmountNumber(order.total),
       appliedCoupon: pricing.appliedCoupon,
     });
   } catch (error) {
-    return errorResponse(req, 
+    return errorResponse(
+      req,
       error instanceof Error ? error.message : "创建订单失败。",
       500,
       "internal_error",
