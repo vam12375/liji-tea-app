@@ -286,10 +286,11 @@ npm run web
 | `npm run ios` | 运行 iOS 原生构建|
 | `npm run web` | 启动 Web 预览 |
 | `npm run test` | 运行单进程 TypeScript 测试套件 |
+| `npm run test:integration:plan` | 输出集成测试与支付回放测试执行方案 |
 | `npm run typecheck` | 执行前端 TypeScript 类型检查 |
 | `npm run typecheck:functions` | 执行 Supabase Functions 类型检查 |
 | `npm run typecheck:all` | 执行全部 TypeScript 类型检查 |
-| `npm run lint` | 执行 Expo Lint |
+| `npm run lint` | 执行 Expo Lint，且 warning 数必须为 0 |
 | `npm run check` |依次执行 lint、typecheck:all 与 test |
 | `npm run prebuild:android` | 生成 Android 原生工程 |
 | `npx eas build -p android --profile preview` | 构建 Android 测试包 |
@@ -307,7 +308,9 @@ npm run check
 
 说明：
 
+- `npm run lint` 已启用 warning 零容忍策略；CI 中的 `npm run check` 会继承该门禁。
 - `npm run test` 基于 `tsx ./tests/run-tests.ts`，适合当前仓库的纯函数与可注入流程测试。
+- `npm run test:integration:plan` 会输出 [集成测试与支付回放测试方案](./docs/testing-integration-replay-plan.md)，用于本地 Supabase、Edge Function 与支付宝 notify 回放验证。
 - `npm run check` 会串行执行 `lint + typecheck:all + test`，适合作为提交前自检命令。
 - 当前已覆盖的重点包括：
   - 一键登录原生能力可用性判断
@@ -532,6 +535,7 @@ npm run check
 - [安卓 APK 打包说明](./docs/打包.md)
 - [安全审查报告](./docs/安全.MD)
 - [支付链路与运行时排障手册](./docs/payment-and-runtime-troubleshooting.md)
+- [集成测试与支付回放测试方案](./docs/testing-integration-replay-plan.md)
 - [完整开发指南](./docs/plans/2026-03-20-liji-tea-app-development-guide.md)
 - [阿里云一键登录设计](./docs/plans/2026-03-23-ali-one-click-login-design.md)
 - [支付宝沙箱接入实现计划](./docs/plans/2026-03-23-alipay-sandbox-implementation.md)
