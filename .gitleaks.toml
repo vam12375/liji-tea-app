@@ -1,0 +1,18 @@
+# Gitleaks 配置：定义 secret 扫描规则与排除项。
+# 参考：https://github.com/gitleaks/gitleaks#configuration
+
+title = "liji-tea-app gitleaks config"
+
+# 排除已知的非敏感文件和路径
+[allowlist]
+  description = "global allowlist"
+  paths = [
+    # 锁文件和依赖
+    '''package-lock\.json''',
+    # 文档中的示例值
+    '''docs/.*\.md''',
+    # Supabase 本地配置示例
+    '''supabase/\.env\.local\.example''',
+    # 测试文件中的 mock 数据
+    '''tests/.*\.test\.ts''',
+  ]

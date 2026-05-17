@@ -1,4 +1,4 @@
-# 强制执行 lint + typecheck（应用 & Edge Functions）+ 测试。
+# 强制执行 lint + typecheck（应用 & Edge Functions）+ 测试 + 安全扫描。
 # 在 PR 与 push 到 master 时自动运行，任一环节失败即阻断合并。
 name: check
 
@@ -25,6 +25,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks 需要完整历史
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -39,3 +41,32 @@ jobs:
       - name: Run check (lint + typecheck:all + test)
         # check 脚本已定义于 package.json，涵盖 eslint、tsc 应用端、tsc Edge Functions、tsx 测试。
         run: npm run check
+
+  security:
+    name: security scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Dependency audit
+        # 只对 high / critical 级别告警失败，避免低级别误报阻断 CI。
+        run: npm audit --audit-level=high
