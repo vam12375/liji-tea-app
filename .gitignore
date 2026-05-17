@@ -63,6 +63,8 @@ supabase/.temp/
 .idea/
 .vscode/
 
-# 原型与文档（本地开发用，不上传到远程）
+# 原型与本地文档草稿（正式 docs 纳入版本控制，README 引用必须可追踪）
 stitch/
-docs/
+docs/local/
+docs/drafts/
+docs/**/*.local.*
