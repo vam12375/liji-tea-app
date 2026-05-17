@@ -540,6 +540,7 @@ npm run check
 - [阿里云一键登录设计](./docs/plans/2026-03-23-ali-one-click-login-design.md)
 - [支付宝沙箱接入实现计划](./docs/plans/2026-03-23-alipay-sandbox-implementation.md)
 - [支付宝沙箱 App Pay 设计稿](./docs/superpowers/specs/2026-03-23-alipay-sandbox-app-pay-design.md)
+- [CI/CD 配置与分支保护指南](./docs/ci-cd-guide.md)
 
 ## 支付排障手册
 
