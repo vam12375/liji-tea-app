@@ -1,0 +1,103 @@
+# Supabase Edge Functions 部署。
+# 当 master 上 supabase/functions/ 目录有变更时，自动部署受影响的 function 到 staging。
+# Production 部署仅在打 tag 时触发。
+name: deploy-functions
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "supabase/functions/**"
+  release:
+    types: [published]
+
+concurrency:
+  group: deploy-functions-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+jobs:
+  detect-changes:
+    name: detect changed functions
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.diff.outputs.functions }}
+      has_changes: ${{ steps.diff.outputs.has_changes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed functions
+        id: diff
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            # Release 时部署全部 functions
+            FUNCTIONS=$(ls -d supabase/functions/*/ 2>/dev/null | xargs -I{} basename {} | grep -v "^_" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          else
+            # Push 时只部署有变更的 functions
+            FUNCTIONS=$(git diff --name-only HEAD~1 HEAD -- supabase/functions/ | grep -oP 'supabase/functions/\K[^/]+' | grep -v "^_" | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          fi
+          echo "functions=$FUNCTIONS" >> "$GITHUB_OUTPUT"
+          if [ "$FUNCTIONS" = "[]" ] || [ -z "$FUNCTIONS" ]; then
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy-staging:
+    name: deploy to staging
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        function: ${{ fromJson(needs.detect-changes.outputs.functions) }}
+      max-parallel: 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy ${{ matrix.function }} to staging
+        run: |
+          supabase functions deploy ${{ matrix.function }} \
+            --project-ref ${{ secrets.SUPABASE_STAGING_PROJECT_REF }}
+
+  deploy-production:
+    name: deploy to production
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has_changes == 'true' && github.event_name == 'release'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    strategy:
+      matrix:
+        function: ${{ fromJson(needs.detect-changes.outputs.functions) }}
+      max-parallel: 3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy ${{ matrix.function }} to production
+        run: |
+          supabase functions deploy ${{ matrix.function }} \
+            --project-ref ${{ secrets.SUPABASE_PRODUCTION_PROJECT_REF }}
