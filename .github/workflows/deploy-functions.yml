@@ -32,17 +32,54 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0 # 需要完整历史，才能比较一次 push 中的全部 commit。
 
       - name: Detect changed functions
         id: diff
         run: |
+          set -euo pipefail
+
+          list_all_functions() {
+            find supabase/functions -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+              | grep -v "^_" \
+              | sort
+          }
+
+          to_json_array() {
+            jq -R -s -c 'split("\n") | map(select(length > 0))'
+          }
+
           if [ "${{ github.event_name }}" = "release" ]; then
             # Release 时部署全部 functions
-            FUNCTIONS=$(ls -d supabase/functions/*/ 2>/dev/null | xargs -I{} basename {} | grep -v "^_" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            FUNCTIONS=$(list_all_functions | to_json_array)
           else
-            # Push 时只部署有变更的 functions
-            FUNCTIONS=$(git diff --name-only HEAD~1 HEAD -- supabase/functions/ | grep -oP 'supabase/functions/\K[^/]+' | grep -v "^_" | sort -u | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            # Push 时比较本次 push 的完整范围，而不是只看最后一个 commit。
+            BASE_SHA="${{ github.event.before }}"
+            HEAD_SHA="${{ github.sha }}"
+
+            # 新分支或特殊 push 事件下 before 可能是全 0；此时退回到当前历史的根提交。
+            if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+              BASE_SHA="$(git rev-list --max-parents=0 "$HEAD_SHA")"
+            fi
+
+            CHANGED_FILES=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- supabase/functions/)
+
+            # _shared 被打包进每个函数；共享代码变化时需要重新部署全部 functions。
+            if printf '%s\n' "$CHANGED_FILES" | grep -q '^supabase/functions/_shared/'; then
+              FUNCTIONS=$(list_all_functions | to_json_array)
+            else
+              FUNCTIONS=$(
+                printf '%s\n' "$CHANGED_FILES" \
+                  | awk -F/ '$1 == "supabase" && $2 == "functions" && $3 !~ /^_/ { print $3 }' \
+                  | sort -u \
+                  | while read -r function_name; do
+                      if [ -d "supabase/functions/$function_name" ]; then
+                        printf '%s\n' "$function_name"
+                      fi
+                    done \
+                  | to_json_array
+              )
+            fi
           fi
           echo "functions=$FUNCTIONS" >> "$GITHUB_OUTPUT"
           if [ "$FUNCTIONS" = "[]" ] || [ -z "$FUNCTIONS" ]; then
