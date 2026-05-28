@@ -32,6 +32,9 @@ yarn-error.*
 
 # AI memory (local)
 .sanshu-memory/
+.agents/
+.codex/
+.trellis/
 
 # local env files
 .env
